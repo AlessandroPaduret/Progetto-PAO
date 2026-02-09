@@ -1,0 +1,9 @@
+# file compilati
+bin/
+obj/
+#build/
+
+# file temporanei
+*.log
+*.tmp
+*.txt
