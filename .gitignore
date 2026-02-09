@@ -1,7 +1,7 @@
 # file compilati
 bin/
 obj/
-#build/
+build/
 
 # file temporanei
 *.log
