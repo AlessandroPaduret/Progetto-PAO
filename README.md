@@ -14,7 +14,7 @@ docker build -t unipd-oop/qt-env:2025 .
 nota: fai in modo di non essere connesso a eduroam o con tailscale altrimenti il DNS fa casino perché non trova Server DNS online
 
 # Attiva il servizio docker
-sudo systemctl start docke
+sudo systemctl start docker
 
 To run an interactive shell run
 ```bash
