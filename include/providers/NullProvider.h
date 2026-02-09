@@ -18,12 +18,9 @@ public:
      *  @param tp TimePoint rappresentante la data di ricorrenza specifica
      *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
      */
-    virtual std::unique_ptr<T> getItem(TimePoint tp) const override;
+    virtual std::unique_ptr<T> getItem(TimePoint) const override {
+        return nullptr;
+    }
 };
-
-template<typename T>
-std::unique_ptr<T> NullProvider<T>::getItem(TimePoint) const  {
-    return nullptr;
-}
 
 #endif  // NULLPROVIDER_H
