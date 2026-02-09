@@ -1,5 +1,5 @@
-#ifndef EXCEPTIONDATE_H
-#define EXCEPTIONDATE_H
+#ifndef EXCEPTIONGENERATOR_H
+#define EXCEPTIONGENERATOR_H
 
 #include <memory>
 #include <chrono>
@@ -9,14 +9,14 @@
 #include "generators/DateGeneratorDecorator.h"
 
 
-class ExceptionDate : public DateGeneratorDecorator {
+class ExceptionGenerator : public DateGeneratorDecorator {
 private:
     std::unordered_set<TimePoint, TimePointHasher> m_exceptions; // assumo tante eccezione quindi accesso = O(1)
 public:
     /** @brief Costruttore che accetta un generatore di date da decorare con eccezioni
      *  @param generator Il generatore di date da decorare
     */
-    ExceptionDate(std::shared_ptr<DateGenerator> generator);
+    ExceptionGenerator(std::shared_ptr<DateGenerator> generator);
 
     /** @brief Aggiunge un'eccezione 
      *  @param exception Eccezione da aggiungere
@@ -51,4 +51,4 @@ public:
 };
 
 
-#endif // EXCEPTIONDATE_H
+#endif // EXCEPTIONGENERATOR_H

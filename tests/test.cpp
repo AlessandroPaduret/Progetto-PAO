@@ -4,8 +4,8 @@
 #include "domain/Event.h"
 #include "domain/RecurrentEvent.h"
 #include "generators/FixedIntervalGenerator.h"
-#include "generators/ExceptionDate.h"
-#include "providers/BaseItemProvider.h"
+#include "generators/ExceptionGenerator.h"
+#include "providers/NullProvider.h"
 #include "providers/ModificationProvider.h"
 
 int main() {
@@ -16,7 +16,7 @@ int main() {
 
     // 2. Creazione componenti della strategia
     auto gen = std::make_shared<FixedIntervalGenerator>(start, week, endRange); // Generatore di ricorrenze settimanali
-    auto base = std::make_shared<BaseItemProvider<Event>>(); // Provider base che non fornisce modifiche
+    auto base = std::make_shared<NullProvider<Event>>(); // Provider base che non fornisce modifiche
 
     // 3. Creazione Strategia e Evento Ricorrente
     RecurrenceStrategy<Event> strategy(gen, base);

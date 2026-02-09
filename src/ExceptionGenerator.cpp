@@ -4,25 +4,25 @@
 #include <algorithm>
 
 #include "core/CommonTypes.h"
-#include "generators/ExceptionDate.h"
+#include "generators/ExceptionGenerator.h"
 
-ExceptionDate::ExceptionDate(std::shared_ptr<DateGenerator> generator) : DateGeneratorDecorator(generator) {}
+ExceptionGenerator::ExceptionGenerator(std::shared_ptr<DateGenerator> generator) : DateGeneratorDecorator(generator) {}
 
-void ExceptionDate::addException(const TimePoint exception) {
+void ExceptionGenerator::addException(const TimePoint exception) {
         m_exceptions.insert(exception);
 }
 
-void ExceptionDate::deleteException(const TimePoint exception) {
+void ExceptionGenerator::deleteException(const TimePoint exception) {
         m_exceptions.erase(exception);
 }
 
-bool ExceptionDate::isException(const TimePoint time) const {
+bool ExceptionGenerator::isException(const TimePoint time) const {
         return m_exceptions.find(time) != m_exceptions.end();
 }
 
 /// Implementazione dei metodi virtuali di DateGeneratorDecorator
 
-std::vector<TimePoint> ExceptionDate::generateDates(TimePoint from, TimePoint to) const {
+std::vector<TimePoint> ExceptionGenerator::generateDates(TimePoint from, TimePoint to) const {
     std::vector<TimePoint> dates = m_decoratedGenerator->generateDates(from, to);
 
     // 1. Sposta tutti i validi all'inizio e ottieni l'inizio della "zona da eliminare"
@@ -37,7 +37,7 @@ std::vector<TimePoint> ExceptionDate::generateDates(TimePoint from, TimePoint to
     return dates;
 }
 
-bool ExceptionDate::occursInRange(TimePoint from, TimePoint to) const {
+bool ExceptionGenerator::occursInRange(TimePoint from, TimePoint to) const {
     // Se il generatore decorato non ha date in questo intervallo, restituisci false
     if (!m_decoratedGenerator->occursInRange(from, to)) {
         return false;

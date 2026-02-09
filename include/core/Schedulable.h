@@ -39,7 +39,7 @@ public:
     virtual ~Schedulable() = default;
 
     /** @brief Crea una copia della schedulabile */
-    std::unique_ptr<Schedulable> clone(){
+    std::unique_ptr<Schedulable> clone() const {
         return std::unique_ptr<Schedulable>(clone_impl());
     }
 };

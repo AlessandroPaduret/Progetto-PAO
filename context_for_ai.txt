@@ -1,0 +1,950 @@
+--- FILE: include/core/CommonTypes.h ---
+
+#ifndef COMMONTYPES_H
+#define COMMONTYPES_H
+
+#include <string>
+#include <chrono>
+#include <functional>
+
+using Clock = std::chrono::system_clock;
+using TimePoint = std::chrono::time_point<Clock, std::chrono::seconds>;
+using Duration = std::chrono::seconds;
+using String = std::string;
+
+struct TimePointHasher {
+    std::size_t operator()(const TimePoint& tp) const {
+        return std::hash<long long>{}(tp.time_since_epoch().count());
+    }
+};
+
+#endif  // COMMONTYPES_H
+
+--- FILE: include/core/Schedulable.h ---
+#ifndef SCHEDULABLE_H
+#define SCHEDULABLE_H
+
+#include <vector>
+#include <chrono>
+#include <memory>
+
+#include "core/CommonTypes.h"
+
+class Schedulable{
+protected:
+    virtual Schedulable* clone_impl() const = 0; // Metodo per clonare l'oggetto, necessario per gestire le modifiche specifiche in RecurrentEvent
+public:
+    /** @return Il punto temporale (data/ora) di inizio */
+    virtual TimePoint getStart() const = 0;
+
+    /** @return La durata della schedulabile */
+    virtual Duration getDuration() const = 0;
+
+    /** @return Il punto temporale (data/ora) di fine */
+    virtual TimePoint getEnd() const = 0;
+
+    /** @brief Imposta l'orario di inizio */
+    virtual void setStart(const TimePoint start) = 0;
+
+    /** @brief Imposta la durata */
+    virtual void setDuration(const Duration duration) = 0;
+
+    /** @brief Imposta l'orario di fine quindi modifica durata */
+    virtual void setEnd(const TimePoint end) = 0;
+
+    /** @return Se la schedulabile è compresa nel range specificato */
+    virtual bool isIn(const TimePoint from, const TimePoint to) const = 0;
+
+    /** @return Se la schedulabile si sovrappone con un'altra schedulabile */
+    virtual bool overlapsWith(const Schedulable& other) const = 0;
+
+    /** @brief Distruttore virtuale */
+    virtual ~Schedulable() = default;
+
+    /** @brief Crea una copia della schedulabile */
+    std::unique_ptr<Schedulable> clone(){
+        return std::unique_ptr<Schedulable>(clone_impl());
+    }
+};
+#endif  // SCHEDULABLE_H
+
+
+--- FILE: include/core/RecurrenceStrategy.h ---
+#ifndef RECURRENCE_STRATEGY_H
+#define RECURRENCE_STRATEGY_H
+
+#include <vector>
+#include <chrono>
+#include <memory>
+
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
+#include "generators/ExceptionDate.h"
+#include "core/ItemProvider.h"
+#include "providers/ModificationProvider.h"
+
+
+template<typename T>
+class RecurrenceStrategy {
+private:
+    std::shared_ptr<DateGenerator> m_generator;
+    std::shared_ptr<ItemProvider<T>> m_provider;
+public:
+
+    /** @brief Costruttore che accetta un generatore di ricorrenze e un provider di elementi
+    *  @param generator Generatore di ricorrenze da utilizzare per generare le date di ricorrenza
+    *  @param provider Provider di elementi da utilizzare per ottenere gli elementi specifici in una data ricorrenza
+    */
+    RecurrenceStrategy(std::shared_ptr<DateGenerator> generator, std::shared_ptr<ItemProvider<T>> provider);
+    
+    /** @brief Distruttore virtuale */
+    virtual ~RecurrenceStrategy() = default;
+    
+    /** @brief Genera le date di ricorrenza in un intervallo di tempo
+     *  @param from Inizio dell'intervallo
+     *  @param to Fine dell'intervallo
+     *  @return Vettore di TimePoint rappresentanti le date di ricorrenza generate nell'intervallo specificato
+     */
+    virtual std::vector<TimePoint> generateDates(const TimePoint from,const TimePoint to) const;
+
+    /** @brief Verifica se esistono ricorrenze nell'intervallo specificato
+     *  @param from Inizio dell'intervallo
+     *  @param to Fine dell'intervallo
+     *  @return true se esistono ricorrenze nell'intervallo specificato, false altrimenti
+     */
+    virtual bool occursInRange(TimePoint from, TimePoint to) const;
+
+    /** @brief Restituisce un puntatore unico all'elemento specifico in una data ricorrenza 
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica
+     *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
+     */
+    virtual std::unique_ptr<T> getItem(TimePoint tp) const;/** @brief Aggiunge una modifica a una specifica occorrenza dell'evento ricorrente 
+     * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui applicare la modifica
+     * @param modified Evento modificato da associare a quella data di ricorrenza (es. titolo diverso, orario spostato, ecc.)
+    */
+    void addModification(TimePoint tp, std::unique_ptr<T> modified);
+
+    /** @brief Elimina tutte le modifiche associate a una specifica occorrenza dell'evento ricorrente
+     * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le modifiche
+     */
+    void deleteModifications(TimePoint tp);
+
+    /** @brief Aggiunge un'eccezione a una specifica occorrenza dell'evento ricorrente 
+     * @param tp TimePoint rappresentante la data di ricorrenza specifica da escludere
+     */
+    void addException(TimePoint tp);
+
+    /** @brief Elimina tutte le eccezioni associate a una specifica occorrenza dell'evento ricorrente
+    * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le eccezioni
+    */
+    void deleteExceptions(TimePoint tp);
+
+
+};
+
+template<typename T>
+RecurrenceStrategy<T>::RecurrenceStrategy(std::shared_ptr<DateGenerator> generator, std::shared_ptr<ItemProvider<T>> provider)
+    : m_generator(std::move(generator)), m_provider(std::move(provider)) {
+        //assicuro che ci siano almeno i decoratori per gestire modifiche ed eccezioni, anche se non vengono forniti esplicitamente
+        if(!dynamic_cast<ModificationProvider<T>*>(m_provider.get())){
+            m_provider = std::make_shared<ModificationProvider<T>>(m_provider);
+        }
+        if(!dynamic_cast<ExceptionDate*>(m_provider.get())){
+            m_provider = std::make_shared<ExceptionDate>(m_provider);
+        }
+
+    }
+
+
+
+template<typename T>
+std::vector<TimePoint> RecurrenceStrategy<T>::generateDates(const TimePoint from,const TimePoint to) const {
+    return m_generator->generateDates(from, to);
+}
+
+template<typename T>
+bool RecurrenceStrategy<T>::occursInRange(TimePoint from, TimePoint to) const {
+    return m_generator->occursInRange(from, to);
+}
+
+template<typename T>
+std::unique_ptr<T> RecurrenceStrategy<T>::getItem(TimePoint tp) const {
+    return m_provider->getItem(tp);
+}
+
+template<typename T>
+void RecurrenceStrategy<T>::addModification(TimePoint tp, std::unique_ptr<T> modified) {
+    static_cast<ModificationProvider<T>*>(m_provider.get())->addModification(tp, std::move(modified));
+}
+
+template<typename T>
+void RecurrenceStrategy<T>::deleteModifications(TimePoint tp) {
+    static_cast<ModificationProvider<T>*>(m_provider.get())->deleteModification(tp);
+}
+
+template<typename T>
+void RecurrenceStrategy<T>::addException(TimePoint tp) {
+    static_cast<ExceptionDate*>(m_generator.get())->addException(tp);
+}
+
+template<typename T>
+void RecurrenceStrategy<T>::deleteExceptions(TimePoint tp) {
+    static_cast<ExceptionDate*>(m_generator.get())->deleteException(tp);
+}
+
+#endif  // RECURRENCE_STRATEGY_H
+
+--- FILE: include/core/ItemProvider.h ---
+#ifndef ITEMPROVIDER_H
+#define ITEMPROVIDER_H
+
+#include <memory>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+#include "core/Schedulable.h"
+
+template<typename T>
+class ItemProvider {
+    static_assert(std::is_base_of<Schedulable, T>::value, "Errore: T deve essere un sottotipo di Schedulable!");
+public:
+    /** @brief Distruttore virtuale */
+    virtual ~ItemProvider() = default;
+
+    /** @brief Restituisce un puntatore unico all'elemento specifico in una data ricorrenza 
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica
+     *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
+     */
+    virtual std::unique_ptr<T> getItem(TimePoint tp) const = 0;
+};
+
+#endif  // ITEMPROVIDER_H
+
+--- FILE: include/core/DateGenerator.h ---
+#ifndef DATEGENERATOR_H
+#define DATEGENERATOR_H
+
+#include <vector>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+
+class DateGenerator {
+public:
+    /** @brief Distruttore virtuale */
+    virtual ~DateGenerator() = default;
+
+    /** @brief Genera le date comprese nell'intervallo [from, to] 
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return Un vettore di TimePoint che rappresentano le date generate
+    */
+    virtual std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const = 0;
+    
+    /** @brief Verifica se esistono date comprese nell'intervallo [from, to]
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return true se esistono date comprese nell'intervallo, false altrimenti
+    */
+    virtual bool occursInRange(TimePoint from, TimePoint to) const = 0;
+};
+
+#endif // DATEGENERATOR_H
+
+--- FILE: include/core/GroupSchedulable.h ---
+#ifndef GROUPSCHEDULABLE_H
+#define GROUPSCHEDULABLE_H
+
+#include <vector>
+#include <chrono>
+#include <memory>
+
+#include "core/CommonTypes.h"
+#include "core/Schedulable.h"
+
+template<typename T>
+class GroupSchedulable {
+    static_assert(std::is_base_of<Schedulable, T>::value, "T deve derivare da Schedulable");
+public:
+    virtual std::vector<std::unique_ptr<T>> getSchedulable(TimePoint from, TimePoint to) const = 0;
+};
+
+#endif  // GROUPSCHEDULABLE_H
+
+--- FILE: include/generators/DateGeneratorDecorator.h ---
+#ifndef DATEGENERATORDECORATOR_H
+#define DATEGENERATORDECORATOR_H
+
+#include <memory>
+#include <vector>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
+
+class DateGeneratorDecorator : public DateGenerator {
+protected:
+    std::shared_ptr<DateGenerator> m_decoratedGenerator;
+
+public:
+
+    /** @brief Costruttore decoratore base(non fa nulla)
+     *  @param generator Il generatore di date da decorare
+    */
+    DateGeneratorDecorator(std::shared_ptr<DateGenerator> generator);
+
+    /** @brief Genera le date comprese nell'intervallo [from, to] 
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return Un vettore di TimePoint che rappresentano le date generate
+    */
+    std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
+
+    /** @brief Verifica se esistono date comprese nell'intervallo [from, to]
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return true se esistono date comprese nell'intervallo, false altrimenti
+    */
+    bool occursInRange(TimePoint from, TimePoint to) const override;
+};
+
+#endif  // DATEGENERATORDECORATOR_H
+
+--- FILE: include/generators/ExceptionDate.h ---
+#ifndef EXCEPTIONDATE_H
+#define EXCEPTIONDATE_H
+
+#include <memory>
+#include <chrono>
+#include <unordered_set>
+
+#include "core/CommonTypes.h"
+#include "generators/DateGeneratorDecorator.h"
+
+
+class ExceptionDate : public DateGeneratorDecorator {
+private:
+    std::unordered_set<TimePoint, TimePointHasher> m_exceptions; // assumo tante eccezione quindi accesso = O(1)
+public:
+    /** @brief Costruttore che accetta un generatore di date da decorare con eccezioni
+     *  @param generator Il generatore di date da decorare
+    */
+    ExceptionDate(std::shared_ptr<DateGenerator> generator);
+
+    /** @brief Aggiunge un'eccezione 
+     *  @param exception Eccezione da aggiungere
+    */
+    void addException(const TimePoint exception);
+
+    /** @brief Toglie un'eccezione 
+     * @param exception Eccezione da togliere
+    */
+    void deleteException(const TimePoint exception);
+
+    /** @brief Verifica se un determinato istante è un'eccezione 
+     * @param time Istante da verificare
+    */
+    bool isException(const TimePoint time) const;
+
+    /// Implementazione dei metodi virtuali di DateGeneratorDecorator
+
+    /** @brief Genera le date comprese nell'intervallo [from, to] 
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return Un vettore di TimePoint che rappresentano le date generate
+    */
+    std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
+
+    /** @brief Verifica se esistono date comprese nell'intervallo [from, to]
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return true se esistono date comprese nell'intervallo, false altrimenti
+    */
+    bool occursInRange(TimePoint from, TimePoint to) const override;
+};
+
+
+#endif // EXCEPTIONDATE_H
+
+--- FILE: include/generators/FixedIntervalGenerator.h ---
+#ifndef FIXED_INTERVAL_GENERATOR_H
+#define FIXED_INTERVAL_GENERATOR_H
+
+#include <vector>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
+
+class FixedIntervalGenerator : public DateGenerator {
+private:
+    TimePoint m_start;
+    Duration m_interval;
+    TimePoint m_end;
+public:
+
+    /** @brief Costruttore */
+    FixedIntervalGenerator(TimePoint start, Duration interval, TimePoint end = TimePoint::max());
+
+    /** @brief Ritorna la data di inizio dell'intervallo
+    *  @return La data di inizio dell'intervallo
+    */
+    TimePoint getStart() const;
+
+    /** @brief Ritorna l'intervallo di tempo tra le date generate
+    *  @return L'intervallo di tempo tra le date generate
+    */    
+   Duration getInterval() const;
+
+    /** @brief Ritorna la data di fine dell'intervallo
+    *  @return La data di fine dell'intervallo
+    */
+    TimePoint getEnd() const;
+
+    /** @brief Imposta la data di inizio dell'intervallo
+    *  @param newStart La nuova data di inizio dell'intervallo
+    */
+    void setStart(TimePoint newStart);
+
+    /** @brief Imposta l'intervallo di tempo tra le date generate
+    *  @param newInterval Il nuovo intervallo di tempo tra le date generate
+    */        
+    void setInterval(Duration newInterval);
+
+    /** @brief Imposta la data di fine dell'intervallo
+     * @param newEnd La nuova data di fine dell'intervallo
+     */
+    void setEnd(TimePoint newEnd);
+
+    /// Implementazione dei metodi virtuali di DateGenerator
+
+    /** @brief Genera le date comprese nell'intervallo [from, to] 
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return Un vettore di TimePoint che rappresentano le date generate
+    */
+    std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
+    
+    /** @brief Verifica se esistono date generate comprese nell'intervallo [from, to]
+     *  @param from Data di inizio dell'intervallo
+     *  @param to Data di fine dell'intervallo
+     *  @return true se esistono date generate comprese nell'intervallo, false altrimenti
+    */
+    bool occursInRange(TimePoint from, TimePoint to) const override;
+
+};
+
+#endif // FIXED_INTERVAL_GENERATOR_H
+
+--- FILE: include/domain/Event.h ---
+#ifndef EVENT_H  // Header Guard
+#define EVENT_H  
+
+#include <string>
+#include <chrono>
+#include <iostream>
+#include <memory>
+
+#include "core/CommonTypes.h"
+#include "core/Schedulable.h"
+
+
+/**
+ * @class Event
+ * @brief Classe base astratta (o concreta in questo caso) per la gestione di un evento temporale.
+ * * Rappresenta l'entità principale del tuo schema "Eventi".
+ */
+
+class Event : public Schedulable {
+private:
+    String m_title;         // Titolo o descrizione dell'evento
+    TimePoint m_start;      // Data e ora di inizio
+    Duration m_duration;    // Durata dell'evento
+protected:
+    Event* clone_impl() const override; // Implementazione del metodo di clonazione specifica per Event
+public:
+    /**
+     * @brief Costruttore con parametri opzionali.
+     * @param title Nome dell'evento (default: stringa vuota).
+     * @param start Orario di inizio (default: ora attuale).
+     * @param duration Durata (default: zero).
+     */
+    Event(const String& title = "", 
+          const TimePoint start = std::chrono::time_point_cast<std::chrono::seconds>(Clock::now()), 
+          const Duration duration = Duration::zero());
+
+    /** @brief Imposta il titolo dell'evento */
+    void setTitle(const String& title);
+    
+    /** @return Il titolo dell'evento */
+    String getTitle() const;
+
+    /** @brief Operatore di output per stampare i dettagli dell'evento */
+    friend std::ostream& operator<<(std::ostream& os, const Event& event);
+
+    /// Implementazione dei metodi virtuali di Schedulable
+
+    /** @return Il punto temporale (data/ora) di inizio */
+    TimePoint getStart() const override;
+    
+    /** @return La durata dell'evento */
+    Duration getDuration() const override;
+    
+    /** @return Il punto temporale (data/ora) di fine */
+    TimePoint getEnd() const override;
+
+    /** @brief Imposta l'orario di inizio dell'evento */
+    void setStart(const TimePoint start) override;
+
+    /** @brief Imposta la durata dell'evento */
+    void setDuration(const Duration duration) override;
+
+    /** @brief Imposta l'orario di fine dell'evento quindi modifica durata */
+    void setEnd(const TimePoint end) override;
+    
+    /** @param from Inizio del range 
+     *  @param to Fine del range
+     *  @return Se l'evento è compreso nel range specificato */
+    bool isIn(const TimePoint from, const TimePoint to) const override;
+    
+    /** @param other Altro evento
+     *  @return Se l'evento si sovrappone con un altro evento */
+    bool overlapsWith(const Schedulable& other) const override;
+
+    /** @brief Crea una copia dell'evento */
+    std::unique_ptr<Event> clone() const;
+};
+
+#endif // EVENT_H
+
+--- FILE: include/domain/RecurrentEvent.h ---
+#ifndef RECURRENTEVENT_H
+#define RECURRENTEVENT_H
+
+#include <vector>
+#include <chrono>
+#include <memory>
+#include <iostream>
+
+#include "core/CommonTypes.h"
+#include "core/GroupSchedulable.h"
+#include "domain/Event.h"
+#include "core/RecurrenceStrategy.h"
+
+class RecurrentEvent : public GroupSchedulable<Event> {
+private:
+    RecurrenceStrategy<Event> m_recurrenceStrategy;  // Strategia di ricorrenza per generare le date di ricorrenza
+    Event m_templateEvent;  // Evento template da cui generare le occorrenze
+public:
+
+    /// Costruttore e distruttore
+
+    /** @brief Costruttore con parametri opzionali.
+     * @param recurrenceStrategy Strategia di ricorrenza da utilizzare per generare le date di ricorrenza
+     * @param templateEvent Evento template da cui generare le occorrenze (default: evento vuoto)
+    */
+    RecurrentEvent(RecurrenceStrategy<Event> recurrenceStrategy, Event templateEvent = Event());
+
+    /** @brief Operatore di output per stampare i dettagli dell'evento ricorrente */
+    friend std::ostream& operator<<(std::ostream& os, const RecurrentEvent& event);
+
+    /** @brief Aggiunge una modifica a una specifica occorrenza dell'evento ricorrente 
+     * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui applicare la modifica
+     * @param modifiedEvent Evento modificato da associare a quella data di ricorrenza (es. titolo diverso, orario spostato, ecc.)
+    */
+    void addModification(TimePoint tp, std::unique_ptr<Event> modifiedEvent);
+
+    /** @brief Elimina tutte le modifiche associate a una specifica occorrenza dell'evento ricorrente
+     * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le modifiche
+     */
+    void deleteModifications(TimePoint tp);
+
+    /** @brief Aggiunge un'eccezione a una specifica occorrenza dell'evento ricorrente 
+     * @param tp TimePoint rappresentante la data di ricorrenza specifica da escludere
+     */
+    void addException(TimePoint tp);
+
+    /** @brief Elimina tutte le eccezioni associate a una specifica occorrenza dell'evento ricorrente
+    * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le eccezioni
+    */
+    void deleteExceptions(TimePoint tp);
+
+    /// Implementazione dei metodi virtuali di GroupSchedulable
+
+    /** @brief Restituisce le occorrenze in un intervallo di tempo 
+     * @param from Inizio dell'intervallo
+     * @param to Fine dell'intervallo
+     * @return Vettore di puntatori unici a Schedulable nell'intervallo specificato
+    */
+    std::vector<std::unique_ptr<Event>> getSchedulable(const TimePoint from, const TimePoint to) const override;
+
+    /** @brief Imposta la regola di ricorrenza a partire da un certo momento (non ci possono essere 2 regole per lo stesso intervallo)
+     * @param next Evento ricorrente successivo
+    */
+    //void setNextRuleset(std::unique_ptr<Repeatable<Event>> next) override;
+};
+
+#endif
+
+--- FILE: include/providers/ItemProviderDecorator.h ---
+#ifndef ITEMPROVIDERDECORATOR_H
+#define ITEMPROVIDERDECORATOR_H
+
+#include <memory>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+#include "core/ItemProvider.h"
+
+template<typename T>
+class ItemProviderDecorator : public ItemProvider<T> {
+protected:
+    std::shared_ptr<ItemProvider<T>> m_decoratedProvider; // Puntatore condiviso al provider decorato
+public:
+    /** @brief Costruttore che accetta un provider da decorare */
+    ItemProviderDecorator(std::shared_ptr<ItemProvider<T>> provider);
+
+    /** @brief Restituisce un puntatore unico all'elemento specifico in una data ricorrenza 
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica
+     *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
+     */
+    std::unique_ptr<T> getItem(TimePoint tp) const override;
+};
+
+template<typename T>
+ItemProviderDecorator<T>::ItemProviderDecorator(std::shared_ptr<ItemProvider<T>> provider) : m_decoratedProvider(provider) {}
+
+template<typename T>
+std::unique_ptr<T> ItemProviderDecorator<T>::getItem(TimePoint tp) const {
+    return m_decoratedProvider->getItem(tp);
+}
+
+#endif  // ITEMPROVIDERDECORATOR_H
+
+
+--- FILE: include/providers/ModificationProvider.h ---
+#ifndef MODIFICATION_PROVIDER_H
+#define MODIFICATION_PROVIDER_H
+
+#include <memory>
+#include <chrono>
+#include <unordered_map>
+
+#include "core/CommonTypes.h"
+#include "providers/ItemProviderDecorator.h"
+
+template<typename T>
+class ModificationProvider : public ItemProviderDecorator<T> {
+private:
+    std::unordered_map<TimePoint, T, TimePointHasher> m_modifications;  // assumo tante modifiche quindi accesso = O(1)
+public:
+    /** @brief Costruttore che accetta un provider da decorare */
+    ModificationProvider(std::shared_ptr<ItemProvider<T>> provider);
+
+    /** @brief Aggiunge una modifica per una data ricorrenza specifica */
+    void addModification(TimePoint tp, std::unique_ptr<T> modification);
+
+    /** @brief Verifica se esiste una modifica per una data ricorrenza specifica */
+    bool isModified(TimePoint tp) const;
+
+    /** @brief Rimuove una modifica per una data ricorrenza specifica */
+    void deleteModification(TimePoint tp);
+
+    /// Implementazione del metodo getItem considerando le modifiche
+
+    /** @brief Restituisce un puntatore unico all'elemento specifico in una data ricorrenza, considerando le modifiche */
+    std::unique_ptr<T> getItem(TimePoint tp) const override;
+
+};
+
+template<typename T>
+ModificationProvider<T>::ModificationProvider(std::shared_ptr<ItemProvider<T>> provider)
+    : ItemProviderDecorator<T>(provider) {}
+
+template<typename T>
+void ModificationProvider<T>::addModification(TimePoint tp, std::unique_ptr<T> modification) {
+    m_modifications[tp] = *modification;
+}
+
+template<typename T>
+bool ModificationProvider<T>::isModified(TimePoint tp) const {
+    return m_modifications.find(tp) != m_modifications.end();
+}
+
+template<typename T>
+void ModificationProvider<T>::deleteModification(TimePoint tp) {
+    m_modifications.erase(tp);
+}
+
+template<typename T>
+std::unique_ptr<T> ModificationProvider<T>::getItem(TimePoint tp) const {
+    auto it = m_modifications.find(tp);
+    if (it != m_modifications.end()) {
+        return std::make_unique<T>(it->second);
+    }
+    return this->m_decoratedProvider->getItem(tp);
+}
+
+#endif  // MODIFICATION_PROVIDER_H
+
+--- FILE: src/Event.cpp ---
+#include "domain/Event.h"
+#include "core/CommonTypes.h"
+
+#include <iostream>
+#include <ctime>
+#include <string>
+#include <memory>
+
+Event* Event::clone_impl() const {
+    return new Event(*this);
+}
+
+Event::Event(const String& title, 
+             const TimePoint start, 
+             const Duration duration)
+    : m_title(title), m_start(start), m_duration(duration) {
+    if (duration < Duration::zero()) {
+        throw std::invalid_argument("La durata non può essere negativa.");
+    }
+}
+
+void Event::setTitle(const String& title) {
+    m_title = title;
+}
+
+String Event::getTitle() const { 
+    return m_title; 
+}
+
+std::ostream& operator<<(std::ostream& os, const Event& event) {
+    std::time_t start_time = Clock::to_time_t(event.getStart());
+    std::time_t end_time = Clock::to_time_t(event.getEnd());
+
+    os << "Evento: " << event.getTitle() << "\n"
+       << "Inizio: " << std::ctime(&start_time)
+       << "Fine: " << std::ctime(&end_time)
+       << "Durata: " << event.getDuration().count() << " secondi\n";
+    return os;
+}
+
+TimePoint Event::getStart() const { 
+    return m_start; 
+}
+
+Duration Event::getDuration() const { 
+    return m_duration; 
+}
+
+TimePoint Event::getEnd() const { 
+    return m_start + m_duration; 
+}
+
+void Event::setStart(const TimePoint start) {
+    m_start = start;
+}
+
+void Event::setDuration(const Duration duration) {
+    if (duration < Duration::zero()) {
+        throw std::invalid_argument("La durata non può essere negativa.");
+    }
+    m_duration = duration;
+}
+
+void Event::setEnd(const TimePoint end) {
+    setDuration(end - m_start);
+}
+
+bool Event::isIn(const TimePoint from, const TimePoint to) const {
+    return (m_start >= from) && (getEnd() <= to);
+}
+
+bool Event::overlapsWith(const Schedulable& other) const {
+    return (m_start < other.getEnd()) && (getEnd() > other.getStart());
+}
+
+std::unique_ptr<Event> Event::clone() const {
+    return std::unique_ptr<Event>(clone_impl());
+}
+
+
+--- FILE: src/FixedIntervalGenerator.cpp ---
+#include <vector>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+#include "generators/FixedIntervalGenerator.h"
+
+FixedIntervalGenerator::FixedIntervalGenerator(TimePoint start, Duration interval, TimePoint end)
+    : m_start(start), m_interval(interval), m_end(end) {}
+
+    TimePoint FixedIntervalGenerator::getStart() const { 
+    return m_start; 
+}
+
+Duration FixedIntervalGenerator::getInterval() const { 
+    return m_interval; 
+}
+
+TimePoint FixedIntervalGenerator::getEnd() const {
+    return m_end;
+}
+void FixedIntervalGenerator::setStart(TimePoint newStart) { 
+    m_start = newStart; 
+}
+
+void FixedIntervalGenerator::setInterval(Duration newInterval) { 
+    m_interval = newInterval; 
+}
+
+void FixedIntervalGenerator::setEnd(TimePoint newEnd) {
+    m_end = newEnd;
+}
+
+/// Implementazione dei metodi virtuali di DateGenerator
+
+std::vector<TimePoint> FixedIntervalGenerator::generateDates(const TimePoint from,const TimePoint to) const {
+    std::vector<TimePoint> dates;
+
+    TimePoint current = from;
+
+    while(current <= to) {
+        dates.push_back(current);
+        current += m_interval;
+    }
+
+    return dates;
+}
+
+bool FixedIntervalGenerator::occursInRange(const TimePoint from, const TimePoint to) const {
+    return to > m_start && from < m_end;
+}
+
+--- FILE: src/RecurrentEvent.cpp ---
+#include "domain/RecurrentEvent.h"
+#include <vector>
+#include <memory>
+#include <iostream>
+
+// Costruttore: Inizializza la strategia e l'evento "stampino" (template)
+RecurrentEvent::RecurrentEvent(RecurrenceStrategy<Event> recurrenceStrategy, Event templateEvent)
+    : m_recurrenceStrategy(std::move(recurrenceStrategy)), 
+      m_templateEvent(std::move(templateEvent)) {}
+
+std::vector<std::unique_ptr<Event>> RecurrentEvent::getSchedulable(const TimePoint from, const TimePoint to) const {
+    
+    std::vector<std::unique_ptr<Event>> result;
+
+    // Scorri le date generate dalla strategia di ricorrenza nell'intervallo specificato
+    std::vector<TimePoint> dates = m_recurrenceStrategy.generateDates(from, to);
+
+    for (const TimePoint tp : dates) {
+        
+        // Verifica se esiste una modifica specifica per questa data di ricorrenza
+        std::unique_ptr<Event> specificItem = m_recurrenceStrategy.getItem(tp);
+
+        // Se esiste una modifica specifica, usala; altrimenti, crea un'istanza standard basata sull'evento template
+        if (specificItem) {
+            result.push_back(specificItem->clone());
+        } else {
+            std::unique_ptr<Event> standardOccurrence = m_templateEvent.clone();
+            standardOccurrence->setStart(tp);
+            result.push_back(std::move(standardOccurrence));
+        }
+    }
+
+    return result;
+}
+
+// Operatore di output per debug/stampa
+std::ostream& operator<<(std::ostream& os, const RecurrentEvent& event) {
+    os << "[Recurrent Event] Template: " << event.m_templateEvent.getTitle() 
+       << " | Duration: " << event.m_templateEvent.getDuration().count() << "s";
+    return os;
+}
+
+void RecurrentEvent::addModification(TimePoint tp, std::unique_ptr<Event> modifiedEvent) {
+    m_recurrenceStrategy.addModification(tp, std::move(modifiedEvent));
+}
+
+void RecurrentEvent::deleteModifications(TimePoint tp) {
+    m_recurrenceStrategy.deleteModifications(tp);
+}
+
+void RecurrentEvent::addException(TimePoint tp) {
+    m_recurrenceStrategy.addException(tp);
+}
+
+void RecurrentEvent::deleteExceptions(TimePoint tp) {
+    m_recurrenceStrategy.deleteExceptions(tp);
+}
+
+--- FILE: src/DateGeneratorDecorator.cpp ---
+#include <memory>
+#include <vector>
+#include <chrono>
+
+#include "core/CommonTypes.h"
+#include "generators/DateGeneratorDecorator.h"
+
+DateGeneratorDecorator::DateGeneratorDecorator(std::shared_ptr<DateGenerator> generator) : m_decoratedGenerator(generator) {}
+
+std::vector<TimePoint> DateGeneratorDecorator::generateDates(TimePoint from, TimePoint to) const {
+    return m_decoratedGenerator->generateDates(from, to);
+}
+
+bool DateGeneratorDecorator::occursInRange(TimePoint from, TimePoint to) const {
+    return m_decoratedGenerator->occursInRange(from, to);
+}
+
+--- FILE: src/ExceptionDate.cpp ---
+#include <memory>
+#include <chrono>
+#include <unordered_set>
+#include <algorithm>
+
+#include "core/CommonTypes.h"
+#include "generators/ExceptionDate.h"
+
+ExceptionDate::ExceptionDate(std::shared_ptr<DateGenerator> generator) : DateGeneratorDecorator(generator) {}
+
+void ExceptionDate::addException(const TimePoint exception) {
+        m_exceptions.insert(exception);
+}
+
+void ExceptionDate::deleteException(const TimePoint exception) {
+        m_exceptions.erase(exception);
+}
+
+bool ExceptionDate::isException(const TimePoint time) const {
+        return m_exceptions.find(time) != m_exceptions.end();
+}
+
+/// Implementazione dei metodi virtuali di DateGeneratorDecorator
+
+std::vector<TimePoint> ExceptionDate::generateDates(TimePoint from, TimePoint to) const {
+    std::vector<TimePoint> dates = m_decoratedGenerator->generateDates(from, to);
+
+    // 1. Sposta tutti i validi all'inizio e ottieni l'inizio della "zona da eliminare"
+    auto it_garbage = std::remove_if(dates.begin(), dates.end(), 
+        [this](const TimePoint& d) {
+            return this->isException(d); 
+        });
+
+    // 2. Cancella TUTTO dal primo elemento non valido fino alla fine del vettore
+    dates.erase(it_garbage, dates.end()); 
+
+    return dates;
+}
+
+bool ExceptionDate::occursInRange(TimePoint from, TimePoint to) const {
+    // Se il generatore decorato non ha date in questo intervallo, restituisci false
+    if (!m_decoratedGenerator->occursInRange(from, to)) {
+        return false;
+    }
+
+    // Se il generatore decorato ha date in questo intervallo, dobbiamo verificare se tutte sono eccezioni
+    std::vector<TimePoint> dates = m_decoratedGenerator->generateDates(from, to);   
+    return !dates.empty();
+}
+

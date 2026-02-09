@@ -7,7 +7,7 @@
 
 #include "core/CommonTypes.h"
 #include "core/DateGenerator.h"
-#include "generators/ExceptionDate.h"
+#include "generators/ExceptionGenerator.h"
 #include "core/ItemProvider.h"
 #include "providers/ModificationProvider.h"
 
@@ -20,9 +20,9 @@ private:
 public:
 
     /** @brief Costruttore che accetta un generatore di ricorrenze e un provider di elementi
-    *  @param generator Generatore di ricorrenze da utilizzare per generare le date di ricorrenza
-    *  @param provider Provider di elementi da utilizzare per ottenere gli elementi specifici in una data ricorrenza
-    */
+     *  @param generator Generatore di ricorrenze da utilizzare per generare le date di ricorrenza
+     *  @param provider Provider di elementi da utilizzare per ottenere gli elementi specifici in una data ricorrenza
+     */
     RecurrenceStrategy(std::shared_ptr<DateGenerator> generator, std::shared_ptr<ItemProvider<T>> provider);
     
     /** @brief Distruttore virtuale */
@@ -46,25 +46,27 @@ public:
      *  @param tp TimePoint rappresentante la data di ricorrenza specifica
      *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
      */
-    virtual std::unique_ptr<T> getItem(TimePoint tp) const;/** @brief Aggiunge una modifica a una specifica occorrenza dell'evento ricorrente 
-     * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui applicare la modifica
-     * @param modified Evento modificato da associare a quella data di ricorrenza (es. titolo diverso, orario spostato, ecc.)
+    virtual std::unique_ptr<T> getItem(TimePoint tp) const;
+    
+    /** @brief Aggiunge una modifica a una specifica occorrenza dell'evento ricorrente 
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica a cui applicare la modifica
+     *  @param modified Evento modificato da associare a quella data di ricorrenza (es. titolo diverso, orario spostato, ecc.)
     */
     void addModification(TimePoint tp, std::unique_ptr<T> modified);
 
     /** @brief Elimina tutte le modifiche associate a una specifica occorrenza dell'evento ricorrente
-     * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le modifiche
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le modifiche
      */
     void deleteModifications(TimePoint tp);
 
     /** @brief Aggiunge un'eccezione a una specifica occorrenza dell'evento ricorrente 
-     * @param tp TimePoint rappresentante la data di ricorrenza specifica da escludere
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica da escludere
      */
     void addException(TimePoint tp);
 
     /** @brief Elimina tutte le eccezioni associate a una specifica occorrenza dell'evento ricorrente
-    * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le eccezioni
-    */
+     *  @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le eccezioni
+     */
     void deleteExceptions(TimePoint tp);
 
 
@@ -77,8 +79,8 @@ RecurrenceStrategy<T>::RecurrenceStrategy(std::shared_ptr<DateGenerator> generat
     if(!dynamic_cast<ModificationProvider<T>*>(m_provider.get())){
         m_provider = std::make_shared<ModificationProvider<T>>(m_provider);
     }
-    if(!dynamic_cast<ExceptionDate*>(m_generator.get())){
-        m_generator = std::make_shared<ExceptionDate>(m_generator);
+    if(!dynamic_cast<ExceptionGenerator*>(m_generator.get())){
+        m_generator = std::make_shared<ExceptionGenerator>(m_generator);
     }
 
 }
@@ -112,12 +114,12 @@ void RecurrenceStrategy<T>::deleteModifications(TimePoint tp) {
 
 template<typename T>
 void RecurrenceStrategy<T>::addException(TimePoint tp) {
-    static_cast<ExceptionDate*>(m_generator.get())->addException(tp);
+    static_cast<ExceptionGenerator*>(m_generator.get())->addException(tp);
 }
 
 template<typename T>
 void RecurrenceStrategy<T>::deleteExceptions(TimePoint tp) {
-    static_cast<ExceptionDate*>(m_generator.get())->deleteException(tp);
+    static_cast<ExceptionGenerator*>(m_generator.get())->deleteException(tp);
 }
 
 #endif  // RECURRENCE_STRATEGY_H
