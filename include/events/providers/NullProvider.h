@@ -14,9 +14,9 @@ public:
     /** @brief Distruttore virtuale */
     virtual ~NullProvider() = default;
 
-    /** @brief Restituisce un puntatore unico all'elemento specifico in una data ricorrenza 
+    /** @brief Restituisce un puntatore nullptr
      *  @param tp TimePoint rappresentante la data di ricorrenza specifica
-     *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
+     *  @return nullptr, indipendentemente dalla data di ricorrenza
      */
     virtual std::unique_ptr<T> getItem(TimePoint) const override {
         return nullptr;
