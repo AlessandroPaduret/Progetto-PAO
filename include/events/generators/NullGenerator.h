@@ -7,6 +7,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/ItemProvider.h"
 
+namespace events {
+
 template<typename T>
 class NullGenerator: public ItemProvider<T> {
 public:
@@ -20,5 +22,7 @@ public:
         return nullptr; 
     }
 };
+
+} // namespace events
 
 #endif  // NULLGENERATOR_H

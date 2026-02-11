@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     cmake \
     git \
+    # --- TOOL DI FORMATTAZIONE E ANALISI ---
+    clang-format \
+    # ---------------------------------------
     # Core Qt
     qt6-base-dev \
     qt6-tools-dev \
@@ -30,11 +33,10 @@ RUN apt-get update && apt-get install -y \
     qt6-l10n-tools \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Crea utente non root (opzionale ma utile)
+# Crea utente non root
 RUN useradd -m student
 USER student
 WORKDIR /home/student
 
 # Comando predefinito: apre shell
 CMD ["/bin/bash"]
-

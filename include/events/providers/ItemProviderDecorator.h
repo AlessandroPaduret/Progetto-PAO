@@ -7,6 +7,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/ItemProvider.h"
 
+namespace events {
+
 template<typename T>
 class ItemProviderDecorator : public ItemProvider<T> {
 protected:
@@ -29,5 +31,7 @@ template<typename T>
 std::unique_ptr<T> ItemProviderDecorator<T>::getItem(TimePoint tp) const {
     return m_decoratedProvider->getItem(tp);
 }
+
+} // namespace events
 
 #endif  // ITEMPROVIDERDECORATOR_H

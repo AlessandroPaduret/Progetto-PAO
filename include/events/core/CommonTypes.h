@@ -6,6 +6,8 @@
 #include <chrono>
 #include <functional>
 
+namespace events {
+
 using Clock = std::chrono::system_clock;
 using TimePoint = std::chrono::time_point<Clock, std::chrono::seconds>;
 using Duration = std::chrono::seconds;
@@ -16,5 +18,7 @@ struct TimePointHasher {
         return std::hash<long long>{}(tp.time_since_epoch().count());
     }
 };
+
+} // namespace events
 
 #endif  // COMMONTYPES_H

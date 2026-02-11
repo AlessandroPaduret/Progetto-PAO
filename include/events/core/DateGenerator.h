@@ -6,6 +6,8 @@
 
 #include "events/core/CommonTypes.h"
 
+namespace events {
+
 class DateGenerator {
 public:
     /** @brief Distruttore virtuale */
@@ -25,5 +27,7 @@ public:
     */
     virtual bool occursInRange(TimePoint from, TimePoint to) const = 0;
 };
+
+} // namespace events
 
 #endif // DATEGENERATOR_H

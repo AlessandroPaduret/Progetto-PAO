@@ -7,6 +7,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/ItemProvider.h"
 
+namespace events {
+
 // NullObject per ItemProvider, restituisce sempre nullptr per ogni data di ricorrenza, utile come provider di base quando non si vogliono fornire modifiche specifiche
 template<typename T>
 class NullProvider : public ItemProvider<T> {
@@ -22,5 +24,7 @@ public:
         return nullptr;
     }
 };
+
+} // namespace events
 
 #endif  // NULLPROVIDER_H

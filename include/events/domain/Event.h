@@ -9,6 +9,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/Schedulable.h"
 
+namespace events {
+
 
 /**
  * @class Event
@@ -75,5 +77,7 @@ public:
     /** @brief Crea una copia dell'evento */
     std::unique_ptr<Event> clone() const;
 };
+
+} // namespace events
 
 #endif // EVENT_H

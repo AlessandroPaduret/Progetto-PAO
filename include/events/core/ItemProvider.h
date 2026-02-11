@@ -7,6 +7,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/Schedulable.h"
 
+namespace events {
+
 template<typename T>
 class ItemProvider {
     static_assert(std::is_base_of<Schedulable, T>::value, "Errore: T deve essere un sottotipo di Schedulable!");
@@ -20,5 +22,7 @@ public:
      */
     virtual std::unique_ptr<T> getItem(TimePoint tp) const = 0;
 };
+
+} // namespace events
 
 #endif  // ITEMPROVIDER_H

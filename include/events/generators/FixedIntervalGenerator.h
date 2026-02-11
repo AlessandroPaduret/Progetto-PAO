@@ -7,6 +7,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
 
+namespace events {
+
 class FixedIntervalGenerator : public DateGenerator {
 private:
     TimePoint m_start;
@@ -64,5 +66,7 @@ public:
     bool occursInRange(TimePoint from, TimePoint to) const override;
 
 };
+
+} // namespace events
 
 #endif // FIXED_INTERVAL_GENERATOR_H

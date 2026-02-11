@@ -8,6 +8,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
 
+namespace events {
+
 class DateGeneratorDecorator : public DateGenerator {
 protected:
     std::shared_ptr<DateGenerator> m_decoratedGenerator;
@@ -33,5 +35,7 @@ public:
     */
     bool occursInRange(TimePoint from, TimePoint to) const override;
 };
+
+} // namespace events
 
 #endif  // DATEGENERATORDECORATOR_H

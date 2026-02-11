@@ -11,6 +11,8 @@
 #include "events/core/ItemProvider.h"
 #include "events/providers/ModificationProvider.h"
 
+namespace events {
+
 template<typename T>
 class RecurrenceStrategy {
 private:
@@ -120,5 +122,7 @@ template<typename T>
 void RecurrenceStrategy<T>::deleteExceptions(TimePoint tp) {
     static_cast<ExceptionGenerator*>(m_generator.get())->deleteException(tp);
 }
+
+} // namespace events
 
 #endif  // RECURRENCE_STRATEGY_H

@@ -29,3 +29,8 @@ $(OBJ_DIR)/test.o: tests/test.cpp
 
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
+
+# Aggiungi questo al tuo Makefile
+format:
+	find $(SRC_DIR) $(INC_DIR) -name "*.cpp" -o -name "*.h" | xargs clang-format -i
+	@echo "Codice formattato con successo!"

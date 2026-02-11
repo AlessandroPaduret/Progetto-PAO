@@ -8,6 +8,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/providers/ItemProviderDecorator.h"
 
+namespace events {
+
 template<typename T>
 class ModificationProvider : public ItemProviderDecorator<T> {
 private:
@@ -59,5 +61,7 @@ std::unique_ptr<T> ModificationProvider<T>::getItem(TimePoint tp) const {
     }
     return this->m_decoratedProvider->getItem(tp);
 }
+
+} // namespace events
 
 #endif  // MODIFICATION_PROVIDER_H

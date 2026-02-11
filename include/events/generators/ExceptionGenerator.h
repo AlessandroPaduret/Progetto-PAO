@@ -8,6 +8,8 @@
 #include "events/core/CommonTypes.h"
 #include "events/generators/DateGeneratorDecorator.h"
 
+namespace events {
+
 
 class ExceptionGenerator : public DateGeneratorDecorator {
 private:
@@ -50,5 +52,7 @@ public:
     bool occursInRange(TimePoint from, TimePoint to) const override;
 };
 
+
+} // namespace events
 
 #endif // EXCEPTIONGENERATOR_H

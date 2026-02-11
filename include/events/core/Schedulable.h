@@ -7,6 +7,8 @@
 
 #include "events/core/CommonTypes.h"
 
+namespace events {
+
 class Schedulable{
 protected:
     virtual Schedulable* clone_impl() const = 0; // Metodo per clonare l'oggetto, necessario per gestire le modifiche specifiche in RecurrentEvent
@@ -43,4 +45,6 @@ public:
         return std::unique_ptr<Schedulable>(clone_impl());
     }
 };
+} // namespace events
+
 #endif  // SCHEDULABLE_H

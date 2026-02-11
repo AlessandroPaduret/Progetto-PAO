@@ -11,6 +11,8 @@
 #include "events/domain/Event.h"
 #include "events/core/RecurrenceStrategy.h"
 
+namespace events {
+
 class RecurrentEvent : public GroupSchedulable<Event> {
 private:
     RecurrenceStrategy<Event> m_recurrenceStrategy;  // Strategia di ricorrenza per generare le date di ricorrenza
@@ -63,5 +65,7 @@ public:
     */
     //void setNextRuleset(std::unique_ptr<Repeatable<Event>> next) override;
 };
+
+} // namespace events
 
 #endif
