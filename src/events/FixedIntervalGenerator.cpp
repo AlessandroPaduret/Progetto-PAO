@@ -32,14 +32,31 @@ FixedIntervalGenerator::generateDates(const TimePoint from,
                                       const TimePoint to) const {
   std::vector<TimePoint> dates;
 
-  TimePoint current = from;
+    // 1. Troviamo il punto di partenza reale
+    // Dobbiamo iniziare o da m_start o da 'from', a seconda di chi è più avanti
+    TimePoint startSearch = std::max(m_start, from);
 
-  while (current <= to) {
-    dates.push_back(current);
-    current += m_interval;
-  }
+    // 2. Allineamento matematico (La "Formula")
+    // Calcoliamo quanti intervalli sono passati tra m_start e startSearch
+    // per non iniziare da un orario a caso (come le 14:38)
+    auto durationSinceStart = std::max(startSearch - m_start, Duration(0));
+    auto numIntervals = durationSinceStart / m_interval;
+    
+    // La prima occorrenza valida dopo o uguale a 'from'
+    TimePoint current = m_start + (numIntervals * m_interval);
+    
+    // Se a causa dell'arrotondamento siamo finiti prima di 'from', saltiamo al prossimo
+    if (current < from) {
+        current += m_interval;
+    }
 
-  return dates;
+    // 3. Generazione nel range
+    while (current <= to && current <= m_end) {
+        dates.push_back(current);
+        current += m_interval;
+    }
+
+    return dates;
 }
 
 bool FixedIntervalGenerator::occursInRange(const TimePoint from,

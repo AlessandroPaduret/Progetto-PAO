@@ -1,6 +1,6 @@
 # Makefile aggiornato
 CXX      := g++
-CXXFLAGS := -Wall -Wextra -Iinclude  # Root delle inclusioni
+CXXFLAGS := -std=c++20 -Wall -Wextra -Iinclude  # Root delle inclusioni
 SRC_DIR   := src
 OBJ_DIR   := build
 BIN_DIR   := bin
