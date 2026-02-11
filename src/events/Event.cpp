@@ -23,14 +23,13 @@ void Event::setTitle(const String &title) { m_title = title; }
 String Event::getTitle() const { return m_title; }
 
 std::ostream &operator<<(std::ostream &os, const Event &event) {
-  std::time_t start_time = Clock::to_time_t(event.getStart());
-  std::time_t end_time = Clock::to_time_t(event.getEnd());
 
-  os << "Evento: " << event.getTitle() << "\n"
-     << "Inizio: " << std::ctime(&start_time)
-     << "Fine: " << std::ctime(&end_time)
-     << "Durata: " << event.getDuration().count() << " secondi\n";
-  return os;
+  std::chrono::hh_mm_ss time{event.m_duration};
+  
+  return os << "Evento: " << event.getTitle() << "\n"
+     << "Inizio: " << event.m_start << "\n"
+     << "Fine: " << event.getEnd() << "\n"
+     << "Durata: " << time << " hh:mm::ss\n";
 }
 
 TimePoint Event::getStart() const { return m_start; }
