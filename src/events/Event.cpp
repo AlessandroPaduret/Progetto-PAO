@@ -1,10 +1,10 @@
-#include "domain/Event.h"
-#include "core/CommonTypes.h"
-
 #include <iostream>
 #include <ctime>
 #include <string>
 #include <memory>
+
+#include "events/domain/Event.h"
+#include "events/core/CommonTypes.h"
 
 Event* Event::clone_impl() const {
     return new Event(*this);

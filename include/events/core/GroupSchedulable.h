@@ -5,8 +5,8 @@
 #include <chrono>
 #include <memory>
 
-#include "core/CommonTypes.h"
-#include "core/Schedulable.h"
+#include "events/core/CommonTypes.h"
+#include "events/core/Schedulable.h"
 
 template<typename T>
 class GroupSchedulable {

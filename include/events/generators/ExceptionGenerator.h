@@ -5,8 +5,8 @@
 #include <chrono>
 #include <unordered_set>
 
-#include "core/CommonTypes.h"
-#include "generators/DateGeneratorDecorator.h"
+#include "events/core/CommonTypes.h"
+#include "events/generators/DateGeneratorDecorator.h"
 
 
 class ExceptionGenerator : public DateGeneratorDecorator {

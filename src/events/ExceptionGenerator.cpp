@@ -3,8 +3,8 @@
 #include <unordered_set>
 #include <algorithm>
 
-#include "core/CommonTypes.h"
-#include "generators/ExceptionGenerator.h"
+#include "events/core/CommonTypes.h"
+#include "events/generators/ExceptionGenerator.h"
 
 ExceptionGenerator::ExceptionGenerator(std::shared_ptr<DateGenerator> generator) : DateGeneratorDecorator(generator) {}
 

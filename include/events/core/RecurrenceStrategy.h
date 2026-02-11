@@ -5,12 +5,11 @@
 #include <chrono>
 #include <memory>
 
-#include "core/CommonTypes.h"
-#include "core/DateGenerator.h"
-#include "generators/ExceptionGenerator.h"
-#include "core/ItemProvider.h"
-#include "providers/ModificationProvider.h"
-
+#include "events/core/CommonTypes.h"
+#include "events/core/DateGenerator.h"
+#include "events/generators/ExceptionGenerator.h"
+#include "events/core/ItemProvider.h"
+#include "events/providers/ModificationProvider.h"
 
 template<typename T>
 class RecurrenceStrategy {

@@ -1,7 +1,9 @@
-#include "domain/RecurrentEvent.h"
 #include <vector>
 #include <memory>
 #include <iostream>
+
+#include "events/core/CommonTypes.h"
+#include "events/domain/RecurrentEvent.h"
 
 // Costruttore: Inizializza la strategia e l'evento "stampino" (template)
 RecurrentEvent::RecurrentEvent(RecurrenceStrategy<Event> recurrenceStrategy, Event templateEvent)

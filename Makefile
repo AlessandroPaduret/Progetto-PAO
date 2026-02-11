@@ -1,43 +1,31 @@
-# Compilatore e flag
+# Makefile aggiornato
 CXX      := g++
-CXXFLAGS := -Wall -Wextra -Iinclude
-LDFLAGS  := 
-
-# Cartelle
+CXXFLAGS := -Wall -Wextra -Iinclude  # Root delle inclusioni
 SRC_DIR   := src
-INC_DIR   := include
-TEST_DIR  := tests
 OBJ_DIR   := build
 BIN_DIR   := bin
 
-# File
-# Trova tutti i .cpp in src/ e tests/
-SRC       := $(wildcard $(SRC_DIR)/*.cpp)
+# Trova tutti i file .cpp in src/ e nelle sue sottocartelle (come events/)
+SRC       := $(shell find $(SRC_DIR) -name "*.cpp")
+# Trasforma src/path/file.cpp in build/path/file.o
 OBJ       := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+
 TARGET    := $(BIN_DIR)/test.out
 
-# Regola principale
 all: $(TARGET)
 
-# Linker: crea l'eseguibile finale
 $(TARGET): $(OBJ) $(OBJ_DIR)/test.o
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(OBJ) $(OBJ_DIR)/test.o -o $(TARGET) $(LDFLAGS)
-	@echo "Costruito con successo: $(TARGET)"
+	$(CXX) $(OBJ) $(OBJ_DIR)/test.o -o $(TARGET)
 
-# Compilazione dei file oggetto da src/
+# La chiave dell'estensibilità: crea le sottocartelle in build al volo
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/test.o: tests/test.cpp
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Compilazione del file di test
-$(OBJ_DIR)/test.o: $(TEST_DIR)/test.cpp
-	@mkdir -p $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Pulizia
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
-	@echo "Pulizia completata."
-
-.PHONY: all clean

@@ -6,10 +6,10 @@
 #include <memory>
 #include <iostream>
 
-#include "core/CommonTypes.h"
-#include "core/GroupSchedulable.h"
-#include "domain/Event.h"
-#include "core/RecurrenceStrategy.h"
+#include "events/core/CommonTypes.h"
+#include "events/core/GroupSchedulable.h"
+#include "events/domain/Event.h"
+#include "events/core/RecurrenceStrategy.h"
 
 class RecurrentEvent : public GroupSchedulable<Event> {
 private:

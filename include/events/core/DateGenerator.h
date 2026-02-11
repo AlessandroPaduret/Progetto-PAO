@@ -4,7 +4,7 @@
 #include <vector>
 #include <chrono>
 
-#include "core/CommonTypes.h"
+#include "events/core/CommonTypes.h"
 
 class DateGenerator {
 public:

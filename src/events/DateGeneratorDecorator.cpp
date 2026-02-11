@@ -2,8 +2,8 @@
 #include <vector>
 #include <chrono>
 
-#include "core/CommonTypes.h"
-#include "generators/DateGeneratorDecorator.h"
+#include "events/core/CommonTypes.h"
+#include "events/generators/DateGeneratorDecorator.h"
 
 DateGeneratorDecorator::DateGeneratorDecorator(std::shared_ptr<DateGenerator> generator) : m_decoratedGenerator(generator) {}
 

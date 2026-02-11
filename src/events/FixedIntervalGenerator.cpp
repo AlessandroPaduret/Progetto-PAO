@@ -1,8 +1,8 @@
 #include <vector>
 #include <chrono>
 
-#include "core/CommonTypes.h"
-#include "generators/FixedIntervalGenerator.h"
+#include "events/core/CommonTypes.h"
+#include "events/generators/FixedIntervalGenerator.h"
 
 FixedIntervalGenerator::FixedIntervalGenerator(TimePoint start, Duration interval, TimePoint end)
     : m_start(start), m_interval(interval), m_end(end) {}

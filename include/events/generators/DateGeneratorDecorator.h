@@ -5,8 +5,8 @@
 #include <vector>
 #include <chrono>
 
-#include "core/CommonTypes.h"
-#include "core/DateGenerator.h"
+#include "events/core/CommonTypes.h"
+#include "events/core/DateGenerator.h"
 
 class DateGeneratorDecorator : public DateGenerator {
 protected:

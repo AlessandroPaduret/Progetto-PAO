@@ -4,8 +4,8 @@
 #include <memory>
 #include <chrono>
 
-#include "core/CommonTypes.h"
-#include "core/ItemProvider.h"
+#include "events/core/CommonTypes.h"
+#include "events/core/ItemProvider.h"
 
 template<typename T>
 class ItemProviderDecorator : public ItemProvider<T> {

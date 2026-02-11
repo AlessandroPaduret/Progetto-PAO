@@ -1,11 +1,11 @@
-#ifndef BASEITEMPROVIDER_H
-#define BASEITEMPROVIDER_H
+#ifndef NULLPROVIDER_H
+#define NULLPROVIDER_H
 
 #include <memory>
 #include <chrono>
 
-#include "core/CommonTypes.h"
-#include "core/ItemProvider.h"
+#include "events/core/CommonTypes.h"
+#include "events/core/ItemProvider.h"
 
 // NullObject per ItemProvider, restituisce sempre nullptr per ogni data di ricorrenza, utile come provider di base quando non si vogliono fornire modifiche specifiche
 template<typename T>

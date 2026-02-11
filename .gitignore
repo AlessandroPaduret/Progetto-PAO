@@ -2,8 +2,16 @@
 bin/
 obj/
 build/
+*.o
+*.a
+*.so
+*.out
+*.exe
 
 # file temporanei
 *.log
 *.tmp
 *.txt
+
+# script di shell
+*.sh

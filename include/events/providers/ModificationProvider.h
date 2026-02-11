@@ -5,8 +5,8 @@
 #include <chrono>
 #include <unordered_map>
 
-#include "core/CommonTypes.h"
-#include "providers/ItemProviderDecorator.h"
+#include "events/core/CommonTypes.h"
+#include "events/providers/ItemProviderDecorator.h"
 
 template<typename T>
 class ModificationProvider : public ItemProviderDecorator<T> {
