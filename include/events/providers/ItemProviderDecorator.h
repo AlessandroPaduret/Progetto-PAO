@@ -22,6 +22,11 @@ public:
      *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
      */
     std::unique_ptr<T> getItem(TimePoint tp) const override;
+
+    /** @brief Restituisce una descrizione del provider di elementi decorato
+     *  @return Una stringa che descrive il provider di elementi decorato
+    */
+    String describe() const override;
 };
 
 template<typename T>
@@ -30,6 +35,11 @@ ItemProviderDecorator<T>::ItemProviderDecorator(std::shared_ptr<ItemProvider<T>>
 template<typename T>
 std::unique_ptr<T> ItemProviderDecorator<T>::getItem(TimePoint tp) const {
     return m_decoratedProvider->getItem(tp);
+}
+
+template<typename T>
+String ItemProviderDecorator<T>::describe() const {
+    return "[ItemProviderDecorator] wrapping: {" + m_decoratedProvider->describe() + "}";
 }
 
 } // namespace events

@@ -21,6 +21,16 @@ public:
      *  @return Puntatore unico all'elemento specifico in quella data di ricorrenza, o nullptr se non esiste
      */
     virtual std::unique_ptr<T> getItem(TimePoint tp) const = 0;
+
+    /** @brief Restituisce una descrizione del provider di elementi
+     *  @return Una stringa che descrive il provider di elementi
+    */
+    virtual String describe() const = 0;
+
+    friend std::ostream& operator<<(std::ostream& os, const ItemProvider<T>& provider) {
+        os << provider.describe();
+        return os;
+    }
 };
 
 } // namespace events

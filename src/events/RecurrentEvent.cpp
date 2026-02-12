@@ -13,6 +13,13 @@ RecurrentEvent::RecurrentEvent(RecurrenceStrategy<Event> recurrenceStrategy,
     : m_recurrenceStrategy(std::move(recurrenceStrategy)),
       m_templateEvent(std::move(templateEvent)) {}
 
+      // Operatore di output per debug/stampa
+std::ostream &operator<<(std::ostream &os, const events::RecurrentEvent &event) {
+  os << "[Recurrent Event]\n" << event.m_templateEvent 
+      << event.m_recurrenceStrategy;
+  return os;
+}
+
 std::vector<std::unique_ptr<Event>>
 RecurrentEvent::getSchedulable(const TimePoint from, const TimePoint to) const {
 
@@ -39,13 +46,6 @@ RecurrentEvent::getSchedulable(const TimePoint from, const TimePoint to) const {
   }
 
   return result;
-}
-
-// Operatore di output per debug/stampa
-std::ostream &operator<<(std::ostream &os, const RecurrentEvent &event) {
-  os << "[Recurrent Event] Template: " << event.m_templateEvent.getTitle()
-     << " | Duration: " << event.m_templateEvent.getDuration().count() << "s";
-  return os;
 }
 
 void RecurrentEvent::addModification(TimePoint tp,

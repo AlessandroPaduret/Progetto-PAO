@@ -70,7 +70,12 @@ public:
      */
     void deleteExceptions(TimePoint tp);
 
-
+    /** @brief Operatore di output per stampare i dettagli della strategia di ricorrenza */
+    friend std::ostream& operator<<(std::ostream& os, const events::RecurrenceStrategy<T>& strategy) {
+        os << "[RecurrenceStrategy]\n" << strategy.m_generator->describe() << "\n"
+        << strategy.m_provider->describe();
+        return os;
+    }
 };
 
 template<typename T>
@@ -124,5 +129,6 @@ void RecurrenceStrategy<T>::deleteExceptions(TimePoint tp) {
 }
 
 } // namespace events
+
 
 #endif  // RECURRENCE_STRATEGY_H

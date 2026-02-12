@@ -55,4 +55,9 @@ bool ExceptionGenerator::occursInRange(TimePoint from, TimePoint to) const {
   return !dates.empty();
 }
 
+String ExceptionGenerator::describe() const {
+    return "[ExceptionGenerator] wrapping: {" + m_decoratedGenerator->describe() + "}" +
+           " with " + std::to_string(m_exceptions.size()) + " exceptions";
+}
+
 } // namespace events

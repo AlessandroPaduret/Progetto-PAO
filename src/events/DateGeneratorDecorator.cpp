@@ -20,4 +20,8 @@ bool DateGeneratorDecorator::occursInRange(TimePoint from, TimePoint to) const {
   return m_decoratedGenerator->occursInRange(from, to);
 }
 
+String DateGeneratorDecorator::describe() const {
+    return "[DateGeneratorDecorator] wrapping: [" + m_decoratedGenerator->describe() + "]" ;
+} 
+
 } // namespace events

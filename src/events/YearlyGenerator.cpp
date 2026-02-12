@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <vector>
 #include <chrono>
+#include <sstream>
 
 #include "events/core/CommonTypes.h"
 #include "events/generators/YearlyGenerator.h"
@@ -72,6 +73,17 @@ std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint 
 bool YearlyGenerator::occursInRange(TimePoint from, TimePoint to) const {
     // Sfruttiamo generateDates: se il vettore non è vuoto, allora esiste
     return !generateDates(from, to).empty();
+}
+
+String YearlyGenerator::describe() const {
+    std::ostringstream oss;
+    auto start_ymd = year_month_day{floor<days>(m_start)};
+    oss << "[YearlyGenerator] starting on " << start_ymd.month() << "/" << start_ymd.day();
+    if (m_end != TimePoint::max()) {
+        auto end_ymd = year_month_day{floor<days>(m_end)};
+        oss << " until " << end_ymd.year() << "/" << end_ymd.month() << "/" << end_ymd.day();
+    }
+    return oss.str();
 }
 
 } // namespace events  

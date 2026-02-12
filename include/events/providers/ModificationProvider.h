@@ -32,6 +32,11 @@ public:
     /** @brief Restituisce un puntatore unico all'elemento specifico in una data ricorrenza, considerando le modifiche */
     std::unique_ptr<T> getItem(TimePoint tp) const override;
 
+    /** @brief Restituisce una descrizione del provider di modifiche decorato
+     *  @return Una stringa che descrive il provider di modifiche decorato
+    */    
+   String describe() const override;
+
 };
 
 template<typename T>
@@ -60,6 +65,12 @@ std::unique_ptr<T> ModificationProvider<T>::getItem(TimePoint tp) const {
         return std::make_unique<T>(it->second);
     }
     return this->m_decoratedProvider->getItem(tp);
+}
+
+template<typename T>
+String ModificationProvider<T>::describe() const {
+    return "[ModificationProvider] wrapping: {" + this->m_decoratedProvider->describe() + "}" +
+           " with " + std::to_string(m_modifications.size()) + " modifications";
 }
 
 } // namespace events

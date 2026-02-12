@@ -23,6 +23,13 @@ public:
     virtual std::unique_ptr<T> getItem(TimePoint) const override {
         return nullptr;
     }
+
+    /** @brief Restituisce una descrizione del NullProvider
+     *  @return Una stringa che descrive il NullProvider
+    */
+    virtual String describe() const override {
+        return "[NullProvider]";
+    }
 };
 
 } // namespace events

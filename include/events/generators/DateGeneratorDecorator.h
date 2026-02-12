@@ -34,6 +34,11 @@ public:
      *  @return true se esistono date comprese nell'intervallo, false altrimenti
     */
     bool occursInRange(TimePoint from, TimePoint to) const override;
+
+    /** @brief Restituisce una descrizione del generatore di date
+     *  @return Una stringa che descrive il generatore di date
+    */
+    String describe() const override;
 };
 
 } // namespace events

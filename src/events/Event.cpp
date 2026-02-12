@@ -26,7 +26,7 @@ std::ostream &operator<<(std::ostream &os, const Event &event) {
 
   std::chrono::hh_mm_ss time{event.m_duration};
   
-  return os << "Evento: " << event.getTitle() << "\n"
+  return os << "[Evento]\n" << event.getTitle() << "\n"
      << "Inizio: " << event.m_start << "\n"
      << "Fine: " << event.getEnd() << "\n"
      << "Durata: " << time << " hh:mm::ss\n";

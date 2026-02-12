@@ -1,5 +1,6 @@
 #include <chrono>
 #include <vector>
+#include <sstream>
 
 #include "events/core/CommonTypes.h"
 #include "events/generators/FixedIntervalGenerator.h"
@@ -62,6 +63,14 @@ FixedIntervalGenerator::generateDates(const TimePoint from,
 bool FixedIntervalGenerator::occursInRange(const TimePoint from,
                                            const TimePoint to) const {
   return to > m_start && from < m_end;
+}
+
+String FixedIntervalGenerator::describe() const {
+    std::ostringstream oss;
+    oss << "[FixedIntervalGenerator] starting at " << m_start.time_since_epoch().count()
+        << " with interval of " << m_interval.count() << " seconds"
+        << " and ending at " << m_end.time_since_epoch().count();
+    return oss.str();
 }
 
 } // namespace events

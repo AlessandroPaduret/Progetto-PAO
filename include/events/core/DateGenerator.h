@@ -26,6 +26,16 @@ public:
      *  @return true se esistono date comprese nell'intervallo, false altrimenti
     */
     virtual bool occursInRange(TimePoint from, TimePoint to) const = 0;
+
+    /** @brief Restituisce una descrizione del generatore di date
+     *  @return Una stringa che descrive il generatore di date
+    */
+    virtual String describe() const = 0;
+
+    friend std::ostream& operator<<(std::ostream& os, const DateGenerator& generator) {
+        os << generator.describe();
+        return os;
+    }
 };
 
 } // namespace events
