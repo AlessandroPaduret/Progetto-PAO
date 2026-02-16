@@ -6,6 +6,11 @@ Project specification for the Object Oriented Programming class.
 This repository contains source LaTeX code for the specifications of the project for the Object Oriented Programming class.
 
 
+## TO DO:
+
+- repository(classe DB)
+- GUI
+
 ## Docker Image
 To build the Docker image run
 ```bash
