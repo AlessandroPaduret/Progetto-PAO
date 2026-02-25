@@ -45,6 +45,16 @@ ModificationProvider<T>::ModificationProvider(std::shared_ptr<ItemProvider<T>> p
 
 template<typename T>
 void ModificationProvider<T>::addModification(TimePoint tp, std::unique_ptr<T> modification) {
+    // If tp is not a known original occurrence key, check if it matches the start
+    // time of a previously modified event, and use that event's original key instead
+    if (m_modifications.find(tp) == m_modifications.end()) {
+        for (auto& [key, value] : m_modifications) {
+            if (value.getStart() == tp) {
+                m_modifications[key] = *modification;
+                return;
+            }
+        }
+    }
     m_modifications[tp] = *modification;
 }
 

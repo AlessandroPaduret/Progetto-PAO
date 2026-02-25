@@ -30,6 +30,10 @@ int main() {
     weeklyMeeting->addModification(thirdWeek, std::move(specialEvent));
     std::cout << "--- Modifica aggiunta per la data: " << thirdWeek << " ---\n";
 
+    // 4b. Modifica di un evento già modificato usando il suo nuovo orario di inizio
+    weeklyMeeting->addModification(thirdWeek - std::chrono::hours(1), std::make_unique<Event>("Sessione Super Straordinaria", thirdWeek - std::chrono::hours(1), Duration(10800)));
+    std::cout << "--- Modifica aggiornata per la data: " << thirdWeek << " ---\n";
+
     // 5. Generazione e verifica
     std::cout << "\nGenerazione eventi per le prossime 4 settimane:\n";
     for (const auto& ev : weeklyMeeting->getSchedulable(start, start + std::chrono::weeks(4))) {
