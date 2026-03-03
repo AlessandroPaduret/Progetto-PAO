@@ -3,6 +3,20 @@
 #include <vector>
 
 #include "events/events.h"
+#include "../include/core/AbstractActivity.h"
+#include "../include/core/AbstractVisitor.h"
+#include "../include/modules/study/ReadingSession.h"
+
+// Concrete visitor for test
+class ConsoleRendererVisitor : public ActivityVisitor {
+public:
+	void visit(ReadingSession& activity) override {
+		std::cout << ">>> [VISITOR IN AZIONE] Rilevata una ReadingSession!" << "\n";
+		std::cout << ">>> Titolo: " << activity.getTitle().toStdString() << "\n";
+		// SPECIFIC METHOD WITHOUT CASTING(!!!)
+		std::cout << ">>> Apro il PDF: " << activity.getPdfPath().toStdString() << "\n";
+	}
+};
 
 using namespace std::chrono_literals;
 
@@ -49,6 +63,18 @@ int main() {
 
     // Literals
     std::cout << 2026y/2/28 << "\n";
+
+    // ---- ALEXS TEST SECTION ----
+    std::vector<std::unique_ptr<AbstractActivity>> ManagerList;
+    ManagerList.push_back(std::make_unique<ReadingSession>("Strutrups manual to C++", "/home/usr/alex/docs/cpp_manual.pdf"));
+    ConsoleRendererVisitor renderer;
+    for (const auto& activityPtr : ManagerList) {
+	    // In the gui it'll be a loop
+	    // Call accept on the AbstractActivity bouncing back and forth 
+	    // until it lands on the Renderer visitor
+	    activityPtr->accept(renderer);
+    }
+    // ---- END TEST SECTION ----
 
     return 0;
 }
