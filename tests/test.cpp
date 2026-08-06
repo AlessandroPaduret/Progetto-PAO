@@ -85,6 +85,42 @@ TEST_CASE("Eccezioni su RecurrentEvent costruito direttamente", "[weekly][except
     }
 }
 
+TEST_CASE("Events raccoglie eventi non ricorrenti", "[events]") {
+    TimePoint start = make_date(2026, 1, 1);
+    Events events;
+    events.addEvent(Event("A", start, 1h));
+    events.addEvent(Event("B", start + std::chrono::weeks(2), 1h));
+    events.addEvent(Event("C", start + std::chrono::weeks(1), 1h));
+    events.addEvent(Event("D", start + std::chrono::weeks(8), 1h));
+
+    REQUIRE(events.size() == 4);
+
+    SECTION("getSchedulable filtra per inizio nel range inclusivo") {
+        auto in = events.getSchedulable(start, start + 3_weeks);
+        REQUIRE(in.size() == 3);
+    }
+
+    SECTION("I risultati sono ordinati per data di inizio") {
+        auto in = events.getSchedulable(start, start + 3_weeks);
+        REQUIRE(in[0]->getTitle() == "A");
+        REQUIRE(in[1]->getTitle() == "C");
+        REQUIRE(in[2]->getTitle() == "B");
+    }
+
+    SECTION("Eventi fuori range non vengono restituiti") {
+        auto in = events.getSchedulable(start + std::chrono::weeks(1), start + std::chrono::weeks(2));
+        REQUIRE(in.size() == 2);
+        REQUIRE(in[0]->getTitle() == "C");
+        REQUIRE(in[1]->getTitle() == "B");
+    }
+
+    SECTION("Le copie restituite sono indipendenti dall'originale") {
+        auto in = events.getSchedulable(start, start + 3_weeks);
+        in[0]->setTitle("Modificato");
+        REQUIRE(events.getSchedulable(start, start)[0]->getTitle() == "A");
+    }
+}
+
 int main(int argc, char* argv[]) {
     Catch::Session session;
     int returnCode = session.applyCommandLine(argc, argv);

@@ -9,7 +9,6 @@
 
 namespace events {
 
-template<typename T>
 class NullGenerator: public DateGenerator {
 public:
     /** @brief Distruttore virtuale */
