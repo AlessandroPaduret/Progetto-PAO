@@ -8,7 +8,7 @@
 #include "events/domain/Event.h"
 #include "events/domain/RecurrentEvent.h"
 #include "events/generators/FixedIntervalGenerator.h"
-#include "events/providers/NullProvider.h"
+#include "events/generators/YearlyGenerator.h"
 
 namespace events {
 

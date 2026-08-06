@@ -16,8 +16,4 @@
 #include "events/generators/MaxOccurrencesDecorator.h"
 #include "events/generators/YearlyGenerator.h"
 
-// Providers
-#include "events/providers/NullProvider.h"
-#include "events/providers/ModificationProvider.h"
-
 #endif  // EVENTS_ALL_H
