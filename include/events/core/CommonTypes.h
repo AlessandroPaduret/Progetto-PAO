@@ -23,6 +23,14 @@ struct TimePointHasher {
     }
 };
 
+constexpr auto operator"" _weeks(unsigned long long w) {
+    return std::chrono::weeks(w);
+}
+
+constexpr auto operator"" _years(unsigned long long y) {
+    return std::chrono::years(y);
+}
+
 } // namespace events
 
 #endif  // COMMONTYPES_H
