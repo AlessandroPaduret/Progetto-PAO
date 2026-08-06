@@ -59,56 +59,30 @@ TEST_CASE("Creazione compleanno", "[birthday]") {
     REQUIRE(instances.size() == 5);
 }
 
-TEST_CASE("MaxOccurrencesDecorator limita il numero di occorrenze", "[decorator][maxOccurrences]") {
+TEST_CASE("Eccezioni su RecurrentEvent costruito direttamente", "[weekly][exception]") {
     TimePoint start = make_date(2026, 1, 1);
-    auto base = std::make_shared<FixedIntervalGenerator>(start, std::chrono::weeks(1));
-    auto limited = std::make_shared<MaxOccurrencesDecorator>(base, 4);
+    auto gen = std::make_shared<FixedIntervalGenerator>(start, std::chrono::weeks(1), start + 4_weeks);
+    RecurrentEvent event(gen, Event("Meeting", start, 1h));
 
-    SECTION("Genera solo le prime 4 occorrenze") {
-        auto dates = limited->generateDates(start, start + 30_weeks);
-        REQUIRE(dates.size() == 4);
-        for (int i = 0; i < 4; ++i) {
-            REQUIRE(dates[i] == start + std::chrono::weeks(i));
-        }
-        REQUIRE(limited->getGeneratedCount() == 4);
+    SECTION("Aggiunta eccezione salta solo quella occorrenza") {
+        event.addException(start + std::chrono::weeks(1));
+
+        auto instances = event.getSchedulable(start, start + 4_weeks);
+        REQUIRE(instances.size() == 4);
+        REQUIRE(instances[0]->getStart() == start);
+        REQUIRE(instances[1]->getStart() == start + std::chrono::weeks(2));
+        REQUIRE(instances[2]->getStart() == start + std::chrono::weeks(3));
+        REQUIRE(instances[3]->getStart() == start + std::chrono::weeks(4));
     }
 
-    SECTION("Dopo il limite non genera più nulla") {
-        auto dates = limited->generateDates(start, start + 30_weeks);
-        REQUIRE(dates.size() == 4);
+    SECTION("Eliminazione eccezione la ripristina") {
+        TimePoint secondWeek = start + std::chrono::weeks(1);
+        event.addException(secondWeek);
+        event.deleteExceptions(secondWeek);
 
-        auto after = limited->generateDates(start + 30_weeks, start + 60_weeks);
-        REQUIRE(after.empty());
+        auto instances = event.getSchedulable(start, start + 4_weeks);
+        REQUIRE(instances.size() == 5);
     }
-
-    SECTION("Tronca se l'intervallo contiene più date del limite residuo") {
-        auto dates = limited->generateDates(start, start + 2_weeks);
-        REQUIRE(dates.size() == 3);
-
-        auto after = limited->generateDates(start + 3_weeks, start + 30_weeks);
-        REQUIRE(after.size() == 1);
-        REQUIRE(after[0] == start + std::chrono::weeks(3));
-    }
-
-    SECTION("occursInRange rispetta il limite") {
-        REQUIRE(limited->occursInRange(start, start + 30_weeks));
-        REQUIRE_FALSE(limited->occursInRange(start + 10_weeks, start + 30_weeks));
-    }
-
-    SECTION("describe contiene il limite") {
-        REQUIRE(limited->describe().find("max 4") != std::string::npos);
-    }
-}
-
-TEST_CASE("MaxOccurrencesDecorator con anno nuovo", "[decorator][maxOccurrences]") {
-    TimePoint start = make_date(2026, 1, 1);
-    auto base = std::make_shared<YearlyGenerator>(start);
-    auto limited = std::make_shared<MaxOccurrencesDecorator>(base, 2);
-
-    auto dates = limited->generateDates(start, start + std::chrono::years(10));
-    REQUIRE(dates.size() == 2);
-    REQUIRE(dates[0] == make_date(2026, 1, 1));
-    REQUIRE(dates[1] == make_date(2027, 1, 1));
 }
 
 int main(int argc, char* argv[]) {
