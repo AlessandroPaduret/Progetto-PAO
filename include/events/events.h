@@ -13,6 +13,7 @@
 // Generators
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/ExceptionGenerator.h"
+#include "events/generators/MaxOccurrencesDecorator.h"
 #include "events/generators/YearlyGenerator.h"
 
 // Providers
