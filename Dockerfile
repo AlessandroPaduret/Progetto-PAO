@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     gcc \
     cmake \
     git \
+    # --- FRAMEWORK DI TEST ---
+    libcatch2-dev \
     # --- TOOL DI FORMATTAZIONE E ANALISI ---
     clang-format \
     # ---------------------------------------

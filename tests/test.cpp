@@ -1,54 +1,69 @@
-#include <iostream>
-#include <memory>
-#include <vector>
+#include <catch2/catch_all.hpp>
+#include <chrono>
 
 #include "events/events.h"
 
 using namespace std::chrono_literals;
-
 using namespace events;
 
-int main() {
-    // 1. Setup Date: 
-    TimePoint start = std::chrono::time_point_cast<Duration>(Clock::now());
-    TimePoint endRange = start + 4_weeks;
-    std::cout << "Data di partenza: " << start << "\n";
-    std::cout << "Data di fine range: " << endRange << "\n";
+TimePoint make_date(int y, int m, int d) {
+    return std::chrono::sys_days{std::chrono::year{y}/std::chrono::month{static_cast<unsigned>(m)}/std::chrono::day{static_cast<unsigned>(d)}};
+}
 
-    // 2. Creazione evento ricorrente settimanale
-    std::unique_ptr<RecurrentEvent> weeklyMeeting = EventFactory::createSimpleWeekly("Riunione Settimanale", start, 1h, endRange);
-    std::cout << "Evento ricorrente creato: " << *weeklyMeeting << "\n";
-
-    // 3. Aggiunta di un'eccezione (salta la seconda settimana)
-    TimePoint secondWeek = start + 1_weeks;
-    weeklyMeeting->addException(secondWeek);
-    std::cout << "--- Eccezione aggiunta per la data: " << secondWeek << " ---\n";
-
-    // 4. Aggiunta di una modifica (anticipa di unora la riunione della terza settimana, aumenta durata e cambia titolo)
-    TimePoint thirdWeek = start + std::chrono::weeks(2);
-    std::unique_ptr<Event> specialEvent = std::make_unique<Event>("Sessione Straordinaria", thirdWeek - 1h, 2h);
-    weeklyMeeting->addModification(thirdWeek, std::move(specialEvent));
-    std::cout << "--- Modifica aggiunta per la data: " << thirdWeek << " ---\n";
-
-    // 5. Generazione e verifica
-    std::cout << "\nGenerazione eventi per le prossime 4 settimane:\n";
-    for (const auto& ev : weeklyMeeting->getSchedulable(start, start + 4_weeks)) {
-        std::cout << *ev << std::endl;
+TEST_CASE("Factory crea eventi settimanali", "[factory][weekly]") {
+    TimePoint start = make_date(2026, 1, 1);
+    auto duration = 1h;
+    auto endRange = start + 3_weeks;
+    
+    auto event = EventFactory::createSimpleWeekly("Meeting", start, duration, start + 4_weeks);
+    
+    SECTION("Generazione corretta") {
+        auto instances = event->getSchedulable(start, endRange);
+        REQUIRE(instances.size() == 4);
+        
+        for (int i = 0; i < 4; ++i) {
+            REQUIRE(instances[i]->getStart() == start + std::chrono::weeks(i));
+            REQUIRE(instances[i]->getDuration() == duration);
+        }
     }
+}
 
-    // Test compleanno
+TEST_CASE("Eccezioni su evento settimanale", "[weekly][exception]") {
+    TimePoint start = make_date(2026, 1, 1);
+    auto event = EventFactory::createSimpleWeekly(
+        "Meeting", start, 1h, start + std::chrono::weeks(4)
+    );
+    
+    TimePoint secondWeek = start + std::chrono::weeks(1);
+    event->addException(secondWeek);
+    
+    auto instances = event->getSchedulable(start, start + std::chrono::weeks(3));
+    REQUIRE(instances.size() == 3);
+    REQUIRE(instances[0]->getStart() == start);
+    REQUIRE(instances[1]->getStart() == start + std::chrono::weeks(2));
+    REQUIRE(instances[2]->getStart() == start + std::chrono::weeks(3));
+}
+
+TEST_CASE("Literal personalizzato per settimane", "[literals]") {
+    TimePoint start = make_date(2026, 1, 1);
+    auto end = start + 4_weeks;
+    
+    REQUIRE(end == start + std::chrono::weeks(4));
+}
+
+TEST_CASE("Creazione compleanno", "[birthday]") {
+    TimePoint start = make_date(2026, 1, 1);
     auto birthday = EventFactory::createBirthday("Mario Rossi", 2026y/2/28);
-    std::cout << "\nEvento ricorrente compleanno creato:\n" << *birthday << "\n";
+    
+    auto instances = birthday->getSchedulable(start, start + std::chrono::years(5));
+    REQUIRE(instances.size() == 5);
+}
 
-    // Generazione compleanni per i prossimi 5 anni
-    std::cout << "\nGenerazione compleanni per i prossimi 5 anni:\n";
-
-    for (const auto& ev : birthday->getSchedulable(start, start + 5_years)) {
-        std::cout << *ev << std::endl;
+int main(int argc, char* argv[]) {
+    Catch::Session session;
+    int returnCode = session.applyCommandLine(argc, argv);
+    if (returnCode != 0) {
+        return returnCode;
     }
-
-    // Literals
-    std::cout << 2026y/2/28 << "\n";
-
-    return 0;
+    return session.run();
 }
