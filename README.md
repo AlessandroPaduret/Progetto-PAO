@@ -11,36 +11,21 @@ This repository contains source LaTeX code for the specifications of the project
 - repository(classe DB)
 - GUI
 
-## Docker Image
-To build the Docker image run
-```bash
-docker build -t unipd-oop/qt-env:2025 .
-```
-nota: fai in modo di non essere connesso a eduroam o con tailscale altrimenti il DNS fa casino perché non trova Server DNS online
+## Docker
 
-# Attiva il servizio docker
+The `model/Dockerfile` provides a minimal environment (no GUI) that compiles the model tests (Catch2) and generates the Doxygen documentation. The `docker-compose.yml` at the repo root mounts `model/` and runs it:
+
+```bash
+# compila i test, li esegue e genera la documentazione in model/docs/
 sudo systemctl start docker
-
-To run an interactive shell run
-```bash
-docker run -it --rm \
-  -v "$(pwd)":/app -w /app \
-  -u $(id -u):$(id -g) \
-  unipd-oop/qt-env:2025 bash
+docker compose up --build model
 ```
-this mount the current directory as `/app` and sets appropriate user permissions.
 
-To run an interactive shell with access to graphic support (necessary to run the application) on GNU/Linux run
+To open an interactive shell inside the image (e.g. to run `ctest` manually):
+
 ```bash
-# Only once
-xhost +local:docker
+docker compose build model
+docker run -it --rm -v "$(pwd)/model":/app -w /app -u $(id -u):$(id -g) pao-model:latest bash
+```
 
-docker run -it --rm \
-  -v "$(pwd)":/app -w /app \
-  -u $(id -u):$(id -g) \
-  -e DISPLAY=$DISPLAY \
-  -e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
-  -v $XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  unipd-oop/qt-env:2025 bash
-  ```
+nota: fai in modo di non essere connesso a eduroam o con tailscale altrimenti il DNS fa casino perché non trova Server DNS online
