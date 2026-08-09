@@ -68,9 +68,10 @@ TEST_CASE("toRecurrentEvent yearly genera un'occorrenza l'anno", "[mappers]") {
 TEST_CASE("occurrenceToJson serializza in ISO-8601", "[mappers]") {
     events::Event event("X", TimePoint(std::chrono::seconds(1767225600)),
                         std::chrono::hours(1));
-    auto json = server::occurrenceToJson(7, event);
+    auto json = server::occurrenceToJson(7, event, "fixed");
     REQUIRE(json["event_id"].get<long long>() == 7);
     REQUIRE(json["title"].get<std::string>() == "X");
     REQUIRE(json["start"].get<std::string>() == "2026-01-01T00:00:00");
     REQUIRE(json["end"].get<std::string>() == "2026-01-01T01:00:00");
+    REQUIRE(json["type"].get<std::string>() == "fixed");
 }

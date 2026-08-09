@@ -87,6 +87,20 @@ public:
      */
     bool removeException(long long eventId, std::chrono::system_clock::time_point date);
 
+    /** @brief Imposta la fine della ricorrenza (solo per eventi FIXED/YEARLY).
+     *
+     *  Usato per terminare una ricorrenza "da una certa occorrenza in poi":
+     *  la nuova `fine` esclude l'occorrenza passata e tutte le successive.
+     *
+     *  @param eventId Evento ricorrente
+     *  @param userId Proprietario richiesto
+     *  @param end Nuova fine della ricorrenza (inclusiva)
+     *  @return true se aggiornato; false se l'evento non esiste, non è
+     *          dell'utente oppure è un evento singolo
+     */
+    bool setRecurrenceEnd(long long eventId, long long userId,
+                          std::chrono::system_clock::time_point end);
+
     /** @brief Elimina un evento, solo se appartiene all'utente.
      *  @param eventId Evento da eliminare
      *  @param userId Proprietario richiesto

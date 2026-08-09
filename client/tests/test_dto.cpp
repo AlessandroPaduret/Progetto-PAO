@@ -36,7 +36,6 @@ TEST_CASE("CreateEventRequest toJson", "[dto]") {
     request.durationSec = 1800;
     request.type = EventType::Fixed;
     request.intervalSec = 604800;
-    request.exceptions.append(utc(2026, 1, 13, 8, 0, 0));
 
     const QJsonObject obj = request.toJson();
     REQUIRE(obj.value("title").toString() == "Palestra");
@@ -45,7 +44,6 @@ TEST_CASE("CreateEventRequest toJson", "[dto]") {
     REQUIRE(obj.value("type").toString() == "fixed");
     REQUIRE(obj.value("interval").toVariant().toLongLong() == 604800);
     REQUIRE_FALSE(obj.contains("end"));
-    REQUIRE(obj.value("exceptions").toArray().size() == 1);
 }
 
 TEST_CASE("CreateEventRequest singolo senza end/eccezioni", "[dto]") {
@@ -67,12 +65,14 @@ TEST_CASE("Occurrence fromJson", "[dto]") {
     obj["title"] = "Riunione";
     obj["start"] = "2026-01-05T10:00:00";
     obj["end"] = "2026-01-05T11:00:00";
+    obj["type"] = "fixed";
 
     const Occurrence occurrence = Occurrence::fromJson(obj);
     REQUIRE(occurrence.eventId == 7);
     REQUIRE(occurrence.title == "Riunione");
     REQUIRE(occurrence.start == utc(2026, 1, 5, 10, 0, 0));
     REQUIRE(occurrence.end == utc(2026, 1, 5, 11, 0, 0));
+    REQUIRE(occurrence.type == "fixed");
 }
 
 TEST_CASE("toUtcIso formatta senza Z (come atteso dal server)", "[dto]") {

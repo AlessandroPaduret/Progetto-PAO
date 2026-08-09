@@ -46,12 +46,14 @@ std::unique_ptr<events::RecurrentEvent> toRecurrentEvent(const db::EventRecord& 
     return recurrent;
 }
 
-nlohmann::json occurrenceToJson(long long eventId, const events::Event& occurrence) {
+nlohmann::json occurrenceToJson(long long eventId, const events::Event& occurrence,
+                                const std::string& type) {
     return nlohmann::json{
         {"event_id", eventId},
         {"title", occurrence.getTitle()},
         {"start", toIso8601(occurrence.getStart())},
         {"end", toIso8601(occurrence.getEnd())},
+        {"type", type},
     };
 }
 

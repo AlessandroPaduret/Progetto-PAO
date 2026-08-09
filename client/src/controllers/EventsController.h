@@ -30,6 +30,10 @@ public:
     void createEvent(const CreateEventRequest& request);
     void deleteEvent(qint64 eventId);
     void addException(qint64 eventId, const QDateTime& exception);
+    /** @brief Termina la ricorrenza: spariscono l'occorrenza indicata e le successive. */
+    void truncateEvent(qint64 eventId, const QDateTime& before);
+    /** @brief Modifica un'istanza: scarta l'originale (eccezione interna) e crea un evento singolo. */
+    void modifyOccurrence(const Occurrence& occurrence, const CreateEventRequest& request);
 
 signals:
     void eventsChanged(const QVector<Occurrence>& occurrences);

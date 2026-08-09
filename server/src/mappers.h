@@ -30,9 +30,11 @@ std::unique_ptr<events::RecurrentEvent> toRecurrentEvent(const db::EventRecord& 
 /** @brief Serializza un'occorrenza in JSON.
  *  @param eventId Id dell'evento di appartenenza
  *  @param occurrence Occorrenza da serializzare
- *  @return JSON: {"event_id", "title", "start", "end"} con date ISO-8601
+ *  @param type Tipo dell'evento ("single" | "fixed" | "yearly")
+ *  @return JSON: {"event_id", "title", "start", "end", "type"} con date ISO-8601
  */
-nlohmann::json occurrenceToJson(long long eventId, const events::Event& occurrence);
+nlohmann::json occurrenceToJson(long long eventId, const events::Event& occurrence,
+                                const std::string& type);
 
 } // namespace server
 

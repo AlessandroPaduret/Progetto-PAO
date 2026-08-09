@@ -22,6 +22,7 @@ struct Occurrence {
     QString title;
     QDateTime start; /**< UTC */
     QDateTime end;   /**< UTC */
+    QString type;    /**< "single" | "fixed" | "yearly" */
 
     static Occurrence fromJson(const QJsonObject& obj);
     QJsonObject toJson() const;
@@ -30,12 +31,11 @@ struct Occurrence {
 /** @brief Payload per POST /api/create-event. */
 struct CreateEventRequest {
     QString title;
-    QDateTime start;             /**< UTC */
+    QDateTime start;              /**< UTC */
     qint64 durationSec = 0;
     EventType type = EventType::Single;
-    qint64 intervalSec = 0;      /**< solo per Fixed */
+    qint64 intervalSec = 0;       /**< solo per Fixed */
     std::optional<QDateTime> end; /**< fine ricorrenza (UTC); nullopt = illimitata */
-    QVector<QDateTime> exceptions; /**< EXDATE (UTC) */
 
     QJsonObject toJson() const;
 };

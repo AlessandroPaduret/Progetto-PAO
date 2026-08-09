@@ -33,8 +33,13 @@ void ApiClient::send(const QString& method, const QString& path,
         reply = m_network.get(request);
     } else if (method == QLatin1String("POST")) {
         reply = m_network.post(request, payload);
-    } else { // DELETE
+    } else if (payload.isEmpty()) { // DELETE senza body
         reply = m_network.deleteResource(request);
+    } else {
+        // DELETE con body (exception/truncate): deleteResource() NON invia il
+        // body, serve sendCustomRequest con il verbo esplicito.
+        reply = m_network.sendCustomRequest(request, QByteArrayLiteral("DELETE"),
+                                            payload);
     }
 
     connect(reply, &QNetworkReply::finished, this,
@@ -141,6 +146,20 @@ void ApiClient::addException(qint64 eventId, const QDateTime& exception) {
          QStringLiteral("/api/events/%1").arg(eventId), body,
          [this](const QJsonDocument&) {
              emit operationSucceeded(QStringLiteral("eccezione aggiunta"));
+         },
+         [this](const QString& error) { emit requestFailed(error); });
+}
+
+void ApiClient::truncateEvent(qint64 eventId, const QDateTime& before) {
+    // Termina la ricorrenza: il server imposta la fine un istante prima
+    // dell'occorrenza indicata (quella e le successive spariscono).
+    QJsonObject body;
+    body[QStringLiteral("truncate")] = toUtcIso(before);
+
+    send(QStringLiteral("DELETE"),
+         QStringLiteral("/api/events/%1").arg(eventId), body,
+         [this](const QJsonDocument&) {
+             emit operationSucceeded(QStringLiteral("ricorrenza terminata"));
          },
          [this](const QString& error) { emit requestFailed(error); });
 }

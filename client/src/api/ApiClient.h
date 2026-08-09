@@ -29,6 +29,7 @@ public:
     void createEvent(const CreateEventRequest& request);
     void deleteEvent(qint64 eventId);
     void addException(qint64 eventId, const QDateTime& exception);
+    void truncateEvent(qint64 eventId, const QDateTime& before);
 
 signals:
     void loginSucceeded(const QString& token);

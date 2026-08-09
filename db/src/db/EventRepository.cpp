@@ -210,6 +210,21 @@ bool EventRepository::removeException(long long eventId,
     return removed;
 }
 
+bool EventRepository::setRecurrenceEnd(long long eventId, long long userId,
+                                       std::chrono::system_clock::time_point end) {
+    auto lease = m_pool->acquire();
+    pqxx::work tx(lease.get());
+
+    pqxx::result rows = tx.exec_params(
+        "UPDATE eventi SET fine = $3 "
+        "WHERE id = $1 AND utente_id = $2 AND tipo != 'SINGLE'",
+        eventId, userId, toEpochSeconds(end));
+
+    bool updated = rows.affected_rows() > 0;
+    tx.commit();
+    return updated;
+}
+
 bool EventRepository::deleteEvent(long long eventId, long long userId) {
     auto lease = m_pool->acquire();
     pqxx::work tx(lease.get());

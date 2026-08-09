@@ -51,6 +51,7 @@ Occurrence Occurrence::fromJson(const QJsonObject& obj) {
     occ.title = obj.value(QStringLiteral("title")).toString();
     occ.start = parseUtcIso(obj.value(QStringLiteral("start")).toString());
     occ.end = parseUtcIso(obj.value(QStringLiteral("end")).toString());
+    occ.type = obj.value(QStringLiteral("type")).toString();
     return occ;
 }
 
@@ -60,6 +61,7 @@ QJsonObject Occurrence::toJson() const {
     obj[QStringLiteral("title")] = title;
     obj[QStringLiteral("start")] = toUtcIso(start);
     obj[QStringLiteral("end")] = toUtcIso(end);
+    obj[QStringLiteral("type")] = type;
     return obj;
 }
 
@@ -74,13 +76,6 @@ QJsonObject CreateEventRequest::toJson() const {
     }
     if (end.has_value()) {
         obj[QStringLiteral("end")] = toUtcIso(*end);
-    }
-    if (!exceptions.isEmpty()) {
-        QJsonArray array;
-        for (const auto& ex : exceptions) {
-            array.append(toUtcIso(ex));
-        }
-        obj[QStringLiteral("exceptions")] = array;
     }
     return obj;
 }

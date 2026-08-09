@@ -54,4 +54,19 @@ void EventsController::addException(qint64 eventId, const QDateTime& exception) 
     m_api->addException(eventId, exception);
 }
 
+void EventsController::truncateEvent(qint64 eventId, const QDateTime& before) {
+    wireOperation();
+    m_api->truncateEvent(eventId, before);
+}
+
+void EventsController::modifyOccurrence(const Occurrence& occurrence,
+                                        const CreateEventRequest& request) {
+    // 1) scarta l'istanza originale (eccezione interna, mai mostrata in GUI)
+    // 2) alla conferma, crea l'evento singolo modificato
+    connect(m_api, &ApiClient::operationSucceeded, this,
+            [this, request](const QString&) { createEvent(request); },
+            Qt::SingleShotConnection);
+    m_api->addException(occurrence.eventId, occurrence.start);
+}
+
 } // namespace client

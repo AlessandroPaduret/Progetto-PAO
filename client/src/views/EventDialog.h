@@ -8,19 +8,26 @@ class QCheckBox;
 class QComboBox;
 class QDateTimeEdit;
 class QLineEdit;
-class QListWidget;
-class QPushButton;
 class QSpinBox;
 
 namespace client {
 
 struct CreateEventRequest;
+struct Occurrence;
 
 /** @brief Dialog per la creazione di un evento (semplice o ricorrente). */
 class EventDialog : public QDialog {
     Q_OBJECT
 public:
     explicit EventDialog(QWidget* parent = nullptr);
+
+    /** @brief Preimposta l'orario di inizio (usato dal doppio clic su una cella). */
+    void setStart(const QDateTime& start);
+
+    /** @brief Preimposta i campi da un'occorrenza esistente e forza "singolo"
+     *  (usato per la modifica di una singola istanza).
+     */
+    void setOccurrence(const Occurrence& occurrence);
 
     /** @brief Costruisce la richiesta dai campi compilati. */
     CreateEventRequest request() const;
@@ -37,8 +44,6 @@ private:
     QSpinBox* m_intervalDays;
     QCheckBox* m_hasEnd;
     QDateTimeEdit* m_end;
-    QListWidget* m_exceptions;
-    QDateTimeEdit* m_exceptionPicker;
 };
 
 } // namespace client

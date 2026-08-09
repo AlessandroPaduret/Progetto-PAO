@@ -29,6 +29,7 @@ add_executable(pao_client
     src/views/LoginDialog.cpp
     src/views/MainWindow.cpp
     src/views/EventDialog.cpp
+    src/views/WeekView.cpp
 )
 target_include_directories(pao_client PRIVATE src)
 target_link_libraries(pao_client PRIVATE Qt6::Widgets Qt6::Network)

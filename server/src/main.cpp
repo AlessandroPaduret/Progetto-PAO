@@ -150,14 +150,19 @@ int main() {
         auto records = events.getEvents(userId, from, to);
         std::vector<json> occurrences;
         for (const auto& record : records) {
+            const std::string typeStr =
+                record.kind == db::RecurrenceKind::Fixed
+                    ? "fixed"
+                    : record.kind == db::RecurrenceKind::Yearly ? "yearly"
+                                                                : "single";
             if (record.kind == db::RecurrenceKind::Single) {
                 auto event = toSimpleEvent(record);
-                occurrences.push_back(occurrenceToJson(record.id, *event));
+                occurrences.push_back(occurrenceToJson(record.id, *event, typeStr));
             } else {
                 auto recurrent = toRecurrentEvent(record);
                 for (auto& occurrence : recurrent->getSchedulable(from, to)) {
                     occurrences.push_back(
-                        occurrenceToJson(record.id, *occurrence));
+                        occurrenceToJson(record.id, *occurrence, typeStr));
                 }
             }
         }
@@ -310,6 +315,28 @@ int main() {
                     return;
                 }
                 events.addException(eventId, tp);
+                res.set_content(json{{"ok", true}}.dump(), "application/json");
+                return;
+            }
+            if (body.contains("truncate")) {
+                // Termina la ricorrenza un istante prima dell'occorrenza indicata.
+                events::TimePoint tp;
+                if (!parseIso8601(body["truncate"].get<std::string>(), tp)) {
+                    res.status = 400;
+                    res.set_content(
+                        errorJson("truncate non valido (ISO-8601)").dump(),
+                        "application/json");
+                    return;
+                }
+                if (!events.setRecurrenceEnd(eventId, userId,
+                                             tp - std::chrono::seconds(1))) {
+                    res.status = 400;
+                    res.set_content(
+                        errorJson("operazione valida solo per eventi ricorrenti")
+                            .dump(),
+                        "application/json");
+                    return;
+                }
                 res.set_content(json{{"ok", true}}.dump(), "application/json");
                 return;
             }

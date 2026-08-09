@@ -6,7 +6,6 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
-#include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
@@ -48,18 +47,6 @@ EventDialog::EventDialog(QWidget* parent) : QDialog(parent) {
     m_end->setCalendarPopup(true);
     m_end->setEnabled(false);
 
-    m_exceptions = new QListWidget(this);
-    m_exceptionPicker = new QDateTimeEdit(QDateTime::currentDateTime(), this);
-    m_exceptionPicker->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
-    m_exceptionPicker->setCalendarPopup(true);
-
-    auto* addExceptionButton = new QPushButton(tr("Aggiungi eccezione"), this);
-    auto* removeExceptionButton = new QPushButton(tr("Rimuovi eccezione"), this);
-    auto* exceptionRow = new QHBoxLayout;
-    exceptionRow->addWidget(m_exceptionPicker);
-    exceptionRow->addWidget(addExceptionButton);
-    exceptionRow->addWidget(removeExceptionButton);
-
     auto* buttons = new QHBoxLayout;
     auto* okButton = new QPushButton(tr("Crea"), this);
     auto* cancelButton = new QPushButton(tr("Annulla"), this);
@@ -74,8 +61,6 @@ EventDialog::EventDialog(QWidget* parent) : QDialog(parent) {
     form->addRow(tr("Tipo"), m_type);
     form->addRow(tr("Intervallo"), m_intervalDays);
     form->addRow(m_hasEnd, m_end);
-    form->addRow(tr("Eccezioni"), m_exceptions);
-    form->addRow(exceptionRow);
 
     auto* layout = new QVBoxLayout(this);
     layout->addLayout(form);
@@ -83,17 +68,28 @@ EventDialog::EventDialog(QWidget* parent) : QDialog(parent) {
 
     connect(m_type, &QComboBox::currentIndexChanged, this, &EventDialog::onTypeChanged);
     connect(m_hasEnd, &QCheckBox::toggled, m_end, &QWidget::setEnabled);
-    connect(addExceptionButton, &QPushButton::clicked, this, [this]() {
-        m_exceptions->addItem(m_exceptionPicker->dateTime().toString(
-            QStringLiteral("dd/MM/yyyy HH:mm")));
-    });
-    connect(removeExceptionButton, &QPushButton::clicked, this, [this]() {
-        delete m_exceptions->takeItem(m_exceptions->currentRow());
-    });
     connect(okButton, &QPushButton::clicked, this, &EventDialog::onAccept);
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
 
     onTypeChanged();
+}
+
+void EventDialog::setStart(const QDateTime& start) {
+    m_start->setDateTime(start.toLocalTime());
+}
+
+void EventDialog::setOccurrence(const Occurrence& occurrence) {
+    setWindowTitle(tr("Modifica occorrenza"));
+    m_title->setText(occurrence.title);
+    m_start->setDateTime(occurrence.start.toLocalTime());
+    const qint64 minutes =
+        qMax<qint64>(1, occurrence.start.secsTo(occurrence.end) / 60);
+    m_durationMinutes->setValue(static_cast<int>(
+        qMin<qint64>(minutes, m_durationMinutes->maximum())));
+    // La modifica di una singola istanza diventa un evento singolo.
+    m_type->setCurrentIndex(0);
+    m_type->setEnabled(false);
+    m_hasEnd->setChecked(false);
 }
 
 void EventDialog::onTypeChanged() {
@@ -111,14 +107,6 @@ CreateEventRequest EventDialog::request() const {
     request.intervalSec = static_cast<qint64>(m_intervalDays->value()) * 86400;
     if (m_hasEnd->isChecked()) {
         request.end = m_end->dateTime().toUTC();
-    }
-    for (int i = 0; i < m_exceptions->count(); ++i) {
-        const QDateTime when =
-            QDateTime::fromString(m_exceptions->item(i)->text(),
-                                  QStringLiteral("dd/MM/yyyy HH:mm"));
-        if (when.isValid()) {
-            request.exceptions.append(when.toUTC());
-        }
     }
     return request;
 }

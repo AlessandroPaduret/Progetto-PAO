@@ -1,18 +1,19 @@
 #ifndef CLIENT_MAINWINDOW_H
 #define CLIENT_MAINWINDOW_H
 
+#include <QDateTime>
 #include <QMainWindow>
 #include <QVector>
 
 class QDateEdit;
-class QTableWidget;
 
 namespace client {
 
 class EventsController;
+class WeekView;
 struct Occurrence;
 
-/** @brief Finestra principale: tabella delle occorrenze nel range selezionato. */
+/** @brief Finestra principale: vista settimanale degli eventi. */
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -22,21 +23,21 @@ public slots:
     void refresh();
 
 private slots:
-    void onPreviousMonth();
-    void onNextMonth();
-    void onCreateEvent();
-    void onDeleteEvent();
-    void onAddException();
+    void onPreviousWeek();
+    void onNextWeek();
+    void onCreateEvent(const QDateTime& start = QDateTime());
+    void showEventInfo(const Occurrence& occurrence);
+    void confirmModifyEvent(const Occurrence& occurrence);
+    void confirmDeleteEvent(const Occurrence& occurrence);
 
 private:
-    void populateTable(const QVector<Occurrence>& occurrences);
+    void setRangeToCurrentWeek();
     bool selectedOccurrence(Occurrence& out) const;
-    void setRangeToCurrentMonth();
 
     EventsController* m_events;
     QDateEdit* m_fromDate;
     QDateEdit* m_toDate;
-    QTableWidget* m_table;
+    WeekView* m_weekView;
 };
 
 } // namespace client
