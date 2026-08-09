@@ -1,0 +1,11 @@
+# artefatti di build/test
+build/
+bin/
+*.o
+*.a
+*.out
+*.exe
+
+# VCS
+.git
+.gitignore
