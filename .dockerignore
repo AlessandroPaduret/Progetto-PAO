@@ -1,0 +1,11 @@
+# artefatti di build/test e doc generata
+**/build/
+**/bin/
+**/docs/
+*.o
+*.a
+*.out
+*.exe
+
+# VCS
+.git

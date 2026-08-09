@@ -31,6 +31,25 @@ services:
     networks:
       - backend
 
+  api:
+    # API server REST: cpp-httplib + nlohmann/json + jwt-cpp + db_repository.
+    # Il contesto di build è la radice del repo (servono model/ e db/).
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: pao-api:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://events:events@db:5432/events
+      JWT_SECRET: dev-secret
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+
 volumes:
   db_data:
 
