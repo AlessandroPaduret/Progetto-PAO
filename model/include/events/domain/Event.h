@@ -67,6 +67,9 @@ public:
     /** @return La singola occorrenza dell'evento se il suo inizio e' in [from, to] */
     std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
 
+    /** @brief Sposta l'evento all'inizio indicato (durata invariata). */
+    void moveTo(TimePoint newStart) override;
+
     /** @return Descrizione testuale dell'evento (solo visualizzazione) */
     String describe() const override;
 

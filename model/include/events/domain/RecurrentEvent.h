@@ -80,6 +80,9 @@ public:
     /** @brief Espande la ricorrenza in [from, to] escludendo le eccezioni */
     std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
 
+    /** @brief Sposta l'intera serie al nuovo primo inizio (eccezioni traslate). */
+    void moveTo(TimePoint newStart) override;
+
     /** @return Descrizione testuale dell'evento ricorrente (solo visualizzazione) */
     String describe() const override;
 

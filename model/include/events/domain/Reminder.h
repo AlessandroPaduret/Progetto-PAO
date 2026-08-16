@@ -75,6 +75,9 @@ public:
     /** @brief Espande le attivazioni in [from, to] (una se una tantum, molteplici se ripetuto) */
     std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
 
+    /** @brief Sposta l'attivazione al nuovo istante. */
+    void moveTo(TimePoint newStart) override;
+
     /** @return Descrizione testuale del promemoria (solo visualizzazione) */
     String describe() const override;
 

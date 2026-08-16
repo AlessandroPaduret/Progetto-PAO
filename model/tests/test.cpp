@@ -326,6 +326,46 @@ TEST_CASE("Formattazione ISO-8601", "[iso][format]") {
     }
 }
 
+TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
+    TimePoint start = make_date(2026, 1, 5);
+    TimePoint target = make_date(2026, 2, 9) + 3h;
+
+    SECTION("Event: cambia l'inizio, la durata resta") {
+        Event event("X", start, 1h);
+        event.moveTo(target);
+        REQUIRE(event.getStart() == target);
+        REQUIRE(event.getDuration() == 1h);
+    }
+
+    SECTION("RecurrentEvent: serie e regola spostate, eccezioni traslate") {
+        auto event = ActivityFactory::createSimpleWeekly(
+            "Riunione", start + 9h, 1h, start + 4_weeks);
+        event->addException(start + 1_weeks + 9h);
+
+        event->moveTo(target);
+        REQUIRE(event->getStart() == target);
+
+        auto instances = event->getSchedulable(target, target + 3_weeks);
+        // 4 occorrenze previste; il secondo lunedi' e' l'eccezione traslata
+        // dall'originale (start+1 settimana) -> size 3
+        REQUIRE(instances.size() == 3);
+        REQUIRE(event->getExceptions().count(start + 1_weeks + 9h) == 0);
+        REQUIRE(event->getExceptions().count(target + 1_weeks) == 1);
+    }
+
+    SECTION("Deadline: cambia la scadenza") {
+        Deadline deadline("Consegna", start, Priority::High);
+        deadline.moveTo(target);
+        REQUIRE(deadline.getDue() == target);
+    }
+
+    SECTION("Reminder: cambia l'attivazione") {
+        Reminder reminder("Pillola", start, "msg");
+        reminder.moveTo(target);
+        REQUIRE(reminder.getTrigger() == target);
+    }
+}
+
 int main(int argc, char* argv[]) {
     Catch::Session session;
     int returnCode = session.applyCommandLine(argc, argv);

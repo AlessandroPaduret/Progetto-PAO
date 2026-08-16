@@ -61,6 +61,8 @@ String Deadline::priorityLabel(const Priority priority) {
 
 TimePoint Deadline::getStart() const { return m_due; }
 
+void Deadline::moveTo(const TimePoint newStart) { m_due = newStart; }
+
 std::vector<Occurrence> Deadline::occurrencesIn(const TimePoint from,
                                                 const TimePoint to) const {
   if (m_due >= from && m_due <= to) {

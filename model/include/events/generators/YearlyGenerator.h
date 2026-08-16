@@ -32,12 +32,12 @@ public:
     /** @brief Ritorna la data di fine dell'intervallo
     *  @return La data di fine dell'intervallo
     */
-    TimePoint getEnd() const;
+    TimePoint getEnd() const override;
 
     /** @brief Imposta la data di inizio dell'intervallo
     *  @param newStart La nuova data di inizio dell'intervallo
     */
-    void setStart(TimePoint newStart);
+    void setStart(TimePoint newStart) override;
 
     /** @brief Imposta l'intervallo di tempo tra le date generate
     *  @param newInterval Il nuovo intervallo di tempo tra le date generate

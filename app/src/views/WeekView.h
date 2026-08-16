@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QWidget>
 
+#include <optional>
 #include <vector>
 
 #include "events/events.h"
@@ -17,11 +18,17 @@ namespace app {
  *  attivita' disegnate come blocchi colorati (posizione = ora di inizio,
  *  altezza = durata; durata zero = chip di altezza minima).
  *
+ *  Le occorrenze che si sovrappongono temporalmente nello stesso giorno
+ *  vengono AFFIANCATE in colonne (come in Google Calendar), cosi' possono
+ *  coesistere nella stessa casella.
+ *
+ *  Trascinamento: tenendo premuto il tasto sinistro su un'occorrenza e
+ *  spostando il mouse, l'occorrenza diventa trascinabile; al rilascio su
+ *  una nuova cella viene emesso `activityMoved` con la nuova data/ora.
+ *
  *  La griglia si adatta al ridimensionamento: sotto le dimensioni base mostra
  *  le scrollbar (dimensione minima), sopra scala giorno/ora (e font) per
- *  riempire la finestra. Un clic seleziona un'occorrenza, il tasto destro
- *  apre un menu contestuale, un doppio clic su una cella vuota emette
- *  `emptySlotClicked` con l'orario locale della cella.
+ *  riempire la finestra.
  */
 class WeekView : public QWidget {
     Q_OBJECT
@@ -32,6 +39,7 @@ public:
     static constexpr int kHourHeight = 60;    // pixel base per ora
     static constexpr int kDaysPerWeek = 7;
     static constexpr int kMinOccurrenceHeight = 18;  // chip per durata zero
+    static constexpr int kDragThresholdPx = 8;       // soglia per avviare il drag
 
     explicit WeekView(QWidget* parent = nullptr);
 
@@ -61,22 +69,46 @@ signals:
     void modifyEventRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: elimina l'occorrenza/attivita'. */
     void deleteEventRequested(const events::Occurrence& occurrence);
+    /** @brief Drag&drop: l'occorrenza e' stata rilasciata nella nuova data/ora. */
+    void activityMoved(const events::Occurrence& occurrence, const QDateTime& newStart);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     bool event(QEvent* event) override;
 
 private:
     int dayWidth() const;   // larghezza corrente di una colonna giorno
     int hourHeight() const; // altezza corrente di un'ora
-    QRect occurrenceRect(const events::Occurrence& occurrence) const;
+
+    // Layout a colonne: rect di ogni occorrenza (eventi sovrapposti affiancati)
+    void ensureRects();
+    QTime localTimeOf(const events::Occurrence& occurrence) const;
+    int minuteOf(const QTime& time) const;
+
+    /** @brief Riga di una cella (giorno/ora) dalle coordinate locali. */
+    std::optional<QDateTime> cellAt(const QPoint& pos) const;
+
+    /** @brief Rettangolo di un'occorrenza "gettonata" (drag) in una data/ora. */
+    QRect dragGhostRect(const QDateTime& localStart,
+                        const events::Duration duration) const;
+
     int hitTest(const QPoint& pos) const;
 
     std::vector<events::Occurrence> m_occurrences;
+    std::vector<QRect> m_rects;           // layout corrente (parallelo a m_occurrences)
     QDate m_monday;
     int m_selected = -1;
+
+    // Stato del drag&drop
+    bool m_dragActive = false;
+    bool m_dragMoved = false;
+    int m_dragIndex = -1;
+    QPoint m_dragPressPos;
+    std::optional<QDateTime> m_dropCell;
 };
 
 } // namespace app

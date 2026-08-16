@@ -34,6 +34,14 @@ public:
     */
     virtual String describe() const = 0;
 
+    /** @brief Imposta il primo istante della finestra di ricorrenza (spostamento serie)
+     *  @param start Nuovo inizio
+    */
+    virtual void setStart(TimePoint start) = 0;
+
+    /** @return La fine della finestra di ricorrenza (TimePoint::max() = senza fine) */
+    virtual TimePoint getEnd() const = 0;
+
     /** @brief Imposta la fine della finestra di ricorrenza (es. troncamento dalla GUI)
      *  @param end Nuova fine: nessuna occorrenza generata dopo questo istante
     */

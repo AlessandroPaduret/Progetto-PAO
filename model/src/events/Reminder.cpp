@@ -60,6 +60,8 @@ void Reminder::snooze(const Duration delay) { m_trigger += delay; }
 
 TimePoint Reminder::getStart() const { return m_trigger; }
 
+void Reminder::moveTo(const TimePoint newStart) { m_trigger = newStart; }
+
 std::vector<Occurrence> Reminder::occurrencesIn(const TimePoint from,
                                                 const TimePoint to) const {
   std::vector<Occurrence> result;

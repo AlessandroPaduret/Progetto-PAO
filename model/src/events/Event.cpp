@@ -70,6 +70,8 @@ std::vector<Occurrence> Event::occurrencesIn(const TimePoint from,
   return {};
 }
 
+void Event::moveTo(const TimePoint newStart) { m_start = newStart; }
+
 String Event::describe() const {
   return "Evento: " + getTitle() + " - inizio " + formatDateTime(m_start) +
          ", durata " + formatDuration(m_duration);

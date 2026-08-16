@@ -76,6 +76,9 @@ public:
     /** @return L'occorrenza puntuale (durata zero) se la scadenza e' in [from, to] */
     std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
 
+    /** @brief Sposta la scadenza al nuovo istante. */
+    void moveTo(TimePoint newStart) override;
+
     /** @return Descrizione testuale della scadenza (solo visualizzazione) */
     String describe() const override;
 

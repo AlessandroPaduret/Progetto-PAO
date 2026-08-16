@@ -87,6 +87,12 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
 
     connect(m_weekView, &WeekView::emptySlotClicked,
             this, &MainWindow::showFormCreate);
+    connect(m_weekView, &WeekView::activityMoved,
+            this, [this](const events::Occurrence& occurrence,
+                         const QDateTime& newStart) {
+                // Drag&drop: sposta l'attivita' alla nuova data/ora
+                m_controller->moveActivity(occurrence.source, newStart);
+            });
     connect(m_weekView, &WeekView::activityEditRequested,
             this, [this](const events::Occurrence& occurrence) {
                 // Doppio clic: modifica l'attivita' sorgente conservando il

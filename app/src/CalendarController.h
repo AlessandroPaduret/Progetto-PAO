@@ -41,6 +41,13 @@ public:
     bool updateActivity(const events::Activity* oldActivity,
                         std::unique_ptr<events::Activity> replacement);
 
+    /** @brief Sposta un'attivita' al nuovo istante (drag&drop nella settimana).
+     *  @param activity L'attivita' da spostare
+     *  @param newStart Nuovo istante di inizio/riferimento (data/ora scelta)
+     *  @return true se lo spostamento e' riuscito
+     */
+    bool moveActivity(const events::Activity* activity, const QDateTime& newStart);
+
     // --- Query --------------------------------------------------------------
 
     /** @brief Ricerca per titolo (case-insensitive); vuoto = tutte */

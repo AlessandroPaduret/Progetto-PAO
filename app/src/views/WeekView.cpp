@@ -8,6 +8,8 @@
 #include <QPainter>
 #include <QToolTip>
 
+#include <algorithm>
+
 namespace app {
 
 namespace {
@@ -50,23 +52,35 @@ int WeekView::baseHeight() const {
 }
 
 int WeekView::dayWidth() const {
-    // Se la finestra e' piu' larga delle dimensioni base, allarga le colonne.
     return qMax(kDayWidth, (width() - kGutterWidth) / kDaysPerWeek);
 }
 
 int WeekView::hourHeight() const {
-    // Se la finestra e' piu' alta delle dimensioni base, allarga le ore.
     return qMax(kHourHeight, (height() - kHeaderHeight) / 24);
+}
+
+QTime WeekView::localTimeOf(const events::Occurrence& occurrence) const {
+    return localTime(occurrence.start).time();
+}
+
+int WeekView::minuteOf(const QTime& time) const {
+    return time.msecsSinceStartOfDay() / 60000;
 }
 
 void WeekView::setOccurrences(const std::vector<events::Occurrence>& occurrences) {
     m_occurrences = occurrences;
     m_selected = -1;
+    m_dragActive = false;
+    m_dragMoved = false;
+    m_dragIndex = -1;
+    m_dropCell.reset();
+    m_rects.clear();
     update();
 }
 
 void WeekView::setWeekStart(const QDate& monday) {
     m_monday = monday;
+    m_dropCell.reset();
     update();
 }
 
@@ -77,46 +91,144 @@ const events::Occurrence* WeekView::selectedOccurrence() const {
     return &m_occurrences[m_selected];
 }
 
-QRect WeekView::occurrenceRect(const events::Occurrence& occurrence) const {
-    if (!m_monday.isValid()) {
-        return QRect();
-    }
-    const QDateTime localStart = localTime(occurrence.start);
-    const QDateTime localEnd = localTime(occurrence.end());
+// ---------------------------------------------------------------------------
+// Layout a colonne: le occorrenze sovrapposte dello stesso giorno vengono
+// affiancate, cosi' possono coesistere nella stessa casella.
+// ---------------------------------------------------------------------------
+void WeekView::ensureRects() {
+    m_rects.assign(m_occurrences.size(), QRect());
 
-    const int dayIndex = m_monday.daysTo(localStart.date());
-    if (dayIndex < 0 || dayIndex >= kDaysPerWeek) {
-        return QRect();
-    }
+    for (int day = 0; day < kDaysPerWeek; ++day) {
+        // Indici delle occorrenze del giorno (ordinate per inizio)
+        std::vector<int> dayIndex;
+        for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
+            if (m_monday.daysTo(localTime(m_occurrences[i].start).date()) == day) {
+                dayIndex.push_back(i);
+            }
+        }
+        std::sort(dayIndex.begin(), dayIndex.end(),
+                  [this](int a, int b) {
+                      return m_occurrences[a].start < m_occurrences[b].start;
+                  });
 
-    const int startMin = localStart.time().msecsSinceStartOfDay() / 60000;
-    int endMin = localEnd.time().msecsSinceStartOfDay() / 60000;
-    if (localEnd.date() != localStart.date()) {
-        endMin = kMinutesPerDay;  // l'attivita' attraversa la mezzanotte
-    }
+        int k = 0;
+        while (k < static_cast<int>(dayIndex.size())) {
+            // Fine effettiva (durata zero -> +1 minuto per l'affiancamento)
+            auto effectiveEnd = [this](const events::Occurrence& o) {
+                return o.duration > events::Duration::zero()
+                           ? o.end()
+                           : o.start + std::chrono::minutes(1);
+            };
 
-    const int topMin = qBound(0, startMin, kMinutesPerDay);
-    const int bottomMin = qBound(0, endMin, kMinutesPerDay);
-    int height = (bottomMin - topMin) * hourHeight() / 60 - 4;
-    if (height < kMinOccurrenceHeight) {
-        height = kMinOccurrenceHeight;  // durata zero: chip minimo visibile
-    }
+            // Cluster: occorrenze sovrapposte (transitivamente)
+            auto clusterStop = effectiveEnd(m_occurrences[dayIndex[k]]);
+            int j = k + 1;
+            while (j < static_cast<int>(dayIndex.size()) &&
+                   m_occurrences[dayIndex[j]].start < clusterStop) {
+                clusterStop =
+                    std::max(clusterStop, effectiveEnd(m_occurrences[dayIndex[j]]));
+                ++j;
+            }
 
-    const int x = kGutterWidth + dayIndex * dayWidth() + 2;
-    const int y = kHeaderHeight + topMin * hourHeight() / 60 + 2;
-    return QRect(x, y, dayWidth() - 4, height);
+            // Assegnazione greedy delle colonne
+            std::vector<int> column;                       // colonna per indice
+            std::vector<events::TimePoint> columnEnd;      // fine ultimo evento per colonna
+            for (int t = k; t < j; ++t) {
+                const int idx = dayIndex[t];
+                const events::TimePoint start = m_occurrences[idx].start;
+                int col = 0;
+                while (col < static_cast<int>(columnEnd.size()) &&
+                       !(start >= columnEnd[col])) {
+                    ++col;
+                }
+                if (col == static_cast<int>(columnEnd.size())) {
+                    columnEnd.push_back(start);
+                }
+                column.push_back(col);
+                columnEnd[col] = std::max(columnEnd[col],
+                                          effectiveEnd(m_occurrences[idx]));
+            }
+            const int clusterCols = std::max(1, static_cast<int>(columnEnd.size()));
+
+            // Rects: colonne affiancate larghe dayWidth/clusterCols
+            for (int t = k; t < j; ++t) {
+                const int idx = dayIndex[t];
+                const events::Occurrence& occ = m_occurrences[idx];
+                const QDateTime localStart = localTime(occ.start);
+                const QDateTime localEnd = localTime(occ.end());
+
+                const int topMin = minuteOf(localStart.time());
+                int bottomMin = minuteOf(localEnd.time());
+                if (localEnd.date() != localStart.date()) {
+                    bottomMin = kMinutesPerDay;  // attraversa la mezzanotte
+                }
+                const int lo = qBound(0, topMin, kMinutesPerDay);
+                const int hi = qBound(0, bottomMin, kMinutesPerDay);
+                int height = (hi - lo) * hourHeight() / 60 - 4;
+                if (height < kMinOccurrenceHeight) {
+                    height = kMinOccurrenceHeight;
+                }
+
+                const int colWidth = dayWidth() / clusterCols;
+                const int x = kGutterWidth + day * dayWidth() +
+                              column[t - k] * colWidth + 2;
+                const int y = kHeaderHeight + lo * hourHeight() / 60 + 2;
+                m_rects[idx] = QRect(x, y, colWidth - 4, height);
+            }
+            k = j;
+        }
+    }
 }
 
 int WeekView::hitTest(const QPoint& pos) const {
-    for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-        if (occurrenceRect(m_occurrences[i]).contains(pos)) {
+    // Ricalcola il layout se necessario (paint precedente) per un hit corretto
+    const_cast<WeekView*>(this)->ensureRects();
+    for (int i = 0; i < static_cast<int>(m_rects.size()); ++i) {
+        if (m_rects[i].contains(pos)) {
             return i;
         }
     }
     return -1;
 }
 
+std::optional<QDateTime> WeekView::cellAt(const QPoint& pos) const {
+    if (pos.y() < kHeaderHeight || pos.x() < kGutterWidth) {
+        return std::nullopt;
+    }
+    const int dayIndex = (pos.x() - kGutterWidth) / dayWidth();
+    if (dayIndex < 0 || dayIndex >= kDaysPerWeek) {
+        return std::nullopt;
+    }
+    const int minutes = (pos.y() - kHeaderHeight) * 60 / hourHeight();
+    const QTime time(qBound(0, minutes / 60, 23), qBound(0, minutes % 60, 59));
+    return QDateTime(m_monday.addDays(dayIndex), time);
+}
+
+QRect WeekView::dragGhostRect(const QDateTime& localStart,
+                              const events::Duration duration) const {
+    const int dayIndex = m_monday.daysTo(localStart.date());
+    if (dayIndex < 0 || dayIndex >= kDaysPerWeek) {
+        return QRect();
+    }
+
+    const QDateTime localEnd = localStart.addSecs(duration.count());
+    const int topMin = minuteOf(localStart.time());
+    int bottomMin = minuteOf(localEnd.time());
+    if (localStart.date() != localEnd.date()) {
+        bottomMin = kMinutesPerDay;
+    }
+    const int height = qMax(kMinOccurrenceHeight,
+                            (qBound(0, bottomMin, kMinutesPerDay) -
+                             qBound(0, topMin, kMinutesPerDay)) *
+                                hourHeight() / 60 - 4);
+    const int x = kGutterWidth + dayIndex * dayWidth() + 2;
+    const int y = kHeaderHeight + qBound(0, topMin, kMinutesPerDay) *
+                                      hourHeight() / 60 + 2;
+    return QRect(x, y, dayWidth() - 4, height);
+}
+
 void WeekView::paintEvent(QPaintEvent*) {
+    ensureRects();
     QPainter painter(this);
     painter.fillRect(rect(), Qt::white);
 
@@ -169,9 +281,30 @@ void WeekView::paintEvent(QPaintEvent*) {
                                                      QLatin1Char('0')));
     }
 
-    // --- Attivita' come blocchi colorati ---
+    // --- Evidenziazione della cella di destinazione durante il drag ---
+    if (m_dragActive && m_dragMoved && m_dropCell &&
+        m_dragIndex >= 0 && m_dragIndex < static_cast<int>(m_occurrences.size())) {
+        const events::Occurrence& dragged = m_occurrences[m_dragIndex];
+        const QRect ghost = dragGhostRect(*m_dropCell, dragged.duration);
+        if (!ghost.isValid()) {
+            QColor overlay("#1a73e8");
+            overlay.setAlpha(12);
+            painter.fillRect(QRect(kGutterWidth, kHeaderHeight,
+                                   width() - kGutterWidth,
+                                   height() - kHeaderHeight),
+                             overlay);
+        } else {
+            QColor overlay("#1a73e8");
+            overlay.setAlpha(25);
+            painter.fillRect(ghost, overlay);
+            painter.setPen(QColor("#1a73e8"));
+            painter.drawRect(ghost);
+        }
+    }
+
+    // --- Attivita' come blocchi colorati (layout a colonne) ---
     for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-        const QRect rect = occurrenceRect(m_occurrences[i]);
+        const QRect rect = m_rects[i];
         if (!rect.isValid()) {
             continue;
         }
@@ -220,25 +353,55 @@ void WeekView::mousePressEvent(QMouseEvent* event) {
         } else {
             QAction* createAction = menu.addAction(tr("Nuova attivita'..."));
             if (menu.exec(event->globalPosition().toPoint()) == createAction) {
-                const QPoint pos = event->pos();
-                if (pos.y() >= kHeaderHeight) {
-                    const int dayIndex = (pos.x() - kGutterWidth) / dayWidth();
-                    if (dayIndex >= 0 && dayIndex < kDaysPerWeek) {
-                        const int minutes =
-                            (pos.y() - kHeaderHeight) * 60 / hourHeight();
-                        const QTime time(qBound(0, minutes / 60, 23),
-                                         qBound(0, minutes % 60, 59));
-                        emit emptySlotClicked(
-                            QDateTime(m_monday.addDays(dayIndex), time));
-                    }
+                if (std::optional<QDateTime> cell = cellAt(event->pos())) {
+                    emit emptySlotClicked(*cell);
                 }
             }
         }
         return;
     }
 
-    m_selected = index;
-    update();
+    if (event->button() == Qt::LeftButton) {
+        m_selected = index;
+        // Avvia il potenziale trascinamento se si preme su un'occorrenza
+        m_dragActive = index >= 0;
+        m_dragMoved = false;
+        m_dragIndex = index;
+        m_dragPressPos = event->pos();
+        m_dropCell.reset();
+        update();
+    }
+}
+
+void WeekView::mouseMoveEvent(QMouseEvent* event) {
+    if (m_dragActive && m_dragIndex >= 0 &&
+        m_dragIndex < static_cast<int>(m_occurrences.size())) {
+        if (!m_dragMoved &&
+            (event->pos() - m_dragPressPos).manhattanLength() > kDragThresholdPx) {
+            m_dragMoved = true;
+        }
+        if (m_dragMoved) {
+            m_dropCell = cellAt(event->pos());
+            update();
+        }
+    }
+    QWidget::mouseMoveEvent(event);
+}
+
+void WeekView::mouseReleaseEvent(QMouseEvent* event) {
+    if (m_dragActive && event->button() == Qt::LeftButton) {
+        m_dragActive = false;
+        if (m_dragMoved && m_dropCell && m_dragIndex >= 0 &&
+            m_dragIndex < static_cast<int>(m_occurrences.size())) {
+            emit activityMoved(m_occurrences[m_dragIndex], *m_dropCell);
+        }
+        m_dragIndex = -1;
+        m_dragMoved = false;
+        m_dropCell.reset();
+        update();
+        return;
+    }
+    QWidget::mouseReleaseEvent(event);
 }
 
 void WeekView::mouseDoubleClickEvent(QMouseEvent* event) {
@@ -251,17 +414,9 @@ void WeekView::mouseDoubleClickEvent(QMouseEvent* event) {
         emit activityEditRequested(m_occurrences[index]);
         return;
     }
-    const QPoint pos = event->pos();
-    if (pos.y() < kHeaderHeight) {
-        return;
+    if (std::optional<QDateTime> cell = cellAt(event->pos())) {
+        emit emptySlotClicked(*cell);
     }
-    const int dayIndex = (pos.x() - kGutterWidth) / dayWidth();
-    if (dayIndex < 0 || dayIndex >= kDaysPerWeek) {
-        return;
-    }
-    const int minutes = (pos.y() - kHeaderHeight) * 60 / hourHeight();
-    const QTime time(qBound(0, minutes / 60, 23), qBound(0, minutes % 60, 59));
-    emit emptySlotClicked(QDateTime(m_monday.addDays(dayIndex), time));
 }
 
 bool WeekView::event(QEvent* event) {

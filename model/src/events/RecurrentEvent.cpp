@@ -87,6 +87,26 @@ RecurrentEvent::occurrencesIn(const TimePoint from, const TimePoint to) const {
 
 TimePoint RecurrentEvent::getStart() const { return m_templateEvent.getStart(); }
 
+void RecurrentEvent::moveTo(const TimePoint newStart) {
+  const Duration delta = newStart - m_templateEvent.getStart();
+  m_generator->setStart(newStart);
+  // La fine della ricorrenza trasla insieme alla serie, se presente
+  const TimePoint end = m_generator->getEnd();
+  if (end != TimePoint::max()) {
+    m_generator->setEnd(end + delta);
+  }
+  m_templateEvent.setStart(newStart);
+  // Trasla le eccezioni (date assolute delle occorrenze escluse) nello stesso
+  // scarto: restano allineate alla serie spostata.
+  if (!m_exceptions.empty()) {
+    std::unordered_set<TimePoint, TimePointHasher> shifted;
+    for (const TimePoint exception : m_exceptions) {
+      shifted.insert(exception + delta);
+    }
+    m_exceptions = std::move(shifted);
+  }
+}
+
 String RecurrentEvent::describe() const {
   return "Evento ricorrente: " + getTitle() + " - " + m_generator->describe();
 }

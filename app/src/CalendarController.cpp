@@ -84,6 +84,16 @@ std::vector<events::Occurrence> CalendarController::occurrencesIn(
   return m_calendar.occurrencesIn(toTimePoint(fromUtc), toTimePoint(toUtc));
 }
 
+bool CalendarController::moveActivity(const events::Activity* activity,
+                                      const QDateTime& newStart) {
+  if (!activity || !newStart.isValid()) {
+    return false;
+  }
+  const_cast<events::Activity*>(activity)->moveTo(toTimePoint(newStart));
+  emit activitiesChanged();
+  return true;
+}
+
 bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
                                           bool andFollowing) {
   auto* activity = const_cast<events::Activity*>(occurrence.source);

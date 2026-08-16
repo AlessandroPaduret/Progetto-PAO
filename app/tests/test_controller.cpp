@@ -144,6 +144,53 @@ TEST_CASE("Controller: aggiornamento attivita' conserva le eccezioni", "[control
     REQUIRE(occurrences[0].duration == 2h);
 }
 
+TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]") {
+    app::CalendarController controller;
+
+    SECTION("evento singolo: cambia inizio, durata invariata") {
+        controller.addActivity(ActivityFactory::createSimpleEvent(
+            "Dentista", tp(utc(2026, 1, 8, 10)), 1h));
+        const events::Activity* activity = controller.search("Dentista")[0];
+
+        const TimePoint newStart = tp(utc(2026, 1, 9, 15));
+        REQUIRE(controller.moveActivity(activity, utc(2026, 1, 9, 15)));
+
+        auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
+        REQUIRE(occurrences.size() == 1);
+        REQUIRE(occurrences[0].start == newStart);
+        REQUIRE(occurrences[0].duration == 1h);
+        REQUIRE(controller.search("Dentista")[0]->getStart() == newStart);
+    }
+
+    SECTION("ricorrente: serie spostata, eccezione traslata, fine traslata") {
+        controller.addActivity(ActivityFactory::createSimpleWeekly(
+            "Riunione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 1, 21))));
+        auto occurrences = controller.occurrencesIn(utc(2026, 1, 1), utc(2026, 1, 31));
+        const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
+        REQUIRE(second != nullptr);
+        controller.deleteOccurrence(*second);  // EXDATE sul 12/1
+
+        const events::Activity* activity = controller.search("Riunione")[0];
+        REQUIRE(controller.moveActivity(activity, utc(2026, 2, 2, 9)));
+
+        // delta +28 giorni: la serie riparte dal 2/2, l'eccezione traslata e'
+        // il 9/2, la fine traslata e' il 18/2 -> occorrenze 2/2 e 16/2
+        occurrences = controller.occurrencesIn(utc(2026, 2, 1), utc(2026, 3, 1));
+        REQUIRE(occurrences.size() == 2);
+        REQUIRE(occurrences[0].start == tp(utc(2026, 2, 2, 9)));
+        REQUIRE(occurrences[1].start == tp(utc(2026, 2, 16, 9)));
+        REQUIRE(controller.search("Riunione")[0]->getStart() == tp(utc(2026, 2, 2, 9)));
+    }
+
+    SECTION("scadenza: cambia il due") {
+        controller.addActivity(ActivityFactory::createDeadline(
+            "Consegna", tp(utc(2026, 1, 15)), Priority::High));
+        const events::Activity* d = controller.search("Consegna")[0];
+        REQUIRE(controller.moveActivity(d, utc(2026, 2, 1)));
+        REQUIRE(d->getStart() == tp(utc(2026, 2, 1)));
+    }
+}
+
 TEST_CASE("Controller: salvataggio e caricamento su file", "[controller]") {
     app::CalendarController controller;
     controller.addActivity(ActivityFactory::createSimpleEvent(

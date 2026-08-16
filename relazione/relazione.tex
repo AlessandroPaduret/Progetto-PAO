@@ -251,8 +251,12 @@ organizzata in tre pagine navigabili tramite \texttt{QStackedWidget}:
 \begin{enumerate}[nosep]
   \item \textbf{settimana}: griglia settimanale stile Google Calendar disegnata
     con \texttt{QPainter} (giorni, ore, occorrenze come blocchi colorati, tooltip,
-    menu contestuale, navigazione settimane); doppio clic su una cella vuota
-    avvia la creazione precompilata;
+    menu contestuale, navigazione settimane); le occorrenze che si sovrappongono
+    temporalmente nello stesso giorno vengono \textbf{affiancate in colonne}
+    (coesistono nella stessa casella); \textbf{trascinamento}: tenendo premuta
+    un'occorrenza la si sposta (drag\&drop) su una nuova data/ora, aggiornando i
+    dati dell'attivita' (per i ricorrenti l'intera serie, eccezioni e fine
+    comprese); doppio clic su una cella vuota avvia la creazione precompilata;
   \item \textbf{elenco}: tabella delle attivita' con ricerca live per titolo;
   \item \textbf{dettaglio}: campi specifici per tipo, costruiti con un Visitor
     (la GUI non discrimina mai tramite stringhe di tipo).
@@ -295,7 +299,8 @@ l'eliminazione di un'istanza offre le scelte ``solo questa'' (eccezione) o
     annuale (compleanni) con gestione degli anni bisestili;
   \item \textbf{vista settimanale personalizzata} disegnata con \texttt{QPainter}
     (scaling proporzionale, evidenza del giorno corrente, tooltip, menu
-    contestuale);
+    contestuale, affiancamento degli eventi sovrapposti, \textbf{drag\&drop}
+    per spostare rapidamente le attivita');
   \item \textbf{ricerca live} per titolo (case-insensitive) nell'elenco;
   \item \textbf{modifica di una singola istanza} di una ricorrenza senza
     alterare le altre;

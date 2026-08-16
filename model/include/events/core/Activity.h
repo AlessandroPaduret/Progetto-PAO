@@ -51,6 +51,15 @@ public:
      */
     virtual std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const = 0;
 
+    /** @brief Sposta l'attivita' all'istante indicato (drag&drop nella GUI).
+     *  @param newStart Nuovo istante di inizio/riferimento
+     *
+     *  Ogni tipo si sposta coerentemente (Event: inizio; RecurrentEvent: primo
+     *  inizio e regola di ricorrenza, con eccezioni traslate; Deadline: scadenza;
+     *  Reminder: attivazione). La durata non cambia.
+     */
+    virtual void moveTo(TimePoint newStart) = 0;
+
     /** @return Descrizione testuale dell'attivita' (solo per visualizzazione) */
     virtual String describe() const = 0;
 
