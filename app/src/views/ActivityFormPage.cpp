@@ -387,6 +387,10 @@ void ActivityFormPage::populateReminder(const events::Reminder& reminder) {
 }
 
 void ActivityFormPage::onRecurrenceEndToggled(bool checked) {
+  if (checked) {
+    // Valore di default della data di scadenza = data di inizio della serie
+    m_endEdit->setDateTime(m_startR->dateTime());
+  }
   m_endEdit->setEnabled(checked);
 }
 
