@@ -13,8 +13,12 @@ RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
     setStyleSheet(QStringLiteral(
         "#choiceDialog { background: palette(base);"
         " border: 1px solid palette(mid); }"));
-    // Pannello ridotto: piu' piccolo della finestra principale
-    resize(440, 210);
+    // Finestra piu' grande: le scritte nei pulsanti devono stare per intero
+    resize(600, 250);
+
+    // Nascosta all'avvio: compare solo alla scelta dell'utente (doppio clic
+    // o trascinamento di un'occorrenza in mezzo alla serie ricorrente).
+    hide();
 
     m_titleLabel = new QLabel(this);
     QFont titleFont = m_titleLabel->font();
@@ -29,15 +33,19 @@ RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
     auto* cancelButton = new QPushButton(tr("Annulla"), this);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(12, 8, 12, 12);
+    layout->setContentsMargins(14, 10, 14, 12);
     layout->addWidget(m_titleLabel);
-    layout->addWidget(m_messageLabel, 1);
-    auto* buttons = new QHBoxLayout;
-    buttons->addStretch(1);
-    buttons->addWidget(seriesButton);
-    buttons->addWidget(instanceButton);
-    buttons->addWidget(cancelButton);
-    layout->addLayout(buttons);
+    layout->addWidget(m_messageLabel);
+    // I due pulsanti principali su righe intere: testo sempre leggibile
+    layout->addSpacing(6);
+    seriesButton->setMinimumHeight(34);
+    instanceButton->setMinimumHeight(34);
+    layout->addWidget(seriesButton);
+    layout->addWidget(instanceButton);
+    auto* bottom = new QHBoxLayout;
+    bottom->addStretch(1);
+    bottom->addWidget(cancelButton);
+    layout->addLayout(bottom);
 
     connect(seriesButton, &QPushButton::clicked,
             this, &RecurrenceChoiceDialog::seriesChosen);
