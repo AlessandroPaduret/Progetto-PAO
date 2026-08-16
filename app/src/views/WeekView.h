@@ -63,6 +63,9 @@ signals:
     /** @brief Doppio clic su un'occorrenza: modifica dell'ATTIVITA' sorgente
      *  (per i ricorrenti la serie intera, con la sua regola di ricorrenza). */
     void activityEditRequested(const events::Occurrence& occurrence);
+    /** @brief Doppio clic su un'occorrenza successiva alla prima di una serie:
+     *  chiedi se modificare la serie o la singola occorrenza. */
+    void occurrenceEditChoiceRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: mostra le informazioni dell'occorrenza. */
     void infoRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: modifica la singola istanza. */
@@ -71,6 +74,10 @@ signals:
     void deleteEventRequested(const events::Occurrence& occurrence);
     /** @brief Drag&drop: l'occorrenza e' stata rilasciata nella nuova data/ora. */
     void activityMoved(const events::Occurrence& occurrence, const QDateTime& newStart);
+    /** @brief Drag di un'occorrenza successiva alla prima di una serie: chiedi se
+     *  spostare la serie o la singola occorrenza. */
+    void occurrenceDragChoiceRequested(const events::Occurrence& occurrence,
+                                       const QDateTime& newStart);
 
 protected:
     void paintEvent(QPaintEvent* event) override;

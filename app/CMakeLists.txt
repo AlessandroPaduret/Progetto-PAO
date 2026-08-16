@@ -35,6 +35,7 @@ add_executable(pao_app
     src/views/ActivityFormPage.cpp
     src/views/ActivityFormDialog.cpp
     src/views/ActivityViewHelpers.cpp
+    src/views/RecurrenceChoiceDialog.cpp
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 

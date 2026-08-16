@@ -20,6 +20,7 @@
 #include "views/ActivityDetailPage.h"
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
+#include "views/RecurrenceChoiceDialog.h"
 #include "views/WeekView.h"
 
 namespace app {
@@ -34,6 +35,8 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     m_detailPage = new ActivityDetailPage(controller, this);
     // Finestra figlia ridotta per creazione/modifica (si chiude con la "X")
     m_formDialog = new ActivityFormDialog(controller, this);
+    // Finestra di scelta serie/singola occorrenza (interna, non esce)
+    m_choiceDialog = new RecurrenceChoiceDialog(this);
 
     auto* weekScroll = new QScrollArea(this);
     weekScroll->setWidget(m_weekView);
@@ -99,6 +102,10 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
                 // tipo (per i ricorrenti l'intera serie con la sua fine).
                 showFormEditActivity(occurrence.source);
             });
+    connect(m_weekView, &WeekView::occurrenceEditChoiceRequested,
+            this, &MainWindow::askSeriesOrInstance);
+    connect(m_weekView, &WeekView::occurrenceDragChoiceRequested,
+            this, &MainWindow::askSeriesOrInstanceDrag);
     connect(m_weekView, &WeekView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
                 showDetailPage(occurrence.source);
@@ -117,6 +124,12 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::showListPage);
     connect(m_detailPage, &ActivityDetailPage::editRequested,
             this, &MainWindow::showFormEditActivity);
+
+    // Finestra di scelta serie/singola occorrenza (interna alla MainWindow)
+    connect(m_choiceDialog, &RecurrenceChoiceDialog::seriesChosen,
+            this, &MainWindow::onChoiceSeries);
+    connect(m_choiceDialog, &RecurrenceChoiceDialog::instanceChosen,
+            this, &MainWindow::onChoiceInstance);
 
     // --- Stato iniziale ----------------------------------------------------------
     setWeekStart(QDate::currentDate().addDays(
@@ -204,10 +217,52 @@ void MainWindow::onNewActivity() {
 
 void MainWindow::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event);
-    // Il pannello di creazione resta sempre dentro la finestra principale
+    // I pannelli interni restano sempre dentro la finestra principale
     if (m_formDialog && m_formDialog->isVisible()) {
         m_formDialog->showCentered();
     }
+    if (m_choiceDialog && m_choiceDialog->isVisible()) {
+        m_choiceDialog->showCentered();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Scelta serie / singola occorrenza per gli eventi ricorrenti
+// ---------------------------------------------------------------------------
+void MainWindow::askSeriesOrInstance(const events::Occurrence& occurrence) {
+    m_pendingOccurrence = occurrence;
+    m_pendingIsDrag = false;
+    m_choiceDialog->ask(tr(
+        "Questo evento fa parte di una serie ricorrente. Vuoi modificare "
+        "l'intera serie (che iniziera' da questo evento) oppure solo questo "
+        "evento (che diventera' un evento singolo, fuori dalla serie)?"));
+    m_choiceDialog->showCentered();
+}
+
+void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
+                                         const QDateTime& newStart) {
+    m_pendingOccurrence = occurrence;
+    m_pendingDragTarget = newStart;
+    m_pendingIsDrag = true;
+    m_choiceDialog->ask(tr(
+        "Questo evento fa parte di una serie ricorrente. Vuoi spostare "
+        "l'intera serie (che iniziera' dal nuovo giorno) oppure solo questo "
+        "evento (che diventera' un evento singolo, fuori dalla serie)?"));
+    m_choiceDialog->showCentered();
+}
+
+void MainWindow::onChoiceSeries() {
+    m_choiceDialog->hide();
+    m_pendingOccurrence.reset();
+    m_pendingIsDrag = false;
+    // (logica completa nel prossimo passo)
+}
+
+void MainWindow::onChoiceInstance() {
+    m_choiceDialog->hide();
+    m_pendingOccurrence.reset();
+    m_pendingIsDrag = false;
+    // (logica completa nel prossimo passo)
 }
 
 void MainWindow::onEditSelected() {

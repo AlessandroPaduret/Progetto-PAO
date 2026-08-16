@@ -5,6 +5,7 @@
 #include <QMainWindow>
 
 #include <memory>
+#include <optional>
 
 #include "events/events.h"
 
@@ -17,6 +18,7 @@ class CalendarController;
 class ActivityDetailPage;
 class ActivityFormDialog;
 class ActivityListPage;
+class RecurrenceChoiceDialog;
 class WeekView;
 
 /** @brief Finestra principale dell'applicazione: un'unica finestra con
@@ -57,6 +59,14 @@ private slots:
 
     void confirmDeleteOccurrence(const events::Occurrence& occurrence);
 
+    /** @brief Mostra la finestra di scelta serie/singola occorrenza. */
+    void askSeriesOrInstance(const events::Occurrence& occurrence);
+    /** @brief Mostra la finestra di scelta serie/singola occorrenza (drag). */
+    void askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
+                                 const QDateTime& newStart);
+    void onChoiceSeries();
+    void onChoiceInstance();
+
 protected:
     /** @brief Tiene centrato il pannello di creazione quando si ridimensiona. */
     void resizeEvent(QResizeEvent* event) override;
@@ -71,8 +81,13 @@ private:
     ActivityListPage* m_listPage = nullptr;
     ActivityDetailPage* m_detailPage = nullptr;
     ActivityFormDialog* m_formDialog = nullptr;
+    RecurrenceChoiceDialog* m_choiceDialog = nullptr;
     QLabel* m_weekLabel = nullptr;
     QDate m_monday;
+    // Occorrenza "pendente" su cui l'utente deve scegliere serie o istanza
+    std::optional<events::Occurrence> m_pendingOccurrence;
+    QDateTime m_pendingDragTarget;
+    bool m_pendingIsDrag = false;
 };
 
 } // namespace app

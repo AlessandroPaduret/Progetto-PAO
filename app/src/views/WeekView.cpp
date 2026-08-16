@@ -405,7 +405,21 @@ void WeekView::mouseReleaseEvent(QMouseEvent* event) {
         m_dragActive = false;
         if (m_dragMoved && m_dropCell && m_dragIndex >= 0 &&
             m_dragIndex < static_cast<int>(m_occurrences.size())) {
-            emit activityMoved(m_occurrences[m_dragIndex], *m_dropCell);
+            const events::Occurrence& occurrence = m_occurrences[m_dragIndex];
+            // Se trascino un'occorrenza successiva alla prima della serie,
+            // chiede se spostare la serie o la singola occorrenza.
+            if (const auto* recurrent =
+                    dynamic_cast<const events::RecurrentEvent*>(occurrence.source)) {
+                if (occurrence.start > recurrent->getStart()) {
+                    emit occurrenceDragChoiceRequested(occurrence, *m_dropCell);
+                    m_dragIndex = -1;
+                    m_dragMoved = false;
+                    m_dropCell.reset();
+                    update();
+                    return;
+                }
+            }
+            emit activityMoved(occurrence, *m_dropCell);
         }
         m_dragIndex = -1;
         m_dragMoved = false;
@@ -419,11 +433,20 @@ void WeekView::mouseReleaseEvent(QMouseEvent* event) {
 void WeekView::mouseDoubleClickEvent(QMouseEvent* event) {
     const int index = hitTest(event->pos());
     if (index >= 0) {
-        // Doppio clic su un'occorrenza: modifica l'attivita' sorgente
-        // mantiene il tipo originale (es. ricorrente con la sua serie).
+        // Doppio clic su un'occorrenza: modifica l'attivita' sorgente e
+        // mantiene il tipo originale. Se l'occorrenza NON e' la prima della
+        // serie, chiede se agire sulla serie o sulla singola occorrenza.
         m_selected = index;
         update();
-        emit activityEditRequested(m_occurrences[index]);
+        const events::Occurrence& occurrence = m_occurrences[index];
+        if (const auto* recurrent =
+                dynamic_cast<const events::RecurrentEvent*>(occurrence.source)) {
+            if (occurrence.start > recurrent->getStart()) {
+                emit occurrenceEditChoiceRequested(occurrence);
+                return;
+            }
+        }
+        emit activityEditRequested(occurrence);
         return;
     }
     if (std::optional<QDateTime> cell = cellAt(event->pos())) {

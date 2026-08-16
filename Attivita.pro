@@ -19,6 +19,7 @@ SOURCES += \
     app/src/views/ActivityListPage.cpp \
     app/src/views/ActivityViewHelpers.cpp \
     app/src/views/MainWindow.cpp \
+    app/src/views/RecurrenceChoiceDialog.cpp \
     app/src/views/WeekView.cpp \
     model/src/events/Activity.cpp \
     model/src/events/ActivityFactory.cpp \
@@ -39,6 +40,7 @@ HEADERS += \
     app/src/views/ActivityListPage.h \
     app/src/views/ActivityViewHelpers.h \
     app/src/views/MainWindow.h \
+    app/src/views/RecurrenceChoiceDialog.h \
     app/src/views/WeekView.h \
     model/include/events/events.h \
     model/include/events/core/Activity.h \
