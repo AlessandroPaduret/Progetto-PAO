@@ -6,6 +6,7 @@
 
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
+#include "events/core/DateGeneratorVisitor.h"
 
 namespace events {
 
@@ -68,6 +69,9 @@ public:
     *  @return Una stringa che descrive il generatore di date
     */
     String describe() const override;
+
+    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const YearlyGenerator&) */
+    void accept(DateGeneratorVisitor& visitor) const override;
 };
 
 } // namespace events

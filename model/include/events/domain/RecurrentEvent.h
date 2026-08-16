@@ -1,57 +1,90 @@
 #ifndef RECURRENTEVENT_H
 #define RECURRENTEVENT_H
 
-#include <vector>
 #include <chrono>
-#include <memory>
 #include <iostream>
+#include <memory>
 #include <unordered_set>
+#include <vector>
 
+#include "events/core/Activity.h"
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
-#include "events/core/GroupSchedulable.h"
 #include "events/domain/Event.h"
 
 namespace events {
 
-class RecurrentEvent : public GroupSchedulable<Event> {
+/**
+ * @class RecurrentEvent
+ * @brief Attivita' ricorrente: regola di ricorrenza (DateGenerator, Strategy)
+ *        + evento template + insieme di eccezioni (EXDATE).
+ *
+ * Il titolo dell'attivita' e' quello ereditato da Activity; il titolo del
+ * template viene allineato ad esso in costruzione e nelle occorrenze generate.
+ */
+class RecurrentEvent : public Activity {
 private:
-    std::shared_ptr<DateGenerator> m_generator;
-    Event m_templateEvent;  // Evento template da cui generare le occorrenze
-    std::unordered_set<TimePoint, TimePointHasher> m_exceptions; // occorrenze escluse
+    std::shared_ptr<DateGenerator> m_generator;   ///< Generatore delle date di ricorrenza
+    Event m_templateEvent;                        ///< Evento template da cui generare le occorrenze
+    std::unordered_set<TimePoint, TimePointHasher> m_exceptions;  ///< Occorrenze escluse
+
+protected:
+    RecurrentEvent* clone_impl() const override;
+
 public:
-
-    /// Costruttore e distruttore
-
-    /** @brief Costruttore con parametri opzionali.
-     * @param generator Generatore di date di ricorrenza
-     * @param templateEvent Evento template da cui generare le occorrenze (default: evento vuoto)
-    */
+    /** @brief Costruttore.
+     *  @param generator Generatore di date di ricorrenza (ownership condivisa)
+     *  @param templateEvent Evento template da cui generare le occorrenze
+     */
     RecurrentEvent(std::shared_ptr<DateGenerator> generator, Event templateEvent = Event());
 
     /** @brief Operatore di output per stampare i dettagli dell'evento ricorrente */
     friend std::ostream& operator<<(std::ostream& os, const RecurrentEvent& event);
 
-    /** @brief Aggiunge un'eccezione a una specifica occorrenza dell'evento ricorrente 
-     * @param tp TimePoint rappresentante la data di ricorrenza specifica da escludere
-    */
+    /** @return Il generatore di date (condiviso) */
+    const std::shared_ptr<DateGenerator>& getGenerator() const;
+
+    /** @return L'evento template */
+    const Event& getTemplateEvent() const;
+
+    /** @return L'insieme delle eccezioni (date delle occorrenze escluse) */
+    const std::unordered_set<TimePoint, TimePointHasher>& getExceptions() const;
+
+    /** @brief Aggiunge un'eccezione su una specifica occorrenza
+     *  @param tp Data della ricorrenza da escludere
+     */
     void addException(TimePoint tp);
 
-    /** @brief Elimina tutte le eccezioni associate a una specifica occorrenza dell'evento ricorrente
-    * @param tp TimePoint rappresentante la data di ricorrenza specifica a cui rimuovere tutte le eccezioni
-    */
+    /** @brief Elimina l'eccezione associata a una specifica occorrenza
+     *  @param tp Data della ricorrenza da ripristinare
+     */
     void deleteExceptions(TimePoint tp);
 
-    /// Implementazione dei metodi virtuali di GroupSchedulable
+    /** @brief Restituisce le occorrenze in [from, to] come cloni indipendenti del template
+     *  @param from Inizio dell'intervallo
+     *  @param to Fine dell'intervallo
+     *  @return Vettore di puntatori unici a Event nell'intervallo specificato
+     */
+    std::vector<std::unique_ptr<Event>> getSchedulable(TimePoint from, TimePoint to) const;
 
-    /** @brief Restituisce le occorrenze in un intervallo di tempo 
-     * @param from Inizio dell'intervallo
-     * @param to Fine dell'intervallo
-     * @return Vettore di puntatori unici a Schedulable nell'intervallo specificato
-    */
-    std::vector<std::unique_ptr<Event>> getSchedulable(const TimePoint from, const TimePoint to) const override;
+    /// Implementazione dei metodi virtuali di Activity
+
+    /** @return L'inizio della prima occorrenza (l'inizio del template) */
+    TimePoint getStart() const override;
+
+    /** @brief Espande la ricorrenza in [from, to] escludendo le eccezioni */
+    std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
+
+    /** @return Descrizione testuale dell'evento ricorrente (solo visualizzazione) */
+    String describe() const override;
+
+    /** @brief Doppio dispatch verso ActivityVisitor::visit(const RecurrentEvent&) */
+    void accept(ActivityVisitor& visitor) const override;
+
+    /** @brief Crea una copia dell'evento ricorrente */
+    std::unique_ptr<RecurrentEvent> clone() const;
 };
 
 } // namespace events
 
-#endif
+#endif // RECURRENTEVENT_H

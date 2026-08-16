@@ -8,6 +8,8 @@
 
 namespace events {
 
+class DateGeneratorVisitor;
+
 class DateGenerator {
 public:
     /** @brief Distruttore virtuale */
@@ -31,6 +33,9 @@ public:
      *  @return Una stringa che descrive il generatore di date
     */
     virtual String describe() const = 0;
+
+    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(...) del tipo concreto */
+    virtual void accept(DateGeneratorVisitor& visitor) const = 0;
 
     friend std::ostream& operator<<(std::ostream& os, const DateGenerator& generator) {
         os << generator.describe();

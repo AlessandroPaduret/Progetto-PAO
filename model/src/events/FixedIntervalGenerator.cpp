@@ -73,4 +73,8 @@ String FixedIntervalGenerator::describe() const {
     return oss.str();
 }
 
+void FixedIntervalGenerator::accept(DateGeneratorVisitor& visitor) const {
+  visitor.visit(*this);
+}
+
 } // namespace events

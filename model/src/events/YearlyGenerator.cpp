@@ -86,4 +86,8 @@ String YearlyGenerator::describe() const {
     return oss.str();
 }
 
+void YearlyGenerator::accept(DateGeneratorVisitor& visitor) const {
+  visitor.visit(*this);
+}
+
 } // namespace events  

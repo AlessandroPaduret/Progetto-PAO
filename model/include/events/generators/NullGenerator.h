@@ -6,6 +6,7 @@
 
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
+#include "events/core/DateGeneratorVisitor.h"
 
 namespace events {
 
@@ -14,12 +15,17 @@ public:
     /** @brief Distruttore virtuale */
     virtual ~NullGenerator() = default;
 
+    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const NullGenerator&) */
+    void accept(DateGeneratorVisitor& visitor) const override {
+        visitor.visit(*this);
+    }
+
     /** @brief Genera le date comprese nell'intervallo [from, to] 
      *  @param from Data di inizio dell'intervallo
      *  @param to Data di fine dell'intervallo
      *  @return Un vettore di TimePoint che rappresentano le date generate
     */
-    std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override {
+    std::vector<TimePoint> generateDates(TimePoint, TimePoint) const override {
         return {};
     }
 
@@ -28,7 +34,7 @@ public:
      *  @param to Data di fine dell'intervallo
      *  @return true se esistono date comprese nell'intervallo, false altrimenti
     */
-    bool occursInRange(TimePoint from, TimePoint to) const override {
+    bool occursInRange(TimePoint, TimePoint) const override {
         return false;
     }
     

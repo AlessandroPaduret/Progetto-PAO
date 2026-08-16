@@ -9,7 +9,8 @@ LABEL description="Compila i test del modello logico e genera la documentazione 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Strumenti minimi: compilazione (cmake + gcc), framework di test (Catch2),
-# formattazione (clang-format), generazione docs (doxygen + graphviz per i grafi)
+# formattazione (clang-format), generazione docs (doxygen + graphviz per i grafi),
+# Qt Core (per i test del modulo di persistenza JSON, senza GUI)
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -17,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     clang-format \
     doxygen \
     graphviz \
+    qt6-base-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Modello logico

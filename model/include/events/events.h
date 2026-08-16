@@ -3,16 +3,24 @@
 
 // Core
 #include "events/core/CommonTypes.h"
-#include "events/core/Schedulable.h"
+#include "events/core/Occurrence.h"
+#include "events/core/Format.h"
+#include "events/core/Activity.h"
+#include "events/core/ActivityVisitor.h"
+#include "events/core/DateGenerator.h"
+#include "events/core/DateGeneratorVisitor.h"
 
 // Domain
 #include "events/domain/Event.h"
 #include "events/domain/RecurrentEvent.h"
-#include "events/domain/Events.h"
-#include "events/domain/EventFactory.h"
+#include "events/domain/Deadline.h"
+#include "events/domain/Reminder.h"
+#include "events/domain/Calendar.h"
+#include "events/domain/ActivityFactory.h"
 
 // Generators
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/YearlyGenerator.h"
+#include "events/generators/NullGenerator.h"
 
 #endif  // EVENTS_ALL_H
