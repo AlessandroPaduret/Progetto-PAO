@@ -99,4 +99,8 @@ void RecurrentEvent::addException(TimePoint tp) { m_exceptions.insert(tp); }
 
 void RecurrentEvent::deleteExceptions(TimePoint tp) { m_exceptions.erase(tp); }
 
+void RecurrentEvent::truncateBefore(TimePoint tp) {
+  m_generator->setEnd(tp - Duration(1));
+}
+
 } // namespace events

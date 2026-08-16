@@ -1,31 +1,31 @@
-# Project Specifications
-Project specification for the Object Oriented Programming class.
+# Attivita — gestione di attivita' personali
 
+Applicazione C++20/Qt per la gestione di attivita' personali (eventi, eventi
+ricorrenti, scadenze, promemoria), sviluppata per il corso di **Programmazione
+a Oggetti** (Universita' di Padova, a.a. 2025/26).
 
-## Overview
-This repository contains source LaTeX code for the specifications of the project for the Object Oriented Programming class.
+## Componenti
 
+- `model/` — libreria del modello logico (namespace `events`): gerarchia
+  polimorfa `Activity` (Event, RecurrentEvent, Deadline, Reminder), generatori
+  di ricorrenza (Strategy), `Calendar`, Visitor per le operazioni esterne.
+  + `model/persistence/` — persistenza JSON su file (Qt Core, Visitor).
+- `app/` — applicazione Qt **standalone** a finestra singola (MVC): vista
+  settimanale, elenco con ricerca, dettaglio e form di creazione/modifica,
+  salvataggio/caricamento via dialog.
+- `db/` + `server/` — stack opzionale REST API + PostgreSQL (JWT, libpqxx),
+  NON richiesto dall'applicazione standalone.
 
-## TO DO:
-
-- repository(classe DB)
-- GUI
-
-## Docker
-
-The `model/Dockerfile` provides a minimal environment (no GUI) that compiles the model tests (Catch2) and generates the Doxygen documentation. The `docker-compose.yml` at the repo root mounts `model/` and runs it:
-
-```bash
-# compila i test, li esegue e genera la documentazione in model/docs/
-sudo systemctl start docker
-docker compose up --build model
-```
-
-To open an interactive shell inside the image (e.g. to run `ctest` manually):
+## Build e test
 
 ```bash
-docker compose build model
-docker run -it --rm -v "$(pwd)/model":/app -w /app -u $(id -u):$(id -g) pao-model:latest bash
+# modello + persistenza + test (Catch2, se presente)
+cmake -B build && cmake --build build -j && ctest --test-dir build   # da model/
+cmake -B build && cmake --build build -j && ctest --test-dir build   # da app/
 ```
 
-nota: fai in modo di non essere connesso a eduroam o con tailscale altrimenti il DNS fa casino perché non trova Server DNS online
+L'applicazione compila anche nel container di valutazione del corso
+(`unipd-oop/qt-env:2025`, Qt 6.4.2): i test Catch2 vengono compilati solo se
+il pacchetto e' disponibile, il resto della build non ha dipendenze esterne.
+
+Per lo stack opzionale: `docker compose up --build db api` (porta 8080).

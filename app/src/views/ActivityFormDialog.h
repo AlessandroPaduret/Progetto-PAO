@@ -1,0 +1,49 @@
+#ifndef APP_ACTIVITY_FORM_DIALOG_H
+#define APP_ACTIVITY_FORM_DIALOG_H
+
+#include <QDateTime>
+#include <QFrame>
+
+#include "events/events.h"
+
+class QLabel;
+class QToolButton;
+
+namespace app {
+
+class ActivityFormPage;
+class CalendarController;
+
+/** @brief Schermata di creazione/modifica di un'attivita': un pannello
+ *  ridotto mostrato DENTRO la finestra principale (widget figlio della
+ *  MainWindow), con barra del titolo e pulsante di chiusura "X".
+ *
+ *  Essendo un widget figlio, non puo' uscire dalla finestra principale
+ *  (e' clipato ai suoi bordi); viene ri-centrato automaticamente anche
+ *  quando la finestra viene ridimensionata.
+ */
+class ActivityFormDialog : public QFrame {
+    Q_OBJECT
+public:
+    explicit ActivityFormDialog(CalendarController* controller, QWidget* parent = nullptr);
+
+    /** @brief Avvia la creazione (data/ora suggerita, es. dal doppio clic). */
+    void startCreate(const QDateTime& suggestedStart = QDateTime());
+
+    /** @brief Avvia la modifica di un'attivita' esistente. */
+    void startEditActivity(const events::Activity* activity);
+
+    /** @brief Avvia la modifica di una singola occorrenza. */
+    void startEditOccurrence(const events::Occurrence& occurrence);
+
+    /** @brief Centra il pannello nella finestra principale e lo mostra. */
+    void showCentered();
+
+private:
+    ActivityFormPage* m_page;
+    QLabel* m_titleLabel;
+};
+
+} // namespace app
+
+#endif // APP_ACTIVITY_FORM_DIALOG_H

@@ -1,22 +1,21 @@
-#ifndef CLIENT_WEEKVIEW_H
-#define CLIENT_WEEKVIEW_H
+#ifndef APP_WEEKVIEW_H
+#define APP_WEEKVIEW_H
 
 #include <QDate>
 #include <QDateTime>
-#include <QVector>
 #include <QWidget>
 
-#include <optional>
+#include <vector>
 
-#include "api/dto.h"
+#include "events/events.h"
 
-namespace client {
+namespace app {
 
 /** @brief Griglia settimanale stile Google Calendar.
  *
  *  Intestazione con giorni della settimana e numeri, ore sul bordo sinistro,
- *  eventi disegnati come blocchi colorati (posizione = ora di inizio,
- *  altezza = durata).
+ *  attivita' disegnate come blocchi colorati (posizione = ora di inizio,
+ *  altezza = durata; durata zero = chip di altezza minima).
  *
  *  La griglia si adatta al ridimensionamento: sotto le dimensioni base mostra
  *  le scrollbar (dimensione minima), sopra scala giorno/ora (e font) per
@@ -32,17 +31,18 @@ public:
     static constexpr int kDayWidth = 120;     // larghezza base colonna giorno
     static constexpr int kHourHeight = 60;    // pixel base per ora
     static constexpr int kDaysPerWeek = 7;
+    static constexpr int kMinOccurrenceHeight = 18;  // chip per durata zero
 
     explicit WeekView(QWidget* parent = nullptr);
 
-    /** @brief Imposta gli eventi da mostrare. */
-    void setOccurrences(const QVector<Occurrence>& occurrences);
+    /** @brief Imposta le occorrenze da mostrare. */
+    void setOccurrences(const std::vector<events::Occurrence>& occurrences);
 
-    /** @brief Imposta il lunedì della settimana visualizzata. */
+    /** @brief Imposta il lunedi' della settimana visualizzata. */
     void setWeekStart(const QDate& monday);
 
-    /** @brief Occorrenza selezionata (clic sinistro), se presente. */
-    std::optional<Occurrence> selectedOccurrence() const;
+    /** @brief Occorrenza selezionata (clic sinistro), o nullptr se assente. */
+    const events::Occurrence* selectedOccurrence() const;
 
     /** @brief Larghezza minima (griglia alle dimensioni base). */
     int baseWidth() const;
@@ -52,12 +52,15 @@ public:
 signals:
     /** @brief Doppio clic (o menu) su una cella vuota: orario locale della cella. */
     void emptySlotClicked(const QDateTime& start);
+    /** @brief Doppio clic su un'occorrenza: modifica dell'ATTIVITA' sorgente
+     *  (per i ricorrenti la serie intera, con la sua regola di ricorrenza). */
+    void activityEditRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: mostra le informazioni dell'occorrenza. */
-    void infoRequested(const Occurrence& occurrence);
+    void infoRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: modifica la singola istanza. */
-    void modifyEventRequested(const Occurrence& occurrence);
-    /** @brief Menu contestuale: elimina l'occorrenza/evento. */
-    void deleteEventRequested(const Occurrence& occurrence);
+    void modifyEventRequested(const events::Occurrence& occurrence);
+    /** @brief Menu contestuale: elimina l'occorrenza/attivita'. */
+    void deleteEventRequested(const events::Occurrence& occurrence);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -68,14 +71,14 @@ protected:
 private:
     int dayWidth() const;   // larghezza corrente di una colonna giorno
     int hourHeight() const; // altezza corrente di un'ora
-    QRect occurrenceRect(const Occurrence& occurrence) const;
+    QRect occurrenceRect(const events::Occurrence& occurrence) const;
     int hitTest(const QPoint& pos) const;
 
-    QVector<Occurrence> m_occurrences;
+    std::vector<events::Occurrence> m_occurrences;
     QDate m_monday;
     int m_selected = -1;
 };
 
-} // namespace client
+} // namespace app
 
-#endif // CLIENT_WEEKVIEW_H
+#endif // APP_WEEKVIEW_H

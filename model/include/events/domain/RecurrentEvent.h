@@ -60,6 +60,11 @@ public:
      */
     void deleteExceptions(TimePoint tp);
 
+    /** @brief Tronca la ricorrenza: nessuna occorrenza a partire da tp.
+     *  @param tp Inizio della prima occorrenza da sopprimere (esclusa)
+     */
+    void truncateBefore(TimePoint tp);
+
     /** @brief Restituisce le occorrenze in [from, to] come cloni indipendenti del template
      *  @param from Inizio dell'intervallo
      *  @param to Fine dell'intervallo

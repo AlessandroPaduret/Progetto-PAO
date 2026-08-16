@@ -1,0 +1,56 @@
+{
+    "activities": [
+        {
+            "duration_seconds": 3600,
+            "start": "2026-09-07T10:30:00",
+            "title": "Visita dal dentista",
+            "type": "event"
+        },
+        {
+            "exceptions": [
+                "2026-11-16T14:00:00"
+            ],
+            "generator": {
+                "end": "2026-12-21T00:00:00",
+                "interval_seconds": 604800,
+                "start": "2026-09-07T14:00:00",
+                "type": "fixed"
+            },
+            "template": {
+                "duration_seconds": 7200,
+                "start": "2026-09-07T14:00:00",
+                "title": "Lezione di Programmazione a Oggetti"
+            },
+            "type": "recurrent"
+        },
+        {
+            "exceptions": [
+            ],
+            "generator": {
+                "start": "2026-02-28T00:00:00",
+                "type": "yearly"
+            },
+            "template": {
+                "duration_seconds": 86399,
+                "start": "2026-02-28T00:00:00",
+                "title": "Mario Rossi - Compleanno"
+            },
+            "type": "recurrent"
+        },
+        {
+            "done": false,
+            "due": "2026-09-15T00:00:00",
+            "priority": "high",
+            "title": "Consegna relazione PAO",
+            "type": "deadline"
+        },
+        {
+            "message": "2 compresse",
+            "repeat_seconds": 86400,
+            "title": "Prendi la pillola",
+            "trigger": "2026-09-07T08:00:00",
+            "type": "reminder"
+        }
+    ],
+    "version": 1
+}

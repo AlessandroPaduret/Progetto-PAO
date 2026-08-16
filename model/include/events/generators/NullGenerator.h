@@ -20,6 +20,9 @@ public:
         visitor.visit(*this);
     }
 
+    /** @brief Il generatore nullo non genera nulla: impostare la fine e' un no-op */
+    void setEnd(TimePoint) override {}
+
     /** @brief Genera le date comprese nell'intervallo [from, to] 
      *  @param from Data di inizio dell'intervallo
      *  @param to Data di fine dell'intervallo

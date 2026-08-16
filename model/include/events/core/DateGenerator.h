@@ -34,6 +34,11 @@ public:
     */
     virtual String describe() const = 0;
 
+    /** @brief Imposta la fine della finestra di ricorrenza (es. troncamento dalla GUI)
+     *  @param end Nuova fine: nessuna occorrenza generata dopo questo istante
+    */
+    virtual void setEnd(TimePoint end) = 0;
+
     /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(...) del tipo concreto */
     virtual void accept(DateGeneratorVisitor& visitor) const = 0;
 

@@ -83,6 +83,14 @@ TEST_CASE("Eccezioni su RecurrentEvent costruito direttamente", "[weekly][except
         auto instances = event.getSchedulable(start, start + 4_weeks);
         REQUIRE(instances.size() == 5);
     }
+
+    SECTION("truncateBefore esclude le occorrenze successive") {
+        event.truncateBefore(start + std::chrono::weeks(2));
+        auto instances = event.getSchedulable(start, start + 4_weeks);
+        REQUIRE(instances.size() == 2);
+        REQUIRE(instances[0]->getStart() == start);
+        REQUIRE(instances[1]->getStart() == start + std::chrono::weeks(1));
+    }
 }
 
 TEST_CASE("Event valida la durata", "[event][validation]") {

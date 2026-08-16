@@ -47,7 +47,7 @@ public:
     /** @brief Imposta la data di fine dell'intervallo
      * @param newEnd La nuova data di fine dell'intervallo
      */
-    void setEnd(TimePoint newEnd);
+    void setEnd(TimePoint newEnd) override;
 
     /// Implementazione dei metodi virtuali di DateGenerator
 
