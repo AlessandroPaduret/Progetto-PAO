@@ -162,23 +162,38 @@ TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]")
         REQUIRE(controller.search("Dentista")[0]->getStart() == newStart);
     }
 
-    SECTION("ricorrente: serie spostata, eccezione traslata, fine traslata") {
+    SECTION("ricorrente: inizio spostato, la fine NON slitta") {
         controller.addActivity(ActivityFactory::createSimpleWeekly(
-            "Riunione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 1, 21))));
+            "Riunione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 2, 16))));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 1), utc(2026, 1, 31));
         const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
         REQUIRE(second != nullptr);
         controller.deleteOccurrence(*second);  // EXDATE sul 12/1
 
+        // Sposta la serie di una settimana AVANTI (fine originale 16/2 supera
+        // ancora il nuovo inizio 12/1): la scadenza resta quella, non slitta.
+        const events::Activity* activity = controller.search("Riunione")[0];
+        REQUIRE(controller.moveActivity(activity, utc(2026, 1, 12, 9)));
+
+        occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 2, 28));
+        // serie 12/1..9/2 (la fine resta il 16/2, 16/2 09:00 esclusa perche'
+        // occorrenza dopo la scadenza 00:00) meno l'eccezione TRASLATA al
+        // 19/1 (originariamente il 12/1): 12/1, 26/1, 2/2, 9/2 = 4
+        REQUIRE(occurrences.size() == 4);
+        REQUIRE(controller.search("Riunione")[0]->getStart() == tp(utc(2026, 1, 12, 9)));
+        // nessuna occorrenza dopo la scadenza originale (16/2): 23/2 escluso
+        REQUIRE(controller.occurrencesIn(utc(2026, 2, 16), utc(2026, 2, 28)).empty());
+    }
+
+    SECTION("ricorrente: inizio oltre la scadenza -> la scadenza sale al nuovo inizio") {
+        controller.addActivity(ActivityFactory::createSimpleWeekly(
+            "Riunione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 1, 19))));
         const events::Activity* activity = controller.search("Riunione")[0];
         REQUIRE(controller.moveActivity(activity, utc(2026, 2, 2, 9)));
 
-        // delta +28 giorni: la serie riparte dal 2/2, l'eccezione traslata e'
-        // il 9/2, la fine traslata e' il 18/2 -> occorrenze 2/2 e 16/2
-        occurrences = controller.occurrencesIn(utc(2026, 2, 1), utc(2026, 3, 1));
-        REQUIRE(occurrences.size() == 2);
+        auto occurrences = controller.occurrencesIn(utc(2026, 2, 1), utc(2026, 3, 1));
+        REQUIRE(occurrences.size() == 1);  // solo il nuovo inizio
         REQUIRE(occurrences[0].start == tp(utc(2026, 2, 2, 9)));
-        REQUIRE(occurrences[1].start == tp(utc(2026, 2, 16, 9)));
         REQUIRE(controller.search("Riunione")[0]->getStart() == tp(utc(2026, 2, 2, 9)));
     }
 

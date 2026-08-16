@@ -10,6 +10,8 @@
 
 #include <algorithm>
 
+#include "events/domain/RecurrentEvent.h"
+
 namespace app {
 
 namespace {
@@ -340,12 +342,22 @@ void WeekView::mousePressEvent(QMouseEvent* event) {
             m_selected = index;
             update();
             QAction* infoAction = menu.addAction(tr("Info"));
-            QAction* modifyAction = menu.addAction(tr("Modifica istanza"));
+            QAction* modifyAction = menu.addAction(tr("Modifica"));
+            // Per un'attivita' ricorrente: modifica sia la serie sia la singola
+            // occorrenza (istanza) selezionata.
+            const bool isRecurrent =
+                dynamic_cast<const events::RecurrentEvent*>(
+                    m_occurrences[index].source) != nullptr;
+            QAction* modifyInstanceAction =
+                isRecurrent ? menu.addAction(tr("Modifica istanza")) : nullptr;
             QAction* deleteAction = menu.addAction(tr("Elimina"));
             QAction* chosen = menu.exec(event->globalPosition().toPoint());
             if (chosen == infoAction) {
                 emit infoRequested(m_occurrences[index]);
             } else if (chosen == modifyAction) {
+                // Modifica la serie (o l'attivita' singola)
+                emit activityEditRequested(m_occurrences[index]);
+            } else if (chosen == modifyInstanceAction) {
                 emit modifyEventRequested(m_occurrences[index]);
             } else if (chosen == deleteAction) {
                 emit deleteEventRequested(m_occurrences[index]);

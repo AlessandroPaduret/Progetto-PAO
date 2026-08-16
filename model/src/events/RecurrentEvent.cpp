@@ -90,10 +90,13 @@ TimePoint RecurrentEvent::getStart() const { return m_templateEvent.getStart(); 
 void RecurrentEvent::moveTo(const TimePoint newStart) {
   const Duration delta = newStart - m_templateEvent.getStart();
   m_generator->setStart(newStart);
-  // La fine della ricorrenza trasla insieme alla serie, se presente
+  // La data di scadenza della serie NON slitta con lo spostamento: resta
+  // quella che era. Unica eccezione: la fine non puo' mai diventare
+  // antecedente al nuovo inizio, quindi in quel caso viene portata al
+  // nuovo inizio (vincolo: la fine non precede l'inizio).
   const TimePoint end = m_generator->getEnd();
-  if (end != TimePoint::max()) {
-    m_generator->setEnd(end + delta);
+  if (end != TimePoint::max() && end < newStart) {
+    m_generator->setEnd(newStart);
   }
   m_templateEvent.setStart(newStart);
   // Trasla le eccezioni (date assolute delle occorrenze escluse) nello stesso

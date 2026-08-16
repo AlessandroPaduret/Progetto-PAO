@@ -454,6 +454,19 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
 }
 
 void ActivityFormPage::onSave() {
+  // Vincolo sulla serie ricorrente: la data di scadenza non puo' essere
+  // antecedente (o uguale) alla data di inizio.
+  if (m_forms->currentIndex() == kRecurrentPanel && m_hasEndCheck->isChecked()) {
+    const events::TimePoint start = toTimePoint(m_startR->dateTime());
+    const events::TimePoint end = toTimePoint(m_endEdit->dateTime());
+    if (end <= start) {
+      m_errorLabel->setText(
+          tr("La data di scadenza deve essere successiva all'inizio "
+             "dell'evento ricorrente."));
+      return;
+    }
+  }
+
   std::unique_ptr<events::Activity> activity = buildActivity();
   if (!activity) {
     m_errorLabel->setText(tr("Inserire un titolo non vuoto."));

@@ -337,20 +337,31 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         REQUIRE(event.getDuration() == 1h);
     }
 
-    SECTION("RecurrentEvent: serie e regola spostate, eccezioni traslate") {
+    SECTION("RecurrentEvent: inizio spostato, eccezioni traslate, la fine NON slitta") {
         auto event = ActivityFactory::createSimpleWeekly(
-            "Riunione", start + 9h, 1h, start + 4_weeks);
+            "Riunione", start + 9h, 1h, start + 3_weeks);
         event->addException(start + 1_weeks + 9h);
 
-        event->moveTo(target);
-        REQUIRE(event->getStart() == target);
+        // Sposta la serie UNA SETTIMANA INDIETRO (end = start+3 settimane
+        // supera ancora il nuovo inizio): la fine deve restare com'e'.
+        const TimePoint earlier = start - 1_weeks + 9h;
+        event->moveTo(earlier);
+        REQUIRE(event->getStart() == earlier);
 
-        auto instances = event->getSchedulable(target, target + 3_weeks);
-        // 4 occorrenze previste; il secondo lunedi' e' l'eccezione traslata
-        // dall'originale (start+1 settimana) -> size 3
-        REQUIRE(instances.size() == 3);
-        REQUIRE(event->getExceptions().count(start + 1_weeks + 9h) == 0);
-        REQUIRE(event->getExceptions().count(target + 1_weeks) == 1);
+        // le occorrenze arrivano solo fino alla scadenza ORIGINALE:
+        // (start+3 settimane) -> nessuna occorrenza dopo quella data
+        REQUIRE(event->getSchedulable(earlier, start + 4_weeks + 9h).size() == 3);
+        REQUIRE(event->getSchedulable(start + 3_weeks, start + 4_weeks + 9h).empty());
+    }
+
+    SECTION("RecurrentEvent: inizio OLTRE la scadenza -> la scadenza resta ma sale al nuovo inizio") {
+        auto event = ActivityFactory::createSimpleWeekly(
+            "Riunione", start + 9h, 1h, start + 2_weeks);
+        const TimePoint later = start + 4_weeks + 9h;  // oltre la scadenza
+        event->moveTo(later);
+        REQUIRE(event->getStart() == later);
+        // una sola occorrenza (quella appena creata dallo spostamento)
+        REQUIRE(event->getSchedulable(later, later + 1_weeks).size() == 1);
     }
 
     SECTION("Deadline: cambia la scadenza") {
