@@ -253,9 +253,23 @@ void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
 
 void MainWindow::onChoiceSeries() {
     m_choiceDialog->hide();
+    if (!m_pendingOccurrence) {
+        m_pendingIsDrag = false;
+        return;
+    }
+    const events::Occurrence occurrence = *m_pendingOccurrence;
+    const bool wasDrag = m_pendingIsDrag;
     m_pendingOccurrence.reset();
     m_pendingIsDrag = false;
-    // (logica completa nel prossimo passo)
+
+    if (wasDrag) {
+        // (drag: la logica dello spostamento della serie arriva in un passo
+        //  successivo)
+        return;
+    }
+    // Come il doppio clic sull'evento di inizio serie: apre la finestra di
+    // modifica dell'intera serie (regola, durata, data di scadenza, ...).
+    showFormEditActivity(occurrence.source);
 }
 
 void MainWindow::onChoiceInstance() {

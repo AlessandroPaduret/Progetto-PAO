@@ -235,7 +235,10 @@ QTimeEdit* ActivityFormPage::durationOf(int panel) const {
 
 void ActivityFormPage::onTypeChanged(int index) {
   const int from = m_forms->currentIndex();
-  if (from != index) {
+  // In CREAZIONE i campi comuni (titolo/data) si conservano cambiando tipo;
+  // in MODIFICA il cambio combo e' programmatico (populate*): i campi sono
+  // gia' stati compilati e non vanno sovrascritti.
+  if (from != index && m_mode == Mode::Create) {
     syncCommonFields(from, index);
   }
   m_forms->setCurrentIndex(index);
