@@ -53,6 +53,7 @@ signals:
 
 private slots:
     void onSave();
+    void onDelete();
     void onTypeChanged(int index);
     void onRecurrenceEndToggled(bool checked);
 
@@ -122,6 +123,7 @@ private:
     QSpinBox* m_repeatDays = nullptr;
 
     QPushButton* m_saveButton = nullptr;
+    QPushButton* m_deleteButton = nullptr;
     QLabel* m_errorLabel = nullptr;
 };
 

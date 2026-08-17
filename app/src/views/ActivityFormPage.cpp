@@ -5,6 +5,7 @@
 #include <QDateTimeEdit>
 #include <QGridLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
@@ -77,6 +78,10 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     auto* saveButton = new QPushButton(tr("Salva"), this);
     auto* cancelButton = new QPushButton(tr("Annulla"), this);
     m_saveButton = saveButton;
+    // Elimina: visibile solo in modifica (in creazione non c'e' nulla da
+    // eliminare); si nasconde con startCreate()
+    m_deleteButton = new QPushButton(tr("Elimina"), this);
+    m_deleteButton->setVisible(false);
 
     m_errorLabel = new QLabel(this);
     m_errorLabel->setWordWrap(true);
@@ -87,6 +92,7 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     layout->addWidget(m_forms, 1);
     layout->addWidget(m_errorLabel);
     auto* buttons = new QHBoxLayout;
+    buttons->addWidget(m_deleteButton);
     buttons->addStretch(1);
     buttons->addWidget(saveButton);
     buttons->addWidget(cancelButton);
@@ -103,6 +109,7 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     connect(m_durationR, &QTimeEdit::timeChanged,
             this, [this] { syncRecurrenceEndTime(); });
     connect(saveButton, &QPushButton::clicked, this, &ActivityFormPage::onSave);
+    connect(m_deleteButton, &QPushButton::clicked, this, &ActivityFormPage::onDelete);
     connect(cancelButton, &QPushButton::clicked, this, &ActivityFormPage::backRequested);
 }
 
@@ -278,6 +285,8 @@ void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
   m_hasEndCheck->setChecked(false);
   m_priorityCombo->setCurrentIndex(1);
   m_doneCheck->setChecked(false);
+  // In creazione non c'e' nulla da eliminare: il bottone resta nascosto
+  m_deleteButton->setVisible(false);
 
   // Data/ora suggerita (doppio clic su una cella): precompila ogni pannello
   const QDateTime value = suggestedStart.isValid()
@@ -313,6 +322,7 @@ void ActivityFormPage::startEditActivity(const events::Activity* activity) {
   m_typeCombo->setEnabled(false);
   m_doneCheck->setEnabled(true);
   m_saveButton->setText(tr("Salva"));
+  m_deleteButton->setVisible(true);
 }
 
 void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence) {
@@ -329,6 +339,7 @@ void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence)
       static_cast<int>(occurrence.duration.count())));
   m_saveButton->setText(tr("Salva"));
   m_forms->setCurrentIndex(kEventPanel);
+  m_deleteButton->setVisible(true);
 }
 
 void ActivityFormPage::populateEvent(const events::Event& event) {
@@ -481,8 +492,32 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   }
 }
 
-void ActivityFormPage::onSave() {
-  // Vincolo sulla serie ricorrente: la data di scadenza non puo' essere
+void ActivityFormPage::onDelete() {
+  if (m_mode == Mode::Create) {
+    return;
+  }
+  const QString what = m_mode == Mode::EditOccurrence
+                           ? tr("questa occorrenza")
+                           : tr("l'attivita'");
+  if (QMessageBox::question(this, tr("Elimina"),
+                            tr("Eliminare %1?").arg(what)) != QMessageBox::Yes) {
+    return;
+  }
+
+  bool ok = false;
+  if (m_mode == Mode::EditActivity) {
+    ok = m_controller->removeActivity(m_editingActivity);
+  } else if (m_mode == Mode::EditOccurrence && m_editingOccurrence) {
+    // Per un'occorrenza di una serie: la serie continua senza quel giorno
+    // (eccezione interna); per un'attivita' singola la rimuove del tutto.
+    ok = m_controller->deleteOccurrence(*m_editingOccurrence);
+  }
+  if (ok) {
+    emit backRequested();
+  }
+}
+
+void ActivityFormPage::onSave() {  // Vincolo sulla serie ricorrente: la data di scadenza non puo' essere
   // antecedente (o uguale) alla data di inizio.
   if (m_forms->currentIndex() == kRecurrentPanel && m_hasEndCheck->isChecked()) {
     const events::TimePoint start = toTimePoint(m_startR->dateTime());
