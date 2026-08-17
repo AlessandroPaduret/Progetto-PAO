@@ -1,0 +1,14 @@
+tenendo premuto tasto 'shift' fai in modo di selezionare piu' eventi 
+
+modifica barra in alto
+    'visualizza': elenco, giorno, settimana, mese, anno
+
+tasto 'invio', salvo l'evento
+
+tasto destro del mouse sull'evento, apri tendina con modifica, elimina
+
+cambiare colore agli eventi come si preferisce anziche' colore random
+
+TESTARE PROMEMORIA E SCADENZA
+
+in modalita' evento, se clicco su titolo/tipo li mette in ordine 

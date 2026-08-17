@@ -41,6 +41,13 @@ public:
     static constexpr int kMinOccurrenceHeight = 18;  // chip per durata zero
     static constexpr int kDragThresholdPx = 8;       // soglia per avviare il drag
 
+    /** @brief Anteprima di un evento in fase di creazione/modifica. */
+    struct Preview {
+        QString title;               ///< Titolo digitato nel form
+        QDateTime start;             ///< Data/ora (locale) dal form
+        events::Duration duration;   ///< Durata (zero per attivita' puntuali)
+    };
+
     explicit WeekView(QWidget* parent = nullptr);
 
     /** @brief Imposta le occorrenze da mostrare. */
@@ -48,6 +55,12 @@ public:
 
     /** @brief Imposta il lunedi' della settimana visualizzata. */
     void setWeekStart(const QDate& monday);
+
+    /** @brief Mostra/nasconde l'anteprima dell'evento in fase di modifica. */
+    void setPreview(const std::optional<Preview>& preview);
+
+    /** @return L'anteprima corrente (per test/strumenti). */
+    const std::optional<Preview>& preview() const;
 
     /** @brief Occorrenza selezionata (clic sinistro), o nullptr se assente. */
     const events::Occurrence* selectedOccurrence() const;
@@ -109,6 +122,7 @@ private:
     std::vector<QRect> m_rects;           // layout corrente (parallelo a m_occurrences)
     QDate m_monday;
     int m_selected = -1;
+    std::optional<Preview> m_preview;     // anteprima evento in modifica
 
     // Stato del drag&drop
     bool m_dragActive = false;

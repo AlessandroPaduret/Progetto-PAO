@@ -111,6 +111,18 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     connect(saveButton, &QPushButton::clicked, this, &ActivityFormPage::onSave);
     connect(m_deleteButton, &QPushButton::clicked, this, &ActivityFormPage::onDelete);
     connect(cancelButton, &QPushButton::clicked, this, &ActivityFormPage::backRequested);
+
+    // Anteprima live: ogni modifica dei campi aggiorna la griglia
+    const auto refreshPreview = [this] { emitPreview(); };
+    connect(m_titleE, &QLineEdit::textChanged, this, refreshPreview);
+    connect(m_startE, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
+    connect(m_durationE, &QTimeEdit::timeChanged, this, refreshPreview);
+    connect(m_titleR, &QLineEdit::textChanged, this, refreshPreview);
+    connect(m_durationR, &QTimeEdit::timeChanged, this, refreshPreview);
+    connect(m_titleD, &QLineEdit::textChanged, this, refreshPreview);
+    connect(m_dueEdit, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
+    connect(m_titleM, &QLineEdit::textChanged, this, refreshPreview);
+    connect(m_triggerEdit, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
 }
 
 QWidget* ActivityFormPage::buildEventPanel() {
@@ -249,6 +261,7 @@ void ActivityFormPage::onTypeChanged(int index) {
     syncCommonFields(from, index);
   }
   m_forms->setCurrentIndex(index);
+  emitPreview();
 }
 
 void ActivityFormPage::syncCommonFields(int fromPanel, int toPanel) {
@@ -302,6 +315,7 @@ void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
   m_doneCheck->setEnabled(true);
   m_saveButton->setText(tr("Salva"));
   m_forms->setCurrentIndex(kEventPanel);
+  emitPreview();
 }
 
 void ActivityFormPage::startEditActivity(const events::Activity* activity) {
@@ -323,6 +337,7 @@ void ActivityFormPage::startEditActivity(const events::Activity* activity) {
   m_doneCheck->setEnabled(true);
   m_saveButton->setText(tr("Salva"));
   m_deleteButton->setVisible(true);
+  emitPreview();
 }
 
 void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence) {
@@ -340,6 +355,7 @@ void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence)
   m_saveButton->setText(tr("Salva"));
   m_forms->setCurrentIndex(kEventPanel);
   m_deleteButton->setVisible(true);
+  emitPreview();
 }
 
 void ActivityFormPage::populateEvent(const events::Event& event) {
@@ -427,6 +443,17 @@ void ActivityFormPage::syncRecurrenceEndTime() {
   }
   // La data di scadenza resta quella scelta; l'orario e' la fine dell'evento
   m_endEdit->setTime(recurrenceEndTime());
+}
+
+void ActivityFormPage::emitPreview() {
+  const int panel = m_forms->currentIndex();
+  const QString title = titleOf(panel)->text();
+  const QDateTime start = dateOf(panel)->dateTime();
+  qint64 durationSeconds = 0;
+  if (QTimeEdit* dur = durationOf(panel)) {
+    durationSeconds = dur->time().msecsSinceStartOfDay() / 1000;
+  }
+  emit previewChanged(title, start, durationSeconds, true);
 }
 
 std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {

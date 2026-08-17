@@ -39,6 +39,13 @@ public:
     /** @brief Centra il pannello nella finestra principale e lo mostra. */
     void showCentered();
 
+signals:
+    /** @brief Inoltra l'anteprima del form (aggiornata a ogni modifica). */
+    void previewChanged(const QString& title, const QDateTime& start,
+                        qint64 durationSeconds, bool valid);
+    /** @brief Il pannello si e' chiuso (Salva/Annulla/Elimina). */
+    void closed();
+
 private:
     ActivityFormPage* m_page;
     QLabel* m_titleLabel;

@@ -131,6 +131,21 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     connect(m_choiceDialog, &RecurrenceChoiceDialog::instanceChosen,
             this, &MainWindow::onChoiceInstance);
 
+    // Anteprima live dell'evento in fase di creazione/modifica nella griglia
+    connect(m_formDialog, &ActivityFormDialog::previewChanged,
+            this, [this](const QString& title, const QDateTime& start,
+                         qint64 durationSeconds, bool valid) {
+                if (!valid) {
+                    m_weekView->setPreview(std::nullopt);
+                    return;
+                }
+                m_weekView->setPreview(
+                    WeekView::Preview{title, start,
+                                      events::Duration(durationSeconds)});
+            });
+    connect(m_formDialog, &ActivityFormDialog::closed,
+            this, [this] { m_weekView->setPreview(std::nullopt); });
+
     // --- Stato iniziale ----------------------------------------------------------
     setWeekStart(QDate::currentDate().addDays(
         1 - static_cast<int>(QDate::currentDate().dayOfWeek())));

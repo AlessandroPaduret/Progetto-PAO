@@ -50,12 +50,20 @@ public:
 
 signals:
     void backRequested();
+    /** @brief Anteprima dell'evento in fase di creazione/modifica: emesso a
+     *  ogni cambiamento dei campi (titolo, data/ora, durata). */
+    void previewChanged(const QString& title, const QDateTime& start,
+                        qint64 durationSeconds, bool valid);
 
 private slots:
     void onSave();
     void onDelete();
     void onTypeChanged(int index);
     void onRecurrenceEndToggled(bool checked);
+
+private:
+    /** @brief Emette l'anteprima corrente (dati del pannello attivo). */
+    void emitPreview();
 
 private:
     /** @brief Orario di fine dell'evento ripetuto (inizio + durata). */

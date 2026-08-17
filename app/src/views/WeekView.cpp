@@ -86,6 +86,15 @@ void WeekView::setWeekStart(const QDate& monday) {
     update();
 }
 
+void WeekView::setPreview(const std::optional<Preview>& preview) {
+    m_preview = preview;
+    update();
+}
+
+const std::optional<WeekView::Preview>& WeekView::preview() const {
+    return m_preview;
+}
+
 const events::Occurrence* WeekView::selectedOccurrence() const {
     if (m_selected < 0 || m_selected >= static_cast<int>(m_occurrences.size())) {
         return nullptr;
@@ -330,6 +339,22 @@ void WeekView::paintEvent(QPaintEvent*) {
         }
         painter.drawText(rect.adjusted(4, 3, -4, -3),
                          Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, text);
+    }
+
+    // --- Anteprima dell'evento in fase di creazione/modifica ---
+    if (m_preview) {
+        const QRect rect = dragGhostRect(m_preview->start, m_preview->duration);
+        if (rect.isValid()) {
+            QColor fill("#1a73e8");
+            fill.setAlpha(55);
+            painter.setBrush(fill);
+            painter.setPen(QPen(QColor("#1a73e8"), 1, Qt::DashLine));
+            painter.drawRect(rect);
+            painter.setPen(QColor("#202124"));
+            painter.drawText(rect.adjusted(4, 3, -4, -3),
+                             Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+                             m_preview->title);
+        }
     }
 }
 

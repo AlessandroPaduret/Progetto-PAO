@@ -50,7 +50,13 @@ ActivityFormDialog::ActivityFormDialog(CalendarController* controller,
     layout->addWidget(scroll, 1);
 
     // Salva/Annulla (dal form) chiudono il pannello
-    connect(m_page, &ActivityFormPage::backRequested, this, &QWidget::hide);
+    connect(m_page, &ActivityFormPage::backRequested, this, [this] {
+        hide();
+        emit closed();
+    });
+    // Inoltra l'anteprima live del form alla griglia
+    connect(m_page, &ActivityFormPage::previewChanged,
+            this, &ActivityFormDialog::previewChanged);
 }
 
 void ActivityFormDialog::startCreate(const QDateTime& suggestedStart) {
