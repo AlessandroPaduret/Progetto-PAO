@@ -2,7 +2,10 @@
 
 #include <QComboBox>
 #include <QHeaderView>
+#include <QIcon>
 #include <QLineEdit>
+#include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QHBoxLayout>
@@ -12,12 +15,26 @@
 
 #include "CalendarController.h"
 #include "views/ActivityViewHelpers.h"
+#include "views/ViewShared.h"
 
 namespace app {
 
 namespace {
 
-QString itemTitle(const events::Activity* activity) {
+/** @brief Pallino del colore dell'attivita': lungo la colonna ColorCodes le
+ *  righe si riconoscono subito, come i blocchi delle griglie del calendario. */
+QIcon colorDotIcon(const QColor& color) {
+    QPixmap pixmap(14, 14);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(color);
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(1, 1, 12, 12);
+    return QIcon(pixmap);
+}
+
+QString plainTitle(const events::Activity* activity) {
     return QString::fromStdString(activity->getTitle());
 }
 
@@ -45,17 +62,36 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
         m_typeFilter->addItem(type, type);
     }
 
-    m_table = new QTableWidget(0, 3, this);
+    // Colonna 0 = pallino colorato dell'attivita' (come le griglie del
+    // calendario), poi Titolo / Tipo / Dettaglio
+    m_table = new QTableWidget(0, 4, this);
     m_table->setHorizontalHeaderLabels(
-        {tr("Titolo"), tr("Tipo"), tr("Dettaglio")});
+        {QString(), tr("Titolo"), tr("Tipo"), tr("Dettaglio")});
     m_table->horizontalHeader()->setStretchLastSection(true);
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    m_table->setColumnWidth(0, 30);
     m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setHighlightSections(false);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     // Ordinamento gestito manualmente (lessThan con chiave composita)
     m_table->setSortingEnabled(false);
+    // Aspetto "chiaro" come le griglie del calendario: sfondo bianco, righe
+    // alternate, poche linee, spazio per respirare
+    m_table->setAlternatingRowColors(true);
+    m_table->setShowGrid(false);
+    m_table->verticalHeader()->setVisible(false);
+    m_table->verticalHeader()->setDefaultSectionSize(30);
+    m_table->setStyleSheet(QStringLiteral(
+        "QTableWidget { background: white; alternate-background-color: #f8f9fa;"
+        " border: none; outline: none; }"
+        "QTableWidget::item { padding: 4px 8px; }"
+        "QTableWidget::item:selected { background: #e8f0fe; color: #202124; }"
+        "QHeaderView::section { background: #f8f9fa; border: none;"
+        " border-bottom: 1px solid #dadce0; padding: 6px;"
+        " font-weight: bold; color: #5f6368; }"));
 
     m_detailButton = new QPushButton(tr("Dettaglio"), this);
     m_editButton = new QPushButton(tr("Modifica"), this);
@@ -106,6 +142,10 @@ void ActivityListPage::onTypeFilterChanged(int) {
 }
 
 void ActivityListPage::onHeaderClicked(int section) {
+    // La colonna del pallino (0) non ha testo: cliccandola si ordina per titolo
+    if (section == 0) {
+        section = 1;
+    }
     if (m_sortColumn == section) {
         m_sortOrder = m_sortOrder == Qt::AscendingOrder
                           ? Qt::DescendingOrder
@@ -133,28 +173,28 @@ void ActivityListPage::onEdit() {
 
 bool ActivityListPage::lessThan(const events::Activity* a,
                                 const events::Activity* b) const {
+    // Colonne fisiche: 1=Titolo, 2=Tipo, 3=Dettaglio (la 0 e' il pallino)
     auto columnText = [](const events::Activity* activity, int column) {
         switch (column) {
-        case 0:
-            return itemTitle(activity);
-        case 1:
+        case 2:
             return itemType(activity);
-        default:
+        case 3:
             return itemDetail(activity);
+        default:
+            return plainTitle(activity);
         }
     };
 
-    if (m_sortColumn >= 0) {
-        // Chiave primaria: colonna cliccata (per "Titolo" e "Tipo" il
-        // confronto e' case-insensitive)
+    if (m_sortColumn >= 1) {
+        // Chiave primaria: colonna cliccata (confronto case-insensitive)
         const int c = QString::compare(columnText(a, m_sortColumn),
                                        columnText(b, m_sortColumn),
                                        Qt::CaseInsensitive);
         if (c != 0) {
             return m_sortOrder == Qt::AscendingOrder ? c < 0 : c > 0;
         }
-        // Chiave secondaria: tipo se ordino per titolo, titolo se per tipo
-        const int secondary = m_sortColumn == 0 ? 1 : 0;
+        // Chiave secondaria: tipo se ordino per titolo, titolo altrimenti
+        const int secondary = m_sortColumn == 1 ? 2 : 1;
         const int c2 = QString::compare(columnText(a, secondary),
                                         columnText(b, secondary),
                                         Qt::CaseInsensitive);
@@ -199,15 +239,17 @@ void ActivityListPage::reloadTable() {
     m_table->setRowCount(static_cast<int>(m_rows.size()));
     for (int row = 0; row < static_cast<int>(m_rows.size()); ++row) {
         const events::Activity* activity = m_rows[row];
-        auto* title = new QTableWidgetItem(
-            QString::fromStdString(activity->getTitle()));
-        auto* type = new QTableWidgetItem(
-            ActivityViewHelpers::typeLabel(*activity));
-        auto* detail = new QTableWidgetItem(
-            ActivityViewHelpers::summaryLabel(*activity));
-        m_table->setItem(row, 0, title);
-        m_table->setItem(row, 1, type);
-        m_table->setItem(row, 2, detail);
+        auto* dot = new QTableWidgetItem;
+        dot->setFlags(Qt::ItemIsEnabled);  // pallino non interattivo
+        dot->setIcon(colorDotIcon(activityColor(activity)));
+        auto* title = new QTableWidgetItem(plainTitle(activity));
+        auto* type = new QTableWidgetItem(itemType(activity));
+        auto* detail = new QTableWidgetItem(itemDetail(activity));
+        detail->setForeground(QColor("#5f6368"));
+        m_table->setItem(row, 0, dot);
+        m_table->setItem(row, 1, title);
+        m_table->setItem(row, 2, type);
+        m_table->setItem(row, 3, detail);
     }
 }
 

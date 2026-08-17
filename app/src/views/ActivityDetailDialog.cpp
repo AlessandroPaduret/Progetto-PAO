@@ -31,8 +31,10 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     // Intestazione del pannello con la "X" di chiusura in alto a destra
     m_titleLabel = new QLabel(this);
     QFont titleFont = m_titleLabel->font();
+    titleFont.setPointSize(14);
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
+    m_titleLabel->setAlignment(Qt::AlignCenter);
 
     m_closeButton = new QToolButton(this);
     m_closeButton->setText(QStringLiteral("\u2715"));
@@ -43,11 +45,15 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     titleBar->addWidget(m_titleLabel, 1);
     titleBar->addWidget(m_closeButton);
 
-    // Campi specifici per tipo (Visitor), in una scrollarea perche' il testo
-    // non esca mai dal pannello
+    // Campi specifici per tipo (Visitor), centrati e in una scrollarea
+    // perche' il testo non esca mai dal pannello
     m_fieldsLabel = new QLabel(this);
     m_fieldsLabel->setWordWrap(true);
+    m_fieldsLabel->setAlignment(Qt::AlignCenter);
     m_fieldsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    QFont fieldsFont = m_fieldsLabel->font();
+    fieldsFont.setPointSize(11);
+    m_fieldsLabel->setFont(fieldsFont);
     auto* scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setWidget(m_fieldsLabel);

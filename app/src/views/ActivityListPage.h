@@ -18,7 +18,10 @@ class CalendarController;
  *  filtro per tipo.
  *
  *  Ogni riga e' un'attivita'; il tipo e la riga descrittiva sono calcolati
- *  con un Visitor (nessuna stringa "getType" nel modello).
+ *  con un Visitor (nessuna stringa "getType" nel modello). La prima colonna
+ *  e' un pallino del colore dell'attivita' (come nelle griglie del
+ *  calendario); le righe alternate e il fondo bianco rendono la vista
+ *  chiara e leggibile.
  *
  *  Ordinamento: clic sull'intestazione di una colonna riordina le righe;
  *  sulla colonna "Titolo" l'ordinamento e' per titolo con "Tipo" come chiave
