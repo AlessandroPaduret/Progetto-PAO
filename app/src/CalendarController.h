@@ -48,6 +48,17 @@ public:
      */
     bool moveActivity(const events::Activity* activity, const QDateTime& newStart);
 
+    /** @brief "Da questo momento in poi": ferma la serie attuale prima
+     *  dell'occorrenza indicata e ne crea una nuova con le stesse regole di
+     *  ricorrenza (stesso intervallo, durata dell'occorrenza) ma inizio
+     *  diverso; la data di scadenza rimane invariata.
+     *  @param occurrence L'occorrenza da cui la serie attuale termina
+     *  @param newStart Nuovo inizio della serie (es. destinazione del drag)
+     *  @return true se la divisione e' riuscita
+     */
+    bool splitRecurrence(const events::Occurrence& occurrence,
+                         const QDateTime& newStart);
+
     // --- Query --------------------------------------------------------------
 
     /** @brief Ricerca per titolo (case-insensitive); vuoto = tutte */

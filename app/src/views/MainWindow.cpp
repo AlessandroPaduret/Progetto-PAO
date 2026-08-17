@@ -130,6 +130,8 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::onChoiceSeries);
     connect(m_choiceDialog, &RecurrenceChoiceDialog::instanceChosen,
             this, &MainWindow::onChoiceInstance);
+    connect(m_choiceDialog, &RecurrenceChoiceDialog::splitChosen,
+            this, &MainWindow::onChoiceSplit);
 
     // Anteprima live dell'evento in fase di creazione/modifica nella griglia
     connect(m_formDialog, &ActivityFormDialog::previewChanged,
@@ -244,13 +246,36 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
 // ---------------------------------------------------------------------------
 // Scelta serie / singola occorrenza per gli eventi ricorrenti
 // ---------------------------------------------------------------------------
+void MainWindow::onChoiceSplit() {
+    m_choiceDialog->hide();
+    if (!m_pendingOccurrence) {
+        m_pendingIsDrag = false;
+        return;
+    }
+    const events::Occurrence occurrence = *m_pendingOccurrence;
+    const QDateTime target =
+        m_pendingIsDrag
+            ? m_pendingDragTarget
+            : QDateTime::fromSecsSinceEpoch(
+                  occurrence.start.time_since_epoch().count());
+    m_pendingOccurrence.reset();
+    m_pendingIsDrag = false;
+
+    // La serie attuale termina prima di questa occorrenza; ne nasce una
+    // nuova con le stesse regole di ricorrenza ma inizio diverso e la
+    // stessa data di scadenza.
+    m_controller->splitRecurrence(occurrence, target);
+}
+
 void MainWindow::askSeriesOrInstance(const events::Occurrence& occurrence) {
     m_pendingOccurrence = occurrence;
     m_pendingIsDrag = false;
     m_choiceDialog->ask(tr(
         "Questo evento fa parte di una serie ricorrente. Vuoi modificare "
-        "l'intera serie (che iniziera' da questo evento) oppure solo questo "
-        "evento (che diventera' un evento singolo, fuori dalla serie)?"));
+        "l'intera serie, proseguire da questo momento in poi (la serie "
+        "attuale termina e ne nasce una nuova con le stesse regole) oppure "
+        "solo questo evento (che diventera' un evento singolo, fuori dalla "
+        "serie)?"));
     m_choiceDialog->showCentered();
 }
 
@@ -261,8 +286,10 @@ void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
     m_pendingIsDrag = true;
     m_choiceDialog->ask(tr(
         "Questo evento fa parte di una serie ricorrente. Vuoi spostare "
-        "l'intera serie (che iniziera' dal nuovo giorno) oppure solo questo "
-        "evento (che diventera' un evento singolo, fuori dalla serie)?"));
+        "l'intera serie, proseguire da questo momento in poi (la serie "
+        "attuale termina e ne nasce una nuova con le stesse regole) oppure "
+        "solo questo evento (che diventera' un evento singolo, fuori dalla "
+        "serie)?"));
     m_choiceDialog->showCentered();
 }
 

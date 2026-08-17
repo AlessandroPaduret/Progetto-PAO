@@ -66,6 +66,9 @@ private slots:
                                  const QDateTime& newStart);
     void onChoiceSeries();
     void onChoiceInstance();
+    /** @brief "Da questo momento in poi": divide la serie (ferma l'attuale,
+     *  ne crea una nuova con le stesse regole e inizio diverso). */
+    void onChoiceSplit();
 
 protected:
     /** @brief Tiene centrato il pannello di creazione quando si ridimensiona. */

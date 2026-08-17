@@ -31,6 +31,9 @@ signals:
     void seriesChosen();
     /** @brief L'utente vuole modificare solo questa occorrenza. */
     void instanceChosen();
+    /** @brief "Da questo momento in poi": la serie attuale termina qui e ne
+     *  nasce una nuova con le stesse regole ma inizio diverso. */
+    void splitChosen();
 
 private:
     QLabel* m_titleLabel;

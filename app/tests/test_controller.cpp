@@ -249,6 +249,59 @@ TEST_CASE("Controller: drag di una sola occorrenza di una serie (buco in origine
     REQUIRE(serieCount == 6);
 }
 
+TEST_CASE("Controller: 'da questo momento in poi' divide la serie", "[controller]") {
+    app::CalendarController controller;
+
+    // Serie giornaliera 8:00-10:00 (2h) per una settimana, fine 12/1 00:00
+    auto generator = std::make_shared<FixedIntervalGenerator>(
+        tp(utc(2026, 1, 5, 8)), std::chrono::hours(24), tp(utc(2026, 1, 12)));
+    controller.addActivity(std::make_unique<RecurrentEvent>(
+        generator, Event("Lezione", tp(utc(2026, 1, 5, 8)), 2h)));
+
+    auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
+    REQUIRE(occurrences.size() == 7);  // 5/1 .. 11/1 alle 08:00
+
+    // Il giorno 4 (8/1 08:00) diventa 10:00-12:00: split con nuovo inizio
+    const Occurrence* day4 = findByStart(occurrences, tp(utc(2026, 1, 8, 8)));
+    REQUIRE(day4 != nullptr);
+    REQUIRE(controller.splitRecurrence(*day4, utc(2026, 1, 8, 10)));
+
+    occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
+
+    // 1) la serie ATTUALE e' fermata prima del giorno 4: occorrenze 5/1..7/1
+    int oldSeriesCount = 0;
+    for (const auto& o : occurrences) {
+        if (o.source == day4->source) ++oldSeriesCount;
+    }
+    REQUIRE(oldSeriesCount == 3);
+
+    // 2) la NUOVA serie inizia l'8/1 alle 10:00 e continua ogni giorno
+    //    (8/1 10:00, 9/1, 10/1, 11/1 = 4 occorrenze) con durata 2h
+    const events::Activity* nuova = nullptr;
+    for (const auto& activity : controller.calendar()) {
+        if (activity.get() != day4->source) nuova = activity.get();
+    }
+    REQUIRE(nuova != nullptr);
+    REQUIRE(nuova->getStart() == tp(utc(2026, 1, 8, 10)));
+
+    int newSeriesCount = 0;
+    for (const auto& o : occurrences) {
+        if (o.source == nuova) {
+            ++newSeriesCount;
+            REQUIRE(o.duration == 2h);
+        }
+    }
+    REQUIRE(newSeriesCount == 4);
+
+    // 3) la data di scadenza e' rimasta INVARIATA (12/1 00:00): l'11/1 10:00
+    //    c'e', il 12/1 10:00 no
+    REQUIRE(controller.occurrencesIn(utc(2026, 1, 12), utc(2026, 1, 15)).empty());
+
+    // 4) totale: 3 + 4 = 7 occorrenze, 2 attivita'
+    REQUIRE(occurrences.size() == 7);
+    REQUIRE(controller.calendar().size() == 2);
+}
+
 TEST_CASE("Controller: salvataggio e caricamento su file", "[controller]") {
     app::CalendarController controller;
     controller.addActivity(ActivityFactory::createSimpleEvent(

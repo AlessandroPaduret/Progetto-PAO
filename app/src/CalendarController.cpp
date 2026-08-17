@@ -94,6 +94,72 @@ bool CalendarController::moveActivity(const events::Activity* activity,
   return true;
 }
 
+namespace {
+
+// Clona la regola di ricorrenza con un nuovo inizio, mantenendo la fine
+// ORIGINALE (invariata, salvata prima del troncamento). Se la fine
+// resterebbe antecedente al nuovo inizio, viene portata al nuovo inizio.
+class ReseedGeneratorVisitor : public events::DateGeneratorVisitor {
+public:
+  events::TimePoint newStart;
+  events::TimePoint end = events::TimePoint::max();
+
+  void visit(const events::FixedIntervalGenerator& generator) override {
+    events::TimePoint safeEnd = end;
+    if (safeEnd < newStart) {
+      safeEnd = newStart;
+    }
+    result = std::make_shared<events::FixedIntervalGenerator>(
+        newStart, generator.getInterval(), safeEnd);
+  }
+
+  void visit(const events::YearlyGenerator&) override {
+    events::TimePoint safeEnd = end;
+    if (safeEnd < newStart) {
+      safeEnd = newStart;
+    }
+    result = std::make_shared<events::YearlyGenerator>(newStart, safeEnd);
+  }
+
+  void visit(const events::NullGenerator&) override {
+    result = std::make_shared<events::NullGenerator>();
+  }
+
+  std::shared_ptr<events::DateGenerator> result;
+};
+
+} // namespace
+
+bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
+                                         const QDateTime& newStart) {
+  auto* series = dynamic_cast<events::RecurrentEvent*>(
+      const_cast<events::Activity*>(occurrence.source));
+  if (!series || !newStart.isValid()) {
+    return false;
+  }
+
+  // 0) La data di scadenza ORIGINALE va salvata PRIMA del troncamento
+  //    (truncateBefore la ridurrebbe a questa occorrenza)
+  ReseedGeneratorVisitor reseed;
+  reseed.newStart = toTimePoint(newStart);
+  reseed.end = series->getGenerator()->getEnd();
+
+  // 1) La serie attuale viene FERMATA prima dell'occorrenza interessata
+  series->truncateBefore(occurrence.start);
+
+  // 2) Nasce una nuova serie con le stesse regole di ricorrenza (tipo e
+  //    intervallo del generatore, durata dell'occorrenza) ma inizio diverso;
+  //    la data di scadenza rimane quella originale.
+  series->getGenerator()->accept(reseed);
+
+  auto replacement = std::make_unique<events::RecurrentEvent>(
+      reseed.result,
+      events::Event(series->getTitle(), reseed.newStart, occurrence.duration));
+  m_calendar.add(std::move(replacement));
+  emit activitiesChanged();
+  return true;
+}
+
 bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
                                           bool andFollowing) {
   auto* activity = const_cast<events::Activity*>(occurrence.source);
