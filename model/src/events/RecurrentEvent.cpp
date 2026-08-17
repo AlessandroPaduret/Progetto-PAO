@@ -88,7 +88,6 @@ RecurrentEvent::occurrencesIn(const TimePoint from, const TimePoint to) const {
 TimePoint RecurrentEvent::getStart() const { return m_templateEvent.getStart(); }
 
 void RecurrentEvent::moveTo(const TimePoint newStart) {
-  const Duration delta = newStart - m_templateEvent.getStart();
   m_generator->setStart(newStart);
   // La data di scadenza della serie NON slitta con lo spostamento: resta
   // quella che era. Unica eccezione: la fine non puo' mai diventare
@@ -99,15 +98,11 @@ void RecurrentEvent::moveTo(const TimePoint newStart) {
     m_generator->setEnd(newStart);
   }
   m_templateEvent.setStart(newStart);
-  // Trasla le eccezioni (date assolute delle occorrenze escluse) nello stesso
-  // scarto: restano allineate alla serie spostata.
-  if (!m_exceptions.empty()) {
-    std::unordered_set<TimePoint, TimePointHasher> shifted;
-    for (const TimePoint exception : m_exceptions) {
-      shifted.insert(exception + delta);
-    }
-    m_exceptions = std::move(shifted);
-  }
+  // La serie spostata viene ricreata INTONSA: le eccezioni (date assolute
+  // delle occorrenze escluse, es. eventi staccati) non vengono traslate,
+  // altrimenti produrrebbero buchi nelle nuove date. Gli eventuali eventi
+  // staccati restano nel calendario come eventi singoli indipendenti.
+  m_exceptions.clear();
 }
 
 String RecurrentEvent::describe() const {

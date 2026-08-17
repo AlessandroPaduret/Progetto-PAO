@@ -337,10 +337,10 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         REQUIRE(event.getDuration() == 1h);
     }
 
-    SECTION("RecurrentEvent: inizio spostato, eccezioni traslate, la fine NON slitta") {
+    SECTION("RecurrentEvent: inizio spostato, la fine NON slitta, serie ricreata intonsa") {
         auto event = ActivityFactory::createSimpleWeekly(
             "Riunione", start + 9h, 1h, start + 3_weeks);
-        event->addException(start + 1_weeks + 9h);
+        event->addException(start + 1_weeks + 9h);  // giorno "staccato"
 
         // Sposta la serie UNA SETTIMANA INDIETRO (end = start+3 settimane
         // supera ancora il nuovo inizio): la fine deve restare com'e'.
@@ -348,9 +348,12 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         event->moveTo(earlier);
         REQUIRE(event->getStart() == earlier);
 
-        // le occorrenze arrivano solo fino alla scadenza ORIGINALE:
-        // (start+3 settimane) -> nessuna occorrenza dopo quella data
-        REQUIRE(event->getSchedulable(earlier, start + 4_weeks + 9h).size() == 3);
+        // Le eccezioni non vengono traslate: la serie spostata e' intonsa
+        REQUIRE(event->getExceptions().empty());
+
+        // occorrenze continue (earlier, +1, +2, +3 settimane) fino alla
+        // scadenza ORIGINALE (start+3 settimane): nessun buco
+        REQUIRE(event->getSchedulable(earlier, start + 3_weeks).size() == 4);
         REQUIRE(event->getSchedulable(start + 3_weeks, start + 4_weeks + 9h).empty());
     }
 
