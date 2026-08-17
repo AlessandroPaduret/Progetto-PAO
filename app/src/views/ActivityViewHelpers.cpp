@@ -110,6 +110,51 @@ private:
   }
 };
 
+// --- Visitor: righe "campo: valore" specifiche per tipo (per il dettaglio) ---
+class FieldsVisitor : public events::ActivityVisitor {
+public:
+  QStringList fields;
+
+  void visit(const events::Event& event) override {
+    fields << QObject::tr("Inizio: %1").arg(localDateTime(event.getStart()))
+           << QObject::tr("Fine: %1").arg(localDateTime(event.getEnd()))
+           << QObject::tr("Durata: %1")
+                  .arg(durationLabel(event.getDuration()));
+  }
+
+  void visit(const events::RecurrentEvent& event) override {
+    fields << QObject::tr("Regola: %1")
+                  .arg(recurrenceRuleLabel(event))
+           << QObject::tr("Prima occorrenza: %1")
+                  .arg(localDateTime(event.getTemplateEvent().getStart()))
+           << QObject::tr("Durata: %1")
+                  .arg(durationLabel(event.getTemplateEvent().getDuration()))
+           << QObject::tr("Eccezioni: %1").arg(event.getExceptions().size());
+  }
+
+  void visit(const events::Deadline& deadline) override {
+    fields << QObject::tr("Scadenza: %1").arg(localDateTime(deadline.getDue()))
+           << QObject::tr("Priorita': %1")
+                  .arg(QString::fromStdString(
+                      events::Deadline::priorityLabel(deadline.getPriority())))
+           << QObject::tr("Stato: %1")
+                  .arg(deadline.isDone() ? QObject::tr("evasa")
+                                         : QObject::tr("in corso"));
+  }
+
+  void visit(const events::Reminder& reminder) override {
+    fields << QObject::tr("Attivazione: %1")
+                  .arg(localDateTime(reminder.getTrigger()))
+           << QObject::tr("Messaggio: %1")
+                  .arg(QString::fromStdString(reminder.getMessage()))
+           << QObject::tr("Ripetizione: %1")
+                  .arg(reminder.isRepeating()
+                           ? QObject::tr("%1 giorni")
+                                 .arg(reminder.getRepeatInterval().count() / 86400)
+                           : QObject::tr("una tantum"));
+  }
+};
+
 } // namespace
 
 QString typeLabel(const events::Activity& activity) {
@@ -122,6 +167,12 @@ QString summaryLabel(const events::Activity& activity) {
   SummaryVisitor visitor;
   activity.accept(visitor);
   return visitor.summary;
+}
+
+QStringList fieldLines(const events::Activity& activity) {
+  FieldsVisitor visitor;
+  activity.accept(visitor);
+  return visitor.fields;
 }
 
 QString recurrenceRuleLabel(const events::RecurrentEvent& event) {

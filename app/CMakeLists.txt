@@ -34,7 +34,7 @@ add_executable(pao_app
     src/views/MonthView.cpp
     src/views/YearView.cpp
     src/views/ActivityListPage.cpp
-    src/views/ActivityDetailPage.cpp
+    src/views/ActivityDetailDialog.cpp
     src/views/ActivityFormPage.cpp
     src/views/ActivityFormDialog.cpp
     src/views/ActivityViewHelpers.cpp

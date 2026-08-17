@@ -2,6 +2,7 @@
 #define APP_ACTIVITY_VIEW_HELPERS_H
 
 #include <QString>
+#include <QStringList>
 
 #include "events/events.h"
 
@@ -23,6 +24,9 @@ QString recurrenceRuleLabel(const events::RecurrentEvent& event);
 
 /** @brief Durata leggibile ("1 h 30 min"). */
 QString durationLabel(const events::Duration duration);
+
+/** @brief Righe "campo: valore" specifiche per tipo (per il dettaglio). */
+QStringList fieldLines(const events::Activity& activity);
 
 } // namespace ActivityViewHelpers
 

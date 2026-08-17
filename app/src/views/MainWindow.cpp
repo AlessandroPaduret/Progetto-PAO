@@ -21,7 +21,7 @@
 
 #include "CalendarController.h"
 #include "events/domain/RecurrentEvent.h"
-#include "views/ActivityDetailPage.h"
+#include "views/ActivityDetailDialog.h"
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
@@ -37,10 +37,9 @@ namespace {
 // Indici delle pagine nel QStackedWidget
 constexpr int kPageWeek = 0;
 constexpr int kPageList = 1;
-constexpr int kPageDetail = 2;
-constexpr int kPageDay = 3;
-constexpr int kPageMonth = 4;
-constexpr int kPageYear = 5;
+constexpr int kPageDay = 2;
+constexpr int kPageMonth = 3;
+constexpr int kPageYear = 4;
 
 QScrollArea* makeScroll(QWidget* content) {
     auto* scroll = new QScrollArea(content->parentWidget());
@@ -61,7 +60,9 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     m_monthView = new MonthView(this);
     m_yearView = new YearView(this);
     m_listPage = new ActivityListPage(controller, this);
-    m_detailPage = new ActivityDetailPage(controller, this);
+    // Finestra figlia ridotta per il dettaglio di un'attivita' (dentro la
+    // MainWindow: mai a schermo intero)
+    m_detailDialog = new ActivityDetailDialog(controller, this);
     // Finestra figlia ridotta per creazione/modifica (si chiude con la "X")
     m_formDialog = new ActivityFormDialog(controller, this);
     // Finestra di scelta serie/singola occorrenza (interna, non esce)
@@ -104,7 +105,6 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     m_pages = new QStackedWidget(this);
     m_pages->addWidget(weekPage);
     m_pages->addWidget(m_listPage);
-    m_pages->addWidget(m_detailPage);
     m_pages->addWidget(dayPage);
     m_pages->addWidget(monthPage);
     m_pages->addWidget(yearPage);
@@ -188,7 +188,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::askSeriesOrInstanceDrag);
     connect(m_weekView, &WeekView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
-                showDetailPage(occurrence.source);
+                showDetailDialog(occurrence.source);
             });
     connect(m_weekView, &WeekView::modifyEventRequested,
             this, &MainWindow::showFormEditOccurrence);
@@ -213,7 +213,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::askSeriesOrInstanceDrag);
     connect(m_dayView, &WeekView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
-                showDetailPage(occurrence.source);
+                showDetailDialog(occurrence.source);
             });
     connect(m_dayView, &WeekView::modifyEventRequested,
             this, &MainWindow::showFormEditOccurrence);
@@ -231,7 +231,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::askSeriesOrInstance);
     connect(m_monthView, &MonthView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
-                showDetailPage(occurrence.source);
+                showDetailDialog(occurrence.source);
             });
     connect(m_monthView, &MonthView::modifyEventRequested,
             this, &MainWindow::showFormEditOccurrence);
@@ -247,13 +247,12 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             });
 
     connect(m_listPage, &ActivityListPage::detailRequested,
-            this, &MainWindow::showDetailPage);
+            this, &MainWindow::showDetailDialog);
     connect(m_listPage, &ActivityListPage::editRequested,
             this, &MainWindow::showFormEditActivity);
 
-    connect(m_detailPage, &ActivityDetailPage::backRequested,
-            this, &MainWindow::showListPage);
-    connect(m_detailPage, &ActivityDetailPage::editRequested,
+    // Dettaglio interno: Modifica apre il form, la chiusura non fa nulla
+    connect(m_detailDialog, &ActivityDetailDialog::editRequested,
             this, &MainWindow::showFormEditActivity);
 
     // Finestra di scelta serie/singola occorrenza (interna alla MainWindow)
@@ -450,20 +449,14 @@ void MainWindow::showListPage() {
     }
 }
 
-void MainWindow::showDetailPage(const events::Activity* activity) {
+void MainWindow::showDetailDialog(const events::Activity* activity) {
     if (!activity) {
         return;
     }
-    m_detailPage->showActivity(activity);
-    m_pages->setCurrentIndex(kPageDetail);
-    m_navBar->setVisible(false);
-    // Il dettaglio non e' tra le viste del menu: nessuna azione spuntata
-    for (QAction* action : {m_viewListAction, m_viewDayAction, m_viewWeekAction,
-                            m_viewMonthAction, m_viewYearAction}) {
-        if (action) {
-            action->setChecked(false);
-        }
-    }
+    // Il dettaglio si apre in una finestra figlia ridotta DENTRO la
+    // MainWindow (niente pagina a schermo intero)
+    m_detailDialog->showActivity(activity);
+    m_detailDialog->showCentered();
 }
 
 void MainWindow::showFormCreate(const QDateTime& start) {
@@ -506,6 +499,9 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
     }
     if (m_choiceDialog && m_choiceDialog->isVisible()) {
         m_choiceDialog->showCentered();
+    }
+    if (m_detailDialog && m_detailDialog->isVisible()) {
+        m_detailDialog->showCentered();
     }
 }
 
@@ -618,10 +614,6 @@ void MainWindow::onEditSelected() {
     } else if (page == kPageMonth) {
         if (const events::Occurrence* selected = m_monthView->selectedOccurrence()) {
             showFormEditOccurrence(*selected);
-        }
-    } else if (page == kPageDetail) {
-        if (const events::Activity* activity = m_detailPage->currentActivity()) {
-            showFormEditActivity(activity);
         }
     }
 }

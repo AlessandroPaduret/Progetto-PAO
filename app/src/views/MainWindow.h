@@ -18,7 +18,7 @@ class QToolButton;
 
 namespace app {
 
-class ActivityDetailPage;
+class ActivityDetailDialog;
 class ActivityFormDialog;
 class ActivityListPage;
 class CalendarController;
@@ -37,14 +37,14 @@ class YearView;
  *  Anno, che si apre anche al passaggio del puntatore):
  *
  *  0. Settimana   — WeekView in QScrollArea
- *  1. Elenco      — tabella con ricerca
- *  2. Dettaglio   — campi specifici per tipo (Visitor)
- *  3. Giorno      — DayView (griglia a colonna singola)
- *  4. Mese        — MonthView (griglia mensile con chip)
- *  5. Anno        — YearView (12 mini-calendari)
+ *  1. Elenco      — tabella con ricerca e filtro per tipo
+ *  2. Giorno      — DayView (griglia a colonna singola)
+ *  3. Mese        — MonthView (griglia mensile con chip)
+ *  4. Anno        — YearView (12 mini-calendari)
  *
- *  La creazione/modifica avviene in una finestra figlia ridotta
- *  (ActivityFormDialog), associata alla finestra principale.
+ *  Il dettaglio di un'attivita' si apre in una finestra figlia ridotta
+ *  (ActivityDetailDialog), come la creazione/modifica (ActivityFormDialog):
+ *  widget DENTRO la MainWindow, mai a schermo intero.
  */
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -59,7 +59,7 @@ private slots:
     void showMonthPage();
     void showYearPage();
     void showListPage();
-    void showDetailPage(const events::Activity* activity);
+    void showDetailDialog(const events::Activity* activity);
     void showFormCreate(const QDateTime& start = QDateTime());
     void showFormEditActivity(const events::Activity* activity);
     void showFormEditOccurrence(const events::Occurrence& occurrence);
@@ -112,7 +112,7 @@ private:
     MonthView* m_monthView = nullptr;
     YearView* m_yearView = nullptr;
     ActivityListPage* m_listPage = nullptr;
-    ActivityDetailPage* m_detailPage = nullptr;
+    ActivityDetailDialog* m_detailDialog = nullptr;
     ActivityFormDialog* m_formDialog = nullptr;
     RecurrenceChoiceDialog* m_choiceDialog = nullptr;
 
