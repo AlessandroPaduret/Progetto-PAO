@@ -28,10 +28,12 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     // (doppio clic su una riga dell'elenco o menu contestuale delle griglie).
     hide();
 
-    // Intestazione del pannello con la "X" di chiusura in alto a destra
+    // Intestazione del pannello con la "X" di chiusura in alto a destra.
+    // Un margine a sinistra pari alla larghezza della "X" tiene il titolo
+    // esattamente centrato rispetto alla finestra.
     m_titleLabel = new QLabel(this);
     QFont titleFont = m_titleLabel->font();
-    titleFont.setPointSize(14);
+    titleFont.setPointSize(18);
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
     m_titleLabel->setAlignment(Qt::AlignCenter);
@@ -40,8 +42,11 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     m_closeButton->setText(QStringLiteral("\u2715"));
     m_closeButton->setAutoRaise(true);
     m_closeButton->setToolTip(tr("Chiudi"));
+    m_closeButton->setIconSize(QSize(20, 20));
+    m_closeButton->setFixedSize(28, 28);
 
     auto* titleBar = new QHBoxLayout;
+    titleBar->addSpacing(28);                 // compensa la larghezza della X
     titleBar->addWidget(m_titleLabel, 1);
     titleBar->addWidget(m_closeButton);
 
@@ -52,7 +57,7 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     m_fieldsLabel->setAlignment(Qt::AlignCenter);
     m_fieldsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     QFont fieldsFont = m_fieldsLabel->font();
-    fieldsFont.setPointSize(11);
+    fieldsFont.setPointSize(13);
     m_fieldsLabel->setFont(fieldsFont);
     auto* scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);

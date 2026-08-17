@@ -62,6 +62,12 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
         m_typeFilter->addItem(type, type);
     }
 
+    // Scritte piu' grandi e leggibili anche il resto della vista
+    QFont biggerFont = font();
+    biggerFont.setPointSize(12);
+    m_searchBox->setFont(biggerFont);
+    m_typeFilter->setFont(biggerFont);
+
     // Colonna 0 = pallino colorato dell'attivita' (come le griglie del
     // calendario), poi Titolo / Tipo / Dettaglio
     m_table = new QTableWidget(0, 4, this);
@@ -83,15 +89,15 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_table->setAlternatingRowColors(true);
     m_table->setShowGrid(false);
     m_table->verticalHeader()->setVisible(false);
-    m_table->verticalHeader()->setDefaultSectionSize(30);
+    m_table->verticalHeader()->setDefaultSectionSize(38);
     m_table->setStyleSheet(QStringLiteral(
         "QTableWidget { background: white; alternate-background-color: #f8f9fa;"
-        " border: none; outline: none; }"
-        "QTableWidget::item { padding: 4px 8px; }"
-        "QTableWidget::item:selected { background: #e8f0fe; color: #202124; }"
+        " border: none; outline: none; font-size: 13pt; color: #000000; }"
+        "QTableWidget::item { padding: 4px 8px; color: #000000; }"
+        "QTableWidget::item:selected { background: #e8f0fe; color: #000000; }"
         "QHeaderView::section { background: #f8f9fa; border: none;"
         " border-bottom: 1px solid #dadce0; padding: 6px;"
-        " font-weight: bold; color: #5f6368; }"));
+        " font-weight: bold; color: #202124; font-size: 13pt; }"));
 
     m_detailButton = new QPushButton(tr("Dettaglio"), this);
     m_editButton = new QPushButton(tr("Modifica"), this);
@@ -245,7 +251,10 @@ void ActivityListPage::reloadTable() {
         auto* title = new QTableWidgetItem(plainTitle(activity));
         auto* type = new QTableWidgetItem(itemType(activity));
         auto* detail = new QTableWidgetItem(itemDetail(activity));
-        detail->setForeground(QColor("#5f6368"));
+        // Testo nero e leggibile (l'eventuale stile di default non scende sotto)
+        for (QTableWidgetItem* item : {title, type, detail}) {
+            item->setForeground(QColor("#000000"));
+        }
         m_table->setItem(row, 0, dot);
         m_table->setItem(row, 1, title);
         m_table->setItem(row, 2, type);
