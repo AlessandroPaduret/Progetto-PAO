@@ -31,13 +31,6 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     // Intestazione del pannello con la "X" di chiusura in alto a destra.
     // Un margine a sinistra pari alla larghezza della "X" tiene il titolo
     // esattamente centrato rispetto alla finestra.
-    m_titleLabel = new QLabel(this);
-    QFont titleFont = m_titleLabel->font();
-    titleFont.setPointSize(18);
-    titleFont.setBold(true);
-    m_titleLabel->setFont(titleFont);
-    m_titleLabel->setAlignment(Qt::AlignCenter);
-
     m_closeButton = new QToolButton(this);
     m_closeButton->setText(QStringLiteral("\u2715"));
     m_closeButton->setAutoRaise(true);
@@ -45,10 +38,22 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     m_closeButton->setIconSize(QSize(20, 20));
     m_closeButton->setFixedSize(28, 28);
 
-    auto* titleBar = new QHBoxLayout;
-    titleBar->addSpacing(28);                 // compensa la larghezza della X
-    titleBar->addWidget(m_titleLabel, 1);
-    titleBar->addWidget(m_closeButton);
+    // La "X" sta in alto a destra, fuori dalla riga del titolo: resta
+    // all'angolo della finestra anche quando il titolo si sposta in basso.
+    auto* topRow = new QHBoxLayout;
+    topRow->addStretch(1);
+    topRow->addWidget(m_closeButton);
+
+    // Titolo centrato rispetto alla finestra (nessuna X nella riga)
+    m_titleLabel = new QLabel(this);
+    QFont titleFont = m_titleLabel->font();
+    titleFont.setPointSize(18);
+    titleFont.setBold(true);
+    m_titleLabel->setFont(titleFont);
+    m_titleLabel->setAlignment(Qt::AlignCenter);
+
+    auto* titleRow = new QHBoxLayout;
+    titleRow->addWidget(m_titleLabel, 1);
 
     // Campi specifici per tipo (Visitor), centrati e in una scrollarea
     // perche' il testo non esca mai dal pannello
@@ -68,9 +73,10 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     auto* deleteButton = new QPushButton(tr("Elimina"), this);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(10, 12, 10, 10);
-    layout->addSpacing(36);              // spinge il titolo verso il centro
-    layout->addLayout(titleBar);
+    layout->setContentsMargins(10, 6, 10, 10);
+    layout->addLayout(topRow);               // X in alto a destra
+    layout->addSpacing(32);                  // spinge il titolo verso il centro
+    layout->addLayout(titleRow);
     layout->addWidget(scroll, 1);
     auto* bottom = new QHBoxLayout;
     bottom->addStretch(1);
