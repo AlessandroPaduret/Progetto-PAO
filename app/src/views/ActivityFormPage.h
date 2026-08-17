@@ -57,6 +57,12 @@ private slots:
     void onRecurrenceEndToggled(bool checked);
 
 private:
+    /** @brief Orario di fine dell'evento ripetuto (inizio + durata). */
+    QTime recurrenceEndTime() const;
+
+    /** @brief Sincronizza l'orario della scadenza con la fine dell'evento
+     *  ripetuto (la data di scadenza resta quella scelta). */
+    void syncRecurrenceEndTime();
     // Pannelli dei campi (form specifico per tipo, vincolo PAO)
     QWidget* buildEventPanel();
     QWidget* buildRecurrentPanel();

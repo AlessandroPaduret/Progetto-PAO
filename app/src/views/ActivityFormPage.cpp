@@ -96,6 +96,12 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
             this, &ActivityFormPage::onTypeChanged);
     connect(m_hasEndCheck, &QCheckBox::toggled,
             this, &ActivityFormPage::onRecurrenceEndToggled);
+    // L'orario della scadenza segue la fine dell'evento ripetuto quando
+    // cambia l'orario dell'inizio o la durata della serie.
+    connect(m_startR, &QDateTimeEdit::dateTimeChanged,
+            this, [this] { syncRecurrenceEndTime(); });
+    connect(m_durationR, &QTimeEdit::timeChanged,
+            this, [this] { syncRecurrenceEndTime(); });
     connect(saveButton, &QPushButton::clicked, this, &ActivityFormPage::onSave);
     connect(cancelButton, &QPushButton::clicked, this, &ActivityFormPage::backRequested);
 }
@@ -388,10 +394,25 @@ void ActivityFormPage::populateReminder(const events::Reminder& reminder) {
 
 void ActivityFormPage::onRecurrenceEndToggled(bool checked) {
   if (checked) {
-    // Valore di default della data di scadenza = data di inizio della serie
-    m_endEdit->setDateTime(m_startR->dateTime());
+    // Valore di default: stessa data dell'inizio, orario = fine dell'evento
+    // ripetuto (inizio + durata)
+    m_endEdit->setDateTime(
+        QDateTime(m_startR->date(), recurrenceEndTime()));
   }
   m_endEdit->setEnabled(checked);
+}
+
+QTime ActivityFormPage::recurrenceEndTime() const {
+  return m_startR->time().addSecs(
+      m_durationR->time().msecsSinceStartOfDay() / 1000);
+}
+
+void ActivityFormPage::syncRecurrenceEndTime() {
+  if (!m_hasEndCheck->isChecked()) {
+    return;
+  }
+  // La data di scadenza resta quella scelta; l'orario e' la fine dell'evento
+  m_endEdit->setTime(recurrenceEndTime());
 }
 
 std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
