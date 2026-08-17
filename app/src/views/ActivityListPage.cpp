@@ -72,7 +72,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     // calendario), poi Titolo / Tipo / Dettaglio
     m_table = new QTableWidget(0, 4, this);
     m_table->setHorizontalHeaderLabels(
-        {QString(), tr("Titolo"), tr("Tipo"), tr("Dettaglio")});
+        {QString(), tr("Titolo"), tr("Tipo"), tr("Dettagli")});
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     m_table->setColumnWidth(0, 30);

@@ -68,7 +68,8 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     auto* deleteButton = new QPushButton(tr("Elimina"), this);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(10, 6, 10, 10);
+    layout->setContentsMargins(10, 12, 10, 10);
+    layout->addSpacing(36);              // spinge il titolo verso il centro
     layout->addLayout(titleBar);
     layout->addWidget(scroll, 1);
     auto* bottom = new QHBoxLayout;
