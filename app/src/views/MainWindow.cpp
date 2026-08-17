@@ -273,17 +273,12 @@ void MainWindow::onChoiceSeries() {
         return;
     }
     const events::Occurrence occurrence = *m_pendingOccurrence;
-    const bool wasDrag = m_pendingIsDrag;
     m_pendingOccurrence.reset();
     m_pendingIsDrag = false;
 
-    if (wasDrag) {
-        // (drag: la logica dello spostamento della serie arriva in un passo
-        //  successivo)
-        return;
-    }
     // Come il doppio clic sull'evento di inizio serie: apre la finestra di
     // modifica dell'intera serie (regola, durata, data di scadenza, ...).
+    // Vale sia per il doppio clic sia per il trascinamento.
     showFormEditActivity(occurrence.source);
 }
 
@@ -299,7 +294,15 @@ void MainWindow::onChoiceInstance() {
     m_pendingIsDrag = false;
 
     if (wasDrag) {
-        // (drag: la logica dello spostamento arriva in un passo successivo)
+        // "Sposta solo questo evento": l'occorrenza esce dalla serie
+        // (eccezione interna: buco in origine) e diventa un evento standard
+        // alla data/ora di destinazione del trascinamento.
+        auto replacement = std::make_unique<events::Event>(
+            occurrence.source->getTitle(),
+            events::TimePoint(
+                std::chrono::seconds(m_pendingDragTarget.toSecsSinceEpoch())),
+            occurrence.duration);
+        m_controller->modifyOccurrence(occurrence, std::move(replacement));
         return;
     }
     // L'occorrenza di quel giorno diventa un evento STANDARD: si apre la

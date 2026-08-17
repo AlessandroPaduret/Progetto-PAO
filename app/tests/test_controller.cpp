@@ -205,6 +205,50 @@ TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]")
     }
 }
 
+TEST_CASE("Controller: drag di una sola occorrenza di una serie (buco in origine)", "[controller]") {
+    app::CalendarController controller;
+
+    // Serie giornaliera per una settimana (lun 5/1 09:00, 1h)
+    controller.addActivity(ActivityFactory::createRecurrentEvent(
+        "Allenamento", tp(utc(2026, 1, 5, 9)), 1h, std::chrono::hours(24)));
+    auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
+    REQUIRE(occurrences.size() == 7);
+
+    // Sposta SOLO la seconda occorrenza (mar 6/1 09:00) alla destinazione
+    const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 6, 9)));
+    REQUIRE(second != nullptr);
+    auto replacement = std::make_unique<Event>(
+        second->source->getTitle(), tp(utc(2026, 1, 8, 15)), second->duration);
+    REQUIRE(controller.modifyOccurrence(*second, std::move(replacement)));
+
+    occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
+
+    // 1) BUCO IN ORIGINE: nessuna occorrenza della serie il 6/1 09:00
+    bool serieSul6 = false;
+    for (const auto& o : occurrences) {
+        if (o.source == second->source && o.start == tp(utc(2026, 1, 6, 9))) {
+            serieSul6 = true;
+        }
+    }
+    REQUIRE_FALSE(serieSul6);
+
+    // 2) L'evento singolo e' alla destinazione (8/1 15:00)
+    bool singoloAllaDestinazione = false;
+    for (const auto& o : occurrences) {
+        if (o.source != second->source && o.start == tp(utc(2026, 1, 8, 15))) {
+            singoloAllaDestinazione = true;
+        }
+    }
+    REQUIRE(singoloAllaDestinazione);
+
+    // 3) La serie continua negli altri giorni (6 occorrenze su 7)
+    int serieCount = 0;
+    for (const auto& o : occurrences) {
+        if (o.source == second->source) ++serieCount;
+    }
+    REQUIRE(serieCount == 6);
+}
+
 TEST_CASE("Controller: salvataggio e caricamento su file", "[controller]") {
     app::CalendarController controller;
     controller.addActivity(ActivityFactory::createSimpleEvent(
