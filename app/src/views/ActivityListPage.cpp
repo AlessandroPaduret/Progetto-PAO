@@ -93,11 +93,13 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_table->setStyleSheet(QStringLiteral(
         "QTableWidget { background: white; alternate-background-color: #f8f9fa;"
         " border: none; outline: none; font-size: 13pt; color: #000000; }"
-        "QTableWidget::item { padding: 4px 8px; color: #000000; }"
-        "QTableWidget::item:selected { background: #e8f0fe; color: #000000; }"
+        "QTableWidget::item { padding: 4px 8px; color: #000000;"
+        " border-right: 1px solid #dadce0; }"
+        "QTableWidget::item:selected { background: #e8f0fe; color: #000000;"
+        " border-right: 1px solid #dadce0; }"
         "QHeaderView::section { background: #f8f9fa; border: none;"
-        " border-bottom: 1px solid #dadce0; padding: 6px;"
-        " font-weight: bold; color: #202124; font-size: 13pt; }"));
+        " border-bottom: 1px solid #dadce0; border-right: 1px solid #dadce0;"
+        " padding: 6px; font-weight: bold; color: #202124; font-size: 13pt; }"));
 
     m_detailButton = new QPushButton(tr("Dettaglio"), this);
     m_editButton = new QPushButton(tr("Modifica"), this);
