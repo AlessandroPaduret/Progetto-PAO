@@ -274,9 +274,24 @@ void MainWindow::onChoiceSeries() {
 
 void MainWindow::onChoiceInstance() {
     m_choiceDialog->hide();
+    if (!m_pendingOccurrence) {
+        m_pendingIsDrag = false;
+        return;
+    }
+    const events::Occurrence occurrence = *m_pendingOccurrence;
+    const bool wasDrag = m_pendingIsDrag;
     m_pendingOccurrence.reset();
     m_pendingIsDrag = false;
-    // (logica completa nel prossimo passo)
+
+    if (wasDrag) {
+        // (drag: la logica dello spostamento arriva in un passo successivo)
+        return;
+    }
+    // L'occorrenza di quel giorno diventa un evento STANDARD: si apre la
+    // finestra di modifica dell'evento normale (non del ricorrente). Al
+    // salvataggio la serie continua ad esistere ma senza quel giorno
+    // (eccezione interna + nuovo evento singolo).
+    showFormEditOccurrence(occurrence);
 }
 
 void MainWindow::onEditSelected() {
