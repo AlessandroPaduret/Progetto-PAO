@@ -22,7 +22,7 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
         " border: 1px solid palette(mid); }"));
     // Pannello ridotto: piu' piccolo della finestra principale; la
     // dimensione viene adattata al contenitore in showCentered().
-    resize(520, 420);
+    resize(560, 480);
 
     // Nascosto all'avvio: si apre solo su richiesta dell'utente
     // (doppio clic su una riga dell'elenco o menu contestuale delle griglie).
@@ -73,11 +73,13 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
     auto* deleteButton = new QPushButton(tr("Elimina"), this);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(10, 6, 10, 10);
+    layout->setContentsMargins(14, 8, 14, 12);
     layout->addLayout(topRow);               // X in alto a destra
     layout->addSpacing(32);                  // spinge il titolo verso il centro
     layout->addLayout(titleRow);
+    layout->addSpacing(6);
     layout->addWidget(scroll, 1);
+    layout->addSpacing(8);
     auto* bottom = new QHBoxLayout;
     bottom->addStretch(1);
     bottom->addWidget(deleteButton);
@@ -97,8 +99,16 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
 void ActivityDetailDialog::showActivity(const events::Activity* activity) {
     m_activity = activity;
     m_titleLabel->setText(QString::fromStdString(activity->getTitle()));
-    m_fieldsLabel->setText(
-        ActivityViewHelpers::fieldLines(*activity).join(QLatin1Char('\n')));
+    // Righe "campo: valore" come paragrafi distanziati: la finestra si
+    // riempie in modo arioso e le informazioni si leggono con respiro.
+    const QStringList lines = ActivityViewHelpers::fieldLines(*activity);
+    QString html;
+    for (const QString& line : lines) {
+        html += QStringLiteral("<p style=\"margin: 12px 0;\">%1</p>")
+                    .arg(line.toHtmlEscaped());
+    }
+    m_fieldsLabel->setText(html);
+    m_fieldsLabel->setTextFormat(Qt::RichText);
 }
 
 void ActivityDetailDialog::showCentered() {
