@@ -11,31 +11,13 @@
 #include <algorithm>
 
 #include "events/domain/RecurrentEvent.h"
+#include "views/ViewShared.h"
 
 namespace app {
 
 namespace {
 
-const QColor kPalette[] = {
-    QColor("#4285F4"), QColor("#EA4335"), QColor("#34A853"), QColor("#FBBC04"),
-    QColor("#A142F4"), QColor("#24C1E0"), QColor("#F28B82"), QColor("#81C995"),
-};
-
-const char* kDayNames[] = {"Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"};
-
 constexpr int kMinutesPerDay = 24 * 60;
-
-// Colore stabile per attivita': deriva dall'indirizzo dell'oggetto.
-QColor colorForActivity(const events::Activity* activity) {
-    constexpr int count = sizeof(kPalette) / sizeof(kPalette[0]);
-    const auto address = reinterpret_cast<quintptr>(activity);
-    return kPalette[(address >> 4) % count];
-}
-
-QDateTime localTime(const events::TimePoint tp) {
-    return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count())
-        .toLocalTime();
-}
 
 } // namespace
 
@@ -45,8 +27,18 @@ WeekView::WeekView(QWidget* parent) : QWidget(parent) {
     setMinimumSize(baseWidth(), baseHeight());
 }
 
+void WeekView::setDayCount(int days) {
+    m_dayCount = qBound(1, days, kDaysPerWeek);
+    m_dropCell.reset();
+    update();
+}
+
+int WeekView::dayCount() const {
+    return m_dayCount;
+}
+
 int WeekView::baseWidth() const {
-    return kGutterWidth + kDaysPerWeek * kDayWidth;
+    return kGutterWidth + m_dayCount * kDayWidth;
 }
 
 int WeekView::baseHeight() const {
@@ -54,7 +46,7 @@ int WeekView::baseHeight() const {
 }
 
 int WeekView::dayWidth() const {
-    return qMax(kDayWidth, (width() - kGutterWidth) / kDaysPerWeek);
+    return qMax(kDayWidth, (width() - kGutterWidth) / m_dayCount);
 }
 
 int WeekView::hourHeight() const {
@@ -109,7 +101,7 @@ const events::Occurrence* WeekView::selectedOccurrence() const {
 void WeekView::ensureRects() {
     m_rects.assign(m_occurrences.size(), QRect());
 
-    for (int day = 0; day < kDaysPerWeek; ++day) {
+    for (int day = 0; day < m_dayCount; ++day) {
         // Indici delle occorrenze del giorno (ordinate per inizio)
         std::vector<int> dayIndex;
         for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
@@ -207,7 +199,7 @@ std::optional<QDateTime> WeekView::cellAt(const QPoint& pos) const {
         return std::nullopt;
     }
     const int dayIndex = (pos.x() - kGutterWidth) / dayWidth();
-    if (dayIndex < 0 || dayIndex >= kDaysPerWeek) {
+    if (dayIndex < 0 || dayIndex >= m_dayCount) {
         return std::nullopt;
     }
     const int minutes = (pos.y() - kHeaderHeight) * 60 / hourHeight();
@@ -218,7 +210,7 @@ std::optional<QDateTime> WeekView::cellAt(const QPoint& pos) const {
 QRect WeekView::dragGhostRect(const QDateTime& localStart,
                               const events::Duration duration) const {
     const int dayIndex = m_monday.daysTo(localStart.date());
-    if (dayIndex < 0 || dayIndex >= kDaysPerWeek) {
+    if (dayIndex < 0 || dayIndex >= m_dayCount) {
         return QRect();
     }
 
@@ -250,7 +242,7 @@ void WeekView::paintEvent(QPaintEvent*) {
     const int smallFontSize = qMax(8, qRound(8 * scale));
 
     // --- Intestazione: nome giorno + numero ---
-    for (int day = 0; day < kDaysPerWeek; ++day) {
+    for (int day = 0; day < m_dayCount; ++day) {
         const QRect headerRect(kGutterWidth + day * dayWidth(), 0,
                                dayWidth(), kHeaderHeight);
         painter.fillRect(headerRect, Qt::white);
@@ -264,14 +256,14 @@ void WeekView::paintEvent(QPaintEvent*) {
         painter.setFont(font);
         painter.drawText(headerRect, Qt::AlignCenter,
                          QStringLiteral("%1 %2")
-                             .arg(QString::fromLatin1(kDayNames[day]))
+                             .arg(QString::fromLatin1(shortDayName(date.dayOfWeek())))
                              .arg(date.day()));
     }
 
     // --- Linee della griglia ---
     painter.setPen(QColor("#dadce0"));
     painter.drawLine(kGutterWidth, kHeaderHeight, width(), kHeaderHeight);
-    for (int day = 0; day <= kDaysPerWeek; ++day) {
+    for (int day = 0; day <= m_dayCount; ++day) {
         const int x = kGutterWidth + day * dayWidth();
         painter.drawLine(x, kHeaderHeight, x, height());
     }
@@ -320,7 +312,7 @@ void WeekView::paintEvent(QPaintEvent*) {
             continue;
         }
         const events::Occurrence& occurrence = m_occurrences[i];
-        const QColor color = colorForActivity(occurrence.source);
+        const QColor color = activityColor(occurrence.source);
 
         painter.setPen(i == m_selected ? QPen(QColor("#1a73e8"), 2)
                                        : QPen(color.darker(120), 1));

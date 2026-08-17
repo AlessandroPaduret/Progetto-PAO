@@ -50,6 +50,11 @@ public:
 
     explicit WeekView(QWidget* parent = nullptr);
 
+    /** @brief Numero di giorni mostrati nella griglia (1 = vista giorno,
+     *  default 7). Il riferimento resta il lunedi' passato a setWeekStart. */
+    void setDayCount(int days);
+    int dayCount() const;
+
     /** @brief Imposta le occorrenze da mostrare. */
     void setOccurrences(const std::vector<events::Occurrence>& occurrences);
 
@@ -121,6 +126,7 @@ private:
     std::vector<events::Occurrence> m_occurrences;
     std::vector<QRect> m_rects;           // layout corrente (parallelo a m_occurrences)
     QDate m_monday;
+    int m_dayCount = kDaysPerWeek;
     int m_selected = -1;
     std::optional<Preview> m_preview;     // anteprima evento in modifica
 
