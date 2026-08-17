@@ -5,6 +5,7 @@
 
 #include "events/events.h"
 
+class QComboBox;
 class QLineEdit;
 class QPushButton;
 class QTableWidget;
@@ -13,17 +14,23 @@ namespace app {
 
 class CalendarController;
 
-/** @brief Pagina "elenco attivita'": tabella con ricerca live per titolo.
+/** @brief Pagina "elenco attivita'": tabella con ricerca live per titolo e
+ *  filtro per tipo.
  *
  *  Ogni riga e' un'attivita'; il tipo e la riga descrittiva sono calcolati
  *  con un Visitor (nessuna stringa "getType" nel modello).
+ *
+ *  Ordinamento: clic sull'intestazione di una colonna riordina le righe;
+ *  sulla colonna "Titolo" l'ordinamento e' per titolo con "Tipo" come chiave
+ *  secondaria (e viceversa su "Tipo"). Default: per data di inizio.
  */
 class ActivityListPage : public QWidget {
     Q_OBJECT
 public:
     explicit ActivityListPage(CalendarController* controller, QWidget* parent = nullptr);
 
-    /** @brief Ricarica la tabella dal calendario (inclusa la ricerca corrente). */
+    /** @brief Ricarica la tabella dal calendario (inclusa la ricerca corrente
+     *  e il filtro per tipo, mantenendo ordinamento e indicatore). */
     void refresh();
 
 signals:
@@ -34,17 +41,28 @@ signals:
 
 private slots:
     void onSearchTextChanged(const QString& text);
+    void onTypeFilterChanged(int index);
+    void onHeaderClicked(int section);
     void onOpenDetail();
     void onEdit();
 
 private:
     void reloadTable();
 
+    /** @brief Confronto con chiave primaria = colonna correntemente ordinata,
+     *  secondaria = tipo/titolo complementare; per ultimo l'inizio (stabile). */
+    bool lessThan(const events::Activity* a, const events::Activity* b) const;
+
     CalendarController* m_controller;
     QLineEdit* m_searchBox;
+    QComboBox* m_typeFilter = nullptr;
     QTableWidget* m_table;
     QPushButton* m_detailButton;
     QPushButton* m_editButton;
+
+    /** @brief Colonna ordinata (-1 = default, per data di inizio). */
+    int m_sortColumn = -1;
+    Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
 
     /** @brief Attivita' correntemente elencate (riga -> puntatore). */
     QVector<const events::Activity*> m_rows;
