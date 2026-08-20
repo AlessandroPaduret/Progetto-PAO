@@ -3,7 +3,7 @@
 # Il modello logico, la persistenza JSON e la GUI sono un unico eseguibile.
 
 QT += core gui widgets
-CONFIG += c++20
+CONFIG += c++21
 CONFIG -= app_bundle
 TEMPLATE = app
 TARGET = attivita
