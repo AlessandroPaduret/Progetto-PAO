@@ -1,12 +1,14 @@
-#ifndef ACTIVITY_VISITOR_H
-#define ACTIVITY_VISITOR_H
+#ifndef ACTIVITYVISITOR_H
+#define ACTIVITYVISITOR_H
 
 namespace events {
 
 class Event;
 class RecurrentEvent;
-class Deadline;
-class Reminder;
+class Task;
+class Meeting;
+class AllDayEvent;
+class Anniversary;
 
 /**
  * @brief Interfaccia del Visitor per la gerarchia delle attivita.
@@ -21,10 +23,12 @@ public:
 
     virtual void visit(const Event& event) = 0;
     virtual void visit(const RecurrentEvent& event) = 0;
-    virtual void visit(const Deadline& deadline) = 0;
-    virtual void visit(const Reminder& reminder) = 0;
+    virtual void visit(const Task& task) = 0;
+    virtual void visit(const Meeting& meeting) = 0;
+    virtual void visit(const AllDayEvent& event) = 0;
+    virtual void visit(const Anniversary& anniversary) = 0;
 };
 
 } // namespace events
 
-#endif // ACTIVITY_VISITOR_H
+#endif // ACTIVITYVISITOR_H

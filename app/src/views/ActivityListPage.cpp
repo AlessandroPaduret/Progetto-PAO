@@ -1,5 +1,6 @@
 #include "views/ActivityListPage.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QHeaderView>
 #include <QIcon>
@@ -58,7 +59,8 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_typeFilter = new QComboBox(this);
     m_typeFilter->addItem(tr("Tutti i tipi"), QString());
     for (const QString& type :
-         {tr("Evento"), tr("Ricorrente"), tr("Scadenza"), tr("Promemoria")}) {
+         {tr("Evento"), tr("Ricorrente"), tr("Riunione"), tr("Compito"),
+          tr("Tutto il giorno"), tr("Anniversario")}) {
         m_typeFilter->addItem(type, type);
     }
 
@@ -67,6 +69,10 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     biggerFont.setPointSize(12);
     m_searchBox->setFont(biggerFont);
     m_typeFilter->setFont(biggerFont);
+
+    // "Solo da fare": nasconde le attivita' evase (meccanica agenda con stati)
+    m_pendingOnly = new QCheckBox(tr("Solo da fare"), this);
+    m_pendingOnly->setFont(biggerFont);
 
     // Colonna 0 = pallino colorato dell'attivita' (come le griglie del
     // calendario), poi Titolo / Tipo / Dettaglio
@@ -109,6 +115,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     auto* layout = new QVBoxLayout(this);
     auto* filterRow = new QHBoxLayout;
     filterRow->addWidget(m_searchBox, 1);
+    filterRow->addWidget(m_pendingOnly);
     filterRow->addWidget(m_typeFilter);
     layout->addLayout(filterRow);
     layout->addWidget(m_table, 1);
@@ -122,6 +129,8 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
             this, &ActivityListPage::onSearchTextChanged);
     connect(m_typeFilter, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &ActivityListPage::onTypeFilterChanged);
+    connect(m_pendingOnly, &QCheckBox::toggled,
+            this, &ActivityListPage::onPendingOnlyToggled);
     connect(m_table->horizontalHeader(), &QHeaderView::sectionClicked,
             this, &ActivityListPage::onHeaderClicked);
     connect(m_table, &QTableWidget::itemSelectionChanged, this, [this] {
@@ -146,6 +155,10 @@ void ActivityListPage::onSearchTextChanged(const QString&) {
 }
 
 void ActivityListPage::onTypeFilterChanged(int) {
+    reloadTable();
+}
+
+void ActivityListPage::onPendingOnlyToggled(bool) {
     reloadTable();
 }
 
@@ -225,6 +238,16 @@ void ActivityListPage::reloadTable() {
             std::remove_if(activities.begin(), activities.end(),
                            [&filter](const events::Activity* activity) {
                                return ActivityViewHelpers::typeLabel(*activity) != filter;
+                           }),
+            activities.end());
+    }
+
+    // "Solo da fare": nasconde le attivita' gia' evase
+    if (m_pendingOnly->isChecked()) {
+        activities.erase(
+            std::remove_if(activities.begin(), activities.end(),
+                           [](const events::Activity* activity) {
+                               return activity->isDone();
                            }),
             activities.end());
     }

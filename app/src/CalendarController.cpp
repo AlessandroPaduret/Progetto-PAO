@@ -192,6 +192,13 @@ bool CalendarController::modifyOccurrence(
   return true;
 }
 
+bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
+  auto* activity = const_cast<events::Activity*>(occurrence.source);
+  activity->setDoneAt(occurrence.start, !activity->isDoneAt(occurrence.start));
+  emit activitiesChanged();
+  return true;
+}
+
 bool CalendarController::saveToFile(const QString& filePath, QString* error) {
   return persistence::saveToFile(m_calendar, filePath, error);
 }

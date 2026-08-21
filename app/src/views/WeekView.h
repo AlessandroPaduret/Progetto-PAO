@@ -18,6 +18,13 @@ namespace app {
  *  attivita' disegnate come blocchi colorati (posizione = ora di inizio,
  *  altezza = durata; durata zero = chip di altezza minima).
  *
+ *  In alto, sotto i giorni, c'e' una STRISCIA dedicata alle attivita'
+ *  "tutto il giorno" (chip che coprono una o piu' date).
+ *
+ *  Ogni occorrenza ha una spunta (checkbox) in alto a sinistra: un clic sulla
+ *  spunta emette `doneToggled` (meccanica "agenda con stati"); gli eventi
+ *  evasi vengono mostrati attenuati con la spunta barrata.
+ *
  *  Le occorrenze che si sovrappongono temporalmente nello stesso giorno
  *  vengono AFFIANCATE in colonne (come in Google Calendar), cosi' possono
  *  coesistere nella stessa casella.
@@ -35,6 +42,7 @@ class WeekView : public QWidget {
 public:
     static constexpr int kGutterWidth = 56;   // larghezza colonna ore
     static constexpr int kHeaderHeight = 48;  // altezza intestazione giorni
+    static constexpr int kAllDayHeight = 22;  // altezza striscia "tutto il giorno"
     static constexpr int kDayWidth = 120;     // larghezza base colonna giorno
     static constexpr int kHourHeight = 60;    // pixel base per ora
     static constexpr int kDaysPerWeek = 7;
@@ -96,6 +104,8 @@ signals:
      *  spostare la serie o la singola occorrenza. */
     void occurrenceDragChoiceRequested(const events::Occurrence& occurrence,
                                        const QDateTime& newStart);
+    /** @brief Clic sulla spunta: inverte lo stato evaso/da fare dell'occorrenza. */
+    void doneToggled(const events::Occurrence& occurrence);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -106,6 +116,8 @@ protected:
     bool event(QEvent* event) override;
 
 private:
+    /** @brief Inizio verticale della griglia oraria (sotto la striscia all-day). */
+    int gridTop() const;
     int dayWidth() const;   // larghezza corrente di una colonna giorno
     int hourHeight() const; // altezza corrente di un'ora
 
@@ -125,6 +137,7 @@ private:
 
     std::vector<events::Occurrence> m_occurrences;
     std::vector<QRect> m_rects;           // layout corrente (parallelo a m_occurrences)
+    std::vector<QRect> m_checkRects;      // spunta di ogni occorrenza
     QDate m_monday;
     int m_dayCount = kDaysPerWeek;
     int m_selected = -1;

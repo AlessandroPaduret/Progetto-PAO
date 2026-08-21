@@ -46,6 +46,7 @@ void MonthView::setOccurrences(const std::vector<events::Occurrence>& occurrence
     m_occurrences = occurrences;
     m_selected = -1;
     m_chipRects.clear();
+    m_checkRects.clear();
     update();
 }
 
@@ -53,6 +54,7 @@ void MonthView::setMonth(const QDate& firstOfMonth) {
     m_month = firstOfMonth;
     m_selected = -1;
     m_chipRects.clear();
+    m_checkRects.clear();
     update();
 }
 
@@ -107,10 +109,12 @@ int MonthView::hitTest(const QPoint& pos) const {
 void MonthView::ensureRects() {
     if (m_occurrences.empty()) {
         m_chipRects.clear();
+        m_checkRects.clear();
         m_extraCounts.assign(42, 0);
         return;
     }
     m_chipRects.assign(m_occurrences.size(), QRect());
+    m_checkRects.assign(m_occurrences.size(), QRect());
     m_extraCounts.assign(42, 0);
 
     const QDate start = gridStart();
@@ -144,6 +148,9 @@ void MonthView::ensureRects() {
                 }
                 m_chipRects[i] =
                     QRect(cell.left() + 2, y, cell.width() - 4, kChipHeight);
+                // Spunta in alto a sinistra del chip
+                m_checkRects[i] =
+                    QRect(cell.left() + 5, y + (kChipHeight - 11) / 2, 11, 11);
                 y += kChipHeight + 2;
                 ++shown;
             }
@@ -216,18 +223,31 @@ void MonthView::paintEvent(QPaintEvent*) {
         if (!rect.isValid()) {
             continue;
         }
-        const QColor color = activityColor(m_occurrences[i].source);
+        const events::Occurrence& occ = m_occurrences[i];
+        const QColor color = activityColor(occ.source);
+        const bool done = occ.source->isDoneAt(occ.start);
 
+        QColor fill = done ? QColor("#bdc1c6") : color;
         painter.setPen(i == m_selected ? QPen(kTodayColor, 2) : Qt::NoPen);
-        painter.setBrush(color);
+        painter.setBrush(fill);
         painter.drawRoundedRect(rect, 3, 3);
+
+        // Spunta (checkbox) in alto a sinistra
+        const QRect check = m_checkRects[i];
+        painter.setPen(QColor("#3c4043"));
+        painter.setBrush(done ? QColor("#1a73e8") : Qt::white);
+        painter.drawRect(check);
+        if (done) {
+            painter.setPen(Qt::white);
+            painter.drawText(check, Qt::AlignCenter, QStringLiteral("\u2713"));
+        }
 
         painter.setFont(chipFont);
         painter.setPen(Qt::white);
         const QString title = metrics.elidedText(
-            QString::fromStdString(m_occurrences[i].source->getTitle()),
-            Qt::ElideRight, rect.width() - 6);
-        painter.drawText(rect.adjusted(3, 0, -3, 0),
+            QString::fromStdString(occ.source->getTitle()),
+            Qt::ElideRight, rect.width() - 20);
+        painter.drawText(rect.adjusted(18, 0, -3, 0),
                          Qt::AlignLeft | Qt::AlignVCenter, title);
     }
 
@@ -289,6 +309,12 @@ void MonthView::mousePressEvent(QMouseEvent* event) {
     }
 
     if (event->button() == Qt::LeftButton) {
+        // Clic sulla spunta del chip: inverte lo stato evaso/da fare
+        if (index >= 0 && index < static_cast<int>(m_checkRects.size()) &&
+            m_checkRects[index].contains(event->pos())) {
+            emit doneToggled(m_occurrences[index]);
+            return;
+        }
         m_selected = index;
         update();
     }

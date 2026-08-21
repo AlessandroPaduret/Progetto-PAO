@@ -11,9 +11,11 @@
 
 class QCheckBox;
 class QComboBox;
+class QDateEdit;
 class QDateTimeEdit;
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QPushButton;
 class QSpinBox;
 class QStackedWidget;
@@ -60,6 +62,8 @@ private slots:
     void onDelete();
     void onTypeChanged(int index);
     void onRecurrenceEndToggled(bool checked);
+    void onAddAttendee();
+    void onRemoveAttendee();
 
 private:
     /** @brief Emette l'anteprima corrente (dati del pannello attivo). */
@@ -75,8 +79,10 @@ private:
     // Pannelli dei campi (form specifico per tipo, vincolo PAO)
     QWidget* buildEventPanel();
     QWidget* buildRecurrentPanel();
-    QWidget* buildDeadlinePanel();
-    QWidget* buildReminderPanel();
+    QWidget* buildMeetingPanel();
+    QWidget* buildTaskPanel();
+    QWidget* buildAllDayPanel();
+    QWidget* buildAnniversaryPanel();
 
     // Lettura dei campi -> oggetto di dominio
     std::unique_ptr<events::Activity> buildActivity() const;
@@ -84,8 +90,10 @@ private:
     // Popolamento dei campi in modifica
     void populateEvent(const events::Event& event);
     void populateRecurrent(const events::RecurrentEvent& event);
-    void populateDeadline(const events::Deadline& deadline);
-    void populateReminder(const events::Reminder& reminder);
+    void populateMeeting(const events::Meeting& meeting);
+    void populateTask(const events::Task& task);
+    void populateAllDay(const events::AllDayEvent& event);
+    void populateAnniversary(const events::Anniversary& anniversary);
 
     // Campi comuni per pannello (titolo/data/durata) e loro sincronizzazione
     QLineEdit* titleOf(int panel) const;
@@ -118,17 +126,28 @@ private:
     QCheckBox* m_hasEndCheck = nullptr;
     QDateTimeEdit* m_endEdit = nullptr;
 
-    // Scadenza
-    QLineEdit* m_titleD = nullptr;
-    QDateTimeEdit* m_dueEdit = nullptr;
+    // Riunione
+    QLineEdit* m_titleMt = nullptr;
+    QDateTimeEdit* m_startMt = nullptr;
+    QTimeEdit* m_durationMt = nullptr;
+    QLineEdit* m_locationMt = nullptr;
+    QLineEdit* m_attendeeEdit = nullptr;
+    QListWidget* m_attendeesList = nullptr;
+
+    // Compito
+    QLineEdit* m_titleT = nullptr;
+    QDateTimeEdit* m_dueT = nullptr;
     QComboBox* m_priorityCombo = nullptr;
     QCheckBox* m_doneCheck = nullptr;
 
-    // Promemoria
-    QLineEdit* m_titleM = nullptr;
-    QDateTimeEdit* m_triggerEdit = nullptr;
-    QLineEdit* m_messageEdit = nullptr;
-    QSpinBox* m_repeatDays = nullptr;
+    // Tutto il giorno
+    QLineEdit* m_titleA = nullptr;
+    QDateEdit* m_startDateA = nullptr;
+    QDateEdit* m_endDateA = nullptr;
+
+    // Anniversario
+    QLineEdit* m_titleAn = nullptr;
+    QDateEdit* m_dateAn = nullptr;
 
     QPushButton* m_saveButton = nullptr;
     QPushButton* m_deleteButton = nullptr;

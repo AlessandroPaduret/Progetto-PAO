@@ -18,14 +18,16 @@ TimePoint make_date(int y, int m, int d) {
     return std::chrono::sys_days{std::chrono::year{y}/std::chrono::month{static_cast<unsigned>(m)}/std::chrono::day{static_cast<unsigned>(d)}};
 }
 
-TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
+TEST_CASE("Persistenza: Event round-trip (con stato)", "[json][event]") {
     TimePoint start = make_date(2026, 1, 8) + 10h;
     auto event = ActivityFactory::createSimpleEvent("Dentista", start, 1h);
+    event->setDone();
 
     QJsonObject json = persistence::activityToJson(*event);
     REQUIRE(json.value("type").toString() == "event");
     REQUIRE(json.value("start").toString() == "2026-01-08T10:00:00");
     REQUIRE(json.value("duration_seconds").toInteger() == 3600);
+    REQUIRE(json.value("done").toBool() == true);
 
     QString error;
     auto back = persistence::activityFromJson(json, &error);
@@ -35,16 +37,19 @@ TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
     REQUIRE(e->getTitle() == "Dentista");
     REQUIRE(e->getStart() == start);
     REQUIRE(e->getDuration() == 1h);
+    REQUIRE(e->isDone());
 }
 
-TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip", "[json][recurrent]") {
+TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip (con occorrenze evase)", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 1) + 9h;
     auto event = ActivityFactory::createSimpleWeekly("Meeting", start, 1h, make_date(2026, 3, 1));
     event->addException(make_date(2026, 1, 15) + 9h);
+    event->setDoneAt(make_date(2026, 1, 8) + 9h, true);  // seconda lezione evasa
 
     QJsonObject json = persistence::activityToJson(*event);
     REQUIRE(json.value("type").toString() == "recurrent");
     REQUIRE(json.value("generator").toObject().value("type").toString() == "fixed");
+    REQUIRE(json.value("done_occurrences").toArray().size() == 1);
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
@@ -52,6 +57,8 @@ TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip", "[json][recurrent]")
     REQUIRE(rec != nullptr);
     REQUIRE(rec->getTitle() == "Meeting");
     REQUIRE(rec->getExceptions().size() == 1);
+    REQUIRE(rec->getDoneOccurrences().size() == 1);
+    REQUIRE(rec->isDoneAt(make_date(2026, 1, 8) + 9h));
 
     auto a = event->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
     auto b = rec->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
@@ -63,74 +70,99 @@ TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip", "[json][recurrent]")
     }
 }
 
-TEST_CASE("Persistenza: compleanno (yearly) round-trip", "[json][yearly]") {
-    auto birthday = ActivityFactory::createBirthday("Mario", 2028y/2/29);
-
-    QJsonObject json = persistence::activityToJson(*birthday);
-    REQUIRE(json.value("generator").toObject().value("type").toString() == "yearly");
-
-    auto back = persistence::activityFromJson(json);
-    REQUIRE(back != nullptr);
-    auto rec = dynamic_cast<RecurrentEvent*>(back.get());
-    REQUIRE(rec != nullptr);
-
-    auto a = birthday->getSchedulable(make_date(2028, 1, 1), make_date(2028, 1, 1) + std::chrono::years(7));
-    auto b = rec->getSchedulable(make_date(2028, 1, 1), make_date(2028, 1, 1) + std::chrono::years(7));
-    REQUIRE(a.size() == b.size());
-    REQUIRE(a.size() == 7);  // 2028..2034: anni bisestili gestiti dal generatore
-    for (size_t i = 0; i < a.size(); ++i) {
-        REQUIRE(a[i]->getStart() == b[i]->getStart());
-        REQUIRE(a[i]->getDuration() == b[i]->getDuration());
-    }
-}
-
-TEST_CASE("Persistenza: Deadline round-trip", "[json][deadline]") {
+TEST_CASE("Persistenza: Task round-trip", "[json][task]") {
     TimePoint due = make_date(2026, 3, 10);
-    auto deadline = ActivityFactory::createDeadline("Consegna", due, Priority::High);
-    deadline->setDone();
+    auto task = ActivityFactory::createTask("Consegna", due, Priority::High);
+    task->setDone();
 
-    QJsonObject json = persistence::activityToJson(*deadline);
-    REQUIRE(json.value("type").toString() == "deadline");
+    QJsonObject json = persistence::activityToJson(*task);
+    REQUIRE(json.value("type").toString() == "task");
     REQUIRE(json.value("priority").toString() == "high");
     REQUIRE(json.value("done").toBool() == true);
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
-    auto d = dynamic_cast<Deadline*>(back.get());
-    REQUIRE(d != nullptr);
-    REQUIRE(d->getTitle() == "Consegna");
-    REQUIRE(d->getDue() == due);
-    REQUIRE(d->getPriority() == Priority::High);
-    REQUIRE(d->isDone());
+    auto t = dynamic_cast<Task*>(back.get());
+    REQUIRE(t != nullptr);
+    REQUIRE(t->getTitle() == "Consegna");
+    REQUIRE(t->getDue() == due);
+    REQUIRE(t->getPriority() == Priority::High);
+    REQUIRE(t->isDone());
 }
 
-TEST_CASE("Persistenza: Reminder round-trip", "[json][reminder]") {
-    TimePoint trigger = make_date(2026, 2, 1) + 8h;
-    auto reminder = ActivityFactory::createReminder("Pillola", trigger, "Prendi la pillola", Days(1));
+TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meeting]") {
+    TimePoint start = make_date(2026, 2, 1) + 10h;
+    auto meeting = ActivityFactory::createMeeting("Riunione", start, 90min, "Aula Magna");
+    meeting->addAttendee("Mario");
+    meeting->addAttendee("Anna");
 
-    QJsonObject json = persistence::activityToJson(*reminder);
-    REQUIRE(json.value("type").toString() == "reminder");
-    REQUIRE(json.value("repeat_seconds").toInteger() == 86400);
+    QJsonObject json = persistence::activityToJson(*meeting);
+    REQUIRE(json.value("type").toString() == "meeting");
+    REQUIRE(json.value("location").toString() == "Aula Magna");
+    REQUIRE(json.value("attendees").toArray().size() == 2);
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
-    auto r = dynamic_cast<Reminder*>(back.get());
-    REQUIRE(r != nullptr);
-    REQUIRE(r->getMessage() == "Prendi la pillola");
-    REQUIRE(r->isRepeating());
+    auto m = dynamic_cast<Meeting*>(back.get());
+    REQUIRE(m != nullptr);
+    REQUIRE(m->getLocation() == "Aula Magna");
+    REQUIRE(m->attendeeCount() == 2);
+    REQUIRE(m->getAttendees()[0] == "Mario");
+    REQUIRE(m->getAttendees()[1] == "Anna");
+}
 
-    auto a = reminder->occurrencesIn(make_date(2026, 2, 1), make_date(2026, 2, 8));
-    auto b = r->occurrencesIn(make_date(2026, 2, 1), make_date(2026, 2, 8));
+TEST_CASE("Persistenza: AllDayEvent round-trip", "[json][allday]") {
+    auto allday = ActivityFactory::createAllDayEvent("Mostra", make_date(2026, 5, 10), make_date(2026, 5, 13));
+
+    QJsonObject json = persistence::activityToJson(*allday);
+    REQUIRE(json.value("type").toString() == "allday");
+    REQUIRE(json.value("start").toString() == "2026-05-10T00:00:00");
+    REQUIRE(json.value("end").toString() == "2026-05-13T00:00:00");
+
+    auto back = persistence::activityFromJson(json);
+    REQUIRE(back != nullptr);
+    auto a = dynamic_cast<AllDayEvent*>(back.get());
+    REQUIRE(a != nullptr);
+    REQUIRE(a->getStart() == make_date(2026, 5, 10));
+    REQUIRE(a->getEnd() == make_date(2026, 5, 13));
+    REQUIRE(a->days() == 3);
+}
+
+TEST_CASE("Persistenza: Anniversary round-trip (leap-aware, occorrenze evase)", "[json][anniversary]") {
+    auto anniversary = ActivityFactory::createAnniversary("Mario", make_date(2028, 2, 29));
+    anniversary->setDoneAt(make_date(2028, 2, 29), true);
+    anniversary->setDoneAt(make_date(2029, 2, 28), true);
+
+    QJsonObject json = persistence::activityToJson(*anniversary);
+    REQUIRE(json.value("type").toString() == "anniversary");
+    REQUIRE(json.value("date").toString() == "2028-02-29T00:00:00");
+    REQUIRE(json.value("done_occurrences").toArray().size() == 2);
+
+    auto back = persistence::activityFromJson(json);
+    REQUIRE(back != nullptr);
+    auto ann = dynamic_cast<Anniversary*>(back.get());
+    REQUIRE(ann != nullptr);
+    REQUIRE(ann->getStart() == make_date(2028, 2, 29));
+    REQUIRE(ann->getDoneOccurrences().size() == 2);
+
+    auto a = anniversary->occurrencesIn(make_date(2028, 1, 1), make_date(2031, 12, 31));
+    auto b = ann->occurrencesIn(make_date(2028, 1, 1), make_date(2031, 12, 31));
     REQUIRE(a.size() == b.size());
-    REQUIRE(a.size() == 7);
+    REQUIRE(a.size() == 4);
+    for (size_t i = 0; i < a.size(); ++i) {
+        REQUIRE(a[i].start == b[i].start);
+        REQUIRE(a[i].duration == b[i].duration);
+    }
 }
 
 TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][file]") {
     Calendar calendar;
     calendar.add(ActivityFactory::createSimpleEvent("Evento A", make_date(2026, 1, 1) + 9h, 1h));
     calendar.add(ActivityFactory::createSimpleWeekly("Riunione B", make_date(2026, 1, 2) + 10h, 30min, make_date(2026, 3, 1)));
-    calendar.add(ActivityFactory::createDeadline("Scadenza C", make_date(2026, 2, 1), Priority::High));
-    calendar.add(ActivityFactory::createReminder("Promemoria D", make_date(2026, 1, 3), "msg", Days(1)));
+    calendar.add(ActivityFactory::createTask("Compito C", make_date(2026, 2, 1), Priority::High));
+    calendar.add(ActivityFactory::createMeeting("Riunione D", make_date(2026, 1, 3) + 8h, 1h, "Zoom"));
+    calendar.add(ActivityFactory::createAllDayEvent("Giornata E", make_date(2026, 1, 4), make_date(2026, 1, 5)));
+    calendar.add(ActivityFactory::createAnniversary("Anniversario F", make_date(2000, 1, 6)));
 
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
@@ -141,7 +173,7 @@ TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][fi
 
     Calendar loaded;
     REQUIRE(persistence::loadFromFile(loaded, path, &error));
-    REQUIRE(loaded.size() == 4);
+    REQUIRE(loaded.size() == 6);
 
     auto occ1 = calendar.occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
     auto occ2 = loaded.occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
@@ -152,8 +184,8 @@ TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][fi
         REQUIRE(occ1[i].source->getTitle() == occ2[i].source->getTitle());
     }
 
-    REQUIRE(loaded.search("scadenza").size() == 1);
-    REQUIRE(loaded.search("promemoria").size() == 1);
+    REQUIRE(loaded.search("compito").size() == 1);
+    REQUIRE(loaded.search("anniversario").size() == 1);
 }
 
 TEST_CASE("Persistenza: input non validi rifiutati", "[json][invalid]") {
@@ -188,7 +220,13 @@ TEST_CASE("Persistenza: input non validi rifiutati", "[json][invalid]") {
     }
 
     SECTION("priorita' sconosciuta") {
-        QJsonObject json{{"type", "deadline"}, {"title", "X"}, {"due", "2026-01-01T00:00:00"}, {"priority", "urgente"}};
+        QJsonObject json{{"type", "task"}, {"title", "X"}, {"due", "2026-01-01T00:00:00"}, {"priority", "urgente"}};
+        REQUIRE(persistence::activityFromJson(json) == nullptr);
+    }
+
+    SECTION("all-day con fine <= inizio") {
+        QJsonObject json{{"type", "allday"}, {"title", "X"},
+                         {"start", "2026-01-10T00:00:00"}, {"end", "2026-01-10T00:00:00"}};
         REQUIRE(persistence::activityFromJson(json) == nullptr);
     }
 

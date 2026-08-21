@@ -194,6 +194,10 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::showFormEditOccurrence);
     connect(m_weekView, &WeekView::deleteEventRequested,
             this, &MainWindow::confirmDeleteOccurrence);
+    connect(m_weekView, &WeekView::doneToggled,
+            this, [this](const events::Occurrence& occurrence) {
+                m_controller->toggleDone(occurrence);
+            });
 
     // Vista giorno (stesse interazioni della settimana: e' una WeekView)
     connect(m_dayView, &WeekView::emptySlotClicked,
@@ -219,6 +223,10 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::showFormEditOccurrence);
     connect(m_dayView, &WeekView::deleteEventRequested,
             this, &MainWindow::confirmDeleteOccurrence);
+    connect(m_dayView, &WeekView::doneToggled,
+            this, [this](const events::Occurrence& occurrence) {
+                m_controller->toggleDone(occurrence);
+            });
 
     // Vista mese
     connect(m_monthView, &MonthView::emptySlotClicked,
@@ -237,6 +245,10 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::showFormEditOccurrence);
     connect(m_monthView, &MonthView::deleteEventRequested,
             this, &MainWindow::confirmDeleteOccurrence);
+    connect(m_monthView, &MonthView::doneToggled,
+            this, [this](const events::Occurrence& occurrence) {
+                m_controller->toggleDone(occurrence);
+            });
 
     // Vista anno: doppio clic su un giorno -> vista giorno di quella data
     connect(m_yearView, &YearView::daySelected,

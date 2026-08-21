@@ -13,8 +13,10 @@
 // Domain
 #include "events/domain/Event.h"
 #include "events/domain/RecurrentEvent.h"
-#include "events/domain/Deadline.h"
-#include "events/domain/Reminder.h"
+#include "events/domain/Task.h"
+#include "events/domain/Meeting.h"
+#include "events/domain/AllDayEvent.h"
+#include "events/domain/Anniversary.h"
 #include "events/domain/Calendar.h"
 #include "events/domain/ActivityFactory.h"
 

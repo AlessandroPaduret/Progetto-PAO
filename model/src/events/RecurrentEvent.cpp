@@ -121,4 +121,22 @@ void RecurrentEvent::truncateBefore(TimePoint tp) {
   m_generator->setEnd(tp - Duration(1));
 }
 
+const std::unordered_set<TimePoint, TimePointHasher> &
+RecurrentEvent::getDoneOccurrences() const {
+  return m_doneOccurrences;
+}
+
+bool RecurrentEvent::isDoneAt(const TimePoint occurrenceStart) const {
+  return m_doneOccurrences.find(occurrenceStart) != m_doneOccurrences.end();
+}
+
+void RecurrentEvent::setDoneAt(const TimePoint occurrenceStart,
+                               const bool done) {
+  if (done) {
+    m_doneOccurrences.insert(occurrenceStart);
+  } else {
+    m_doneOccurrences.erase(occurrenceStart);
+  }
+}
+
 } // namespace events

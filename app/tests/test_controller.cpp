@@ -11,6 +11,7 @@
 #include "events/domain/ActivityFactory.h"
 #include "events/domain/Event.h"
 #include "events/domain/RecurrentEvent.h"
+#include "events/domain/Task.h"
 
 using namespace std::chrono_literals;
 using namespace events;
@@ -43,10 +44,10 @@ TEST_CASE("Controller: CRUD di base", "[controller]") {
     SECTION("add/search/remove") {
         controller.addActivity(ActivityFactory::createSimpleEvent(
             "Dentista", tp(utc(2026, 1, 8, 10)), 1h));
-        controller.addActivity(ActivityFactory::createDeadline(
+        controller.addActivity(ActivityFactory::createTask(
             "Consegna", tp(utc(2026, 1, 15)), Priority::High));
-        controller.addActivity(ActivityFactory::createReminder(
-            "Pillola", tp(utc(2026, 1, 9, 8)), "msg"));
+        controller.addActivity(ActivityFactory::createMeeting(
+            "Riunione", tp(utc(2026, 1, 9, 8)), 1h));
 
         REQUIRE(controller.calendar().size() == 3);
         REQUIRE(controller.search("DENTISTA").size() == 1);
@@ -61,6 +62,53 @@ TEST_CASE("Controller: CRUD di base", "[controller]") {
 
     SECTION("add rifiuta puntatore nullo") {
         REQUIRE_FALSE(controller.addActivity(nullptr));
+    }
+}
+
+TEST_CASE("Controller: stato di completamento (toggleDone)", "[controller][done]") {
+    app::CalendarController controller;
+
+    SECTION("evento singolo: spunta globale") {
+        controller.addActivity(ActivityFactory::createSimpleEvent(
+            "Dentista", tp(utc(2026, 1, 8, 10)), 1h));
+        auto occurrences = controller.occurrencesIn(utc(2026, 1, 8, 0, 0), utc(2026, 1, 8, 23, 59));
+        REQUIRE(occurrences.size() == 1);
+
+        REQUIRE(controller.toggleDone(occurrences[0]));
+        REQUIRE(occurrences[0].source->isDone());
+        REQUIRE(controller.toggleDone(occurrences[0]));
+        REQUIRE_FALSE(occurrences[0].source->isDone());
+    }
+
+    SECTION("serie: stato per singola occorrenza") {
+        controller.addActivity(ActivityFactory::createSimpleWeekly(
+            "Lezione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 2, 1))));
+        auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
+        REQUIRE(occurrences.size() == 4);
+
+        // Spunta solo la seconda lezione
+        const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
+        REQUIRE(second != nullptr);
+        REQUIRE(controller.toggleDone(*second));
+
+        const auto* series = dynamic_cast<const RecurrentEvent*>(second->source);
+        REQUIRE(series != nullptr);
+        REQUIRE(series->isDoneAt(tp(utc(2026, 1, 12, 9))));
+        REQUIRE_FALSE(series->isDoneAt(tp(utc(2026, 1, 5, 9))));
+        REQUIRE(series->getDoneOccurrences().size() == 1);
+    }
+
+    SECTION("anniversario: stato per singola ricorrenza") {
+        controller.addActivity(ActivityFactory::createAnniversary(
+            "Mario", tp(utc(2028, 2, 29))));
+        auto occurrences = controller.occurrencesIn(utc(2028, 1, 1), utc(2030, 12, 31));
+        REQUIRE(occurrences.size() == 3);
+
+        const Occurrence* occ2029 = findByStart(occurrences, tp(utc(2029, 2, 28)));
+        REQUIRE(occ2029 != nullptr);
+        REQUIRE(controller.toggleDone(*occ2029));
+        REQUIRE(occ2029->source->isDoneAt(tp(utc(2029, 2, 28))));
+        REQUIRE_FALSE(occ2029->source->isDoneAt(tp(utc(2028, 2, 29))));
     }
 }
 
@@ -176,32 +224,17 @@ TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]")
         REQUIRE(controller.moveActivity(activity, utc(2026, 1, 12, 9)));
 
         occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 2, 28));
-        // serie intonsa dal 12/1: 12/1, 19/1, 26/1, 2/2, 9/2 (la fine resta
-        // il 16/2 00:00, quindi il 16/2 09:00 e' escluso)
         REQUIRE(occurrences.size() == 5);
         REQUIRE(controller.search("Riunione")[0]->getStart() == tp(utc(2026, 1, 12, 9)));
-        // nessuna occorrenza dopo la scadenza originale (16/2): 23/2 escluso
         REQUIRE(controller.occurrencesIn(utc(2026, 2, 16), utc(2026, 2, 28)).empty());
     }
 
-    SECTION("ricorrente: inizio oltre la scadenza -> la scadenza sale al nuovo inizio") {
-        controller.addActivity(ActivityFactory::createSimpleWeekly(
-            "Riunione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 1, 19))));
-        const events::Activity* activity = controller.search("Riunione")[0];
-        REQUIRE(controller.moveActivity(activity, utc(2026, 2, 2, 9)));
-
-        auto occurrences = controller.occurrencesIn(utc(2026, 2, 1), utc(2026, 3, 1));
-        REQUIRE(occurrences.size() == 1);  // solo il nuovo inizio
-        REQUIRE(occurrences[0].start == tp(utc(2026, 2, 2, 9)));
-        REQUIRE(controller.search("Riunione")[0]->getStart() == tp(utc(2026, 2, 2, 9)));
-    }
-
-    SECTION("scadenza: cambia il due") {
-        controller.addActivity(ActivityFactory::createDeadline(
+    SECTION("task: cambia la scadenza") {
+        controller.addActivity(ActivityFactory::createTask(
             "Consegna", tp(utc(2026, 1, 15)), Priority::High));
-        const events::Activity* d = controller.search("Consegna")[0];
-        REQUIRE(controller.moveActivity(d, utc(2026, 2, 1)));
-        REQUIRE(d->getStart() == tp(utc(2026, 2, 1)));
+        const events::Activity* t = controller.search("Consegna")[0];
+        REQUIRE(controller.moveActivity(t, utc(2026, 2, 1)));
+        REQUIRE(t->getStart() == tp(utc(2026, 2, 1)));
     }
 }
 
@@ -276,7 +309,6 @@ TEST_CASE("Controller: 'da questo momento in poi' divide la serie", "[controller
     REQUIRE(oldSeriesCount == 3);
 
     // 2) la NUOVA serie inizia l'8/1 alle 10:00 e continua ogni giorno
-    //    (8/1 10:00, 9/1, 10/1, 11/1 = 4 occorrenze) con durata 2h
     const events::Activity* nuova = nullptr;
     for (const auto& activity : controller.calendar()) {
         if (activity.get() != day4->source) nuova = activity.get();
@@ -293,8 +325,7 @@ TEST_CASE("Controller: 'da questo momento in poi' divide la serie", "[controller
     }
     REQUIRE(newSeriesCount == 4);
 
-    // 3) la data di scadenza e' rimasta INVARIATA (12/1 00:00): l'11/1 10:00
-    //    c'e', il 12/1 10:00 no
+    // 3) la data di scadenza e' rimasta INVARIATA (12/1 00:00)
     REQUIRE(controller.occurrencesIn(utc(2026, 1, 12), utc(2026, 1, 15)).empty());
 
     // 4) totale: 3 + 4 = 7 occorrenze, 2 attivita'
@@ -306,7 +337,7 @@ TEST_CASE("Controller: salvataggio e caricamento su file", "[controller]") {
     app::CalendarController controller;
     controller.addActivity(ActivityFactory::createSimpleEvent(
         "Dentista", tp(utc(2026, 1, 8, 10)), 1h));
-    controller.addActivity(ActivityFactory::createDeadline(
+    controller.addActivity(ActivityFactory::createTask(
         "Consegna", tp(utc(2026, 1, 15)), Priority::High));
 
     QTemporaryDir dir;

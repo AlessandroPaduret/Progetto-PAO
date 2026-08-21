@@ -82,6 +82,10 @@ public:
     bool modifyOccurrence(const events::Occurrence& occurrence,
                           std::unique_ptr<events::Event> replacement);
 
+    /** @brief Inverte lo stato di completamento dell'occorrenza indicata
+     *  (per-occorrenza per Serie/Anniversario, attivita' intera altrimenti). */
+    bool toggleDone(const events::Occurrence& occurrence);
+
     // --- Persistenza --------------------------------------------------------
 
     /** @brief Salva il calendario su file JSON (percorso da QFileDialog) */
