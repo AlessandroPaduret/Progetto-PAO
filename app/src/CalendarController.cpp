@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "persistence/JsonPersistence.h"
+#include "events/generators/MonthlyGenerator.h"
 
 namespace app {
 
@@ -30,6 +31,21 @@ bool CalendarController::addActivity(std::unique_ptr<events::Activity> activity)
     return false;
   }
   m_calendar.add(std::move(activity));
+  emit activitiesChanged();
+  return true;
+}
+
+bool CalendarController::addActivities(
+    std::vector<std::unique_ptr<events::Activity>> activities) {
+  if (activities.empty()) {
+    return false;
+  }
+  for (auto& activity : activities) {
+    if (!activity) {
+      return false;
+    }
+    m_calendar.add(std::move(activity));
+  }
   emit activitiesChanged();
   return true;
 }
@@ -121,6 +137,17 @@ public:
     result = std::make_shared<events::YearlyGenerator>(newStart, safeEnd);
   }
 
+  void visit(const events::MonthlyGenerator& generator) override {
+    events::TimePoint safeEnd = end;
+    if (safeEnd < newStart) {
+      safeEnd = newStart;
+    }
+    auto monthly = std::make_shared<events::MonthlyGenerator>(
+        newStart, generator.getMonths(), safeEnd);
+    monthly->setMaxOccurrences(generator.getMaxOccurrences());
+    result = monthly;
+  }
+
   void visit(const events::NullGenerator&) override {
     result = std::make_shared<events::NullGenerator>();
   }
@@ -188,6 +215,13 @@ bool CalendarController::modifyOccurrence(
     m_calendar.remove(occurrence.source);
   }
   m_calendar.add(std::move(replacement));
+  emit activitiesChanged();
+  return true;
+}
+
+bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
+  auto* activity = const_cast<events::Activity*>(occurrence.source);
+  activity->setDoneAt(occurrence.start, !activity->isDoneAt(occurrence.start));
   emit activitiesChanged();
   return true;
 }

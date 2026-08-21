@@ -4,10 +4,12 @@
 
 #include "events/core/ActivityVisitor.h"
 #include "events/core/DateGeneratorVisitor.h"
-#include "events/domain/Deadline.h"
+#include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
+#include "events/domain/Meeting.h"
 #include "events/domain/RecurrentEvent.h"
-#include "events/domain/Reminder.h"
+#include "events/domain/Task.h"
+#include "events/generators/MonthlyGenerator.h"
 
 namespace app {
 namespace ActivityViewHelpers {
@@ -30,11 +32,14 @@ public:
   void visit(const events::RecurrentEvent&) override {
     label = QObject::tr("Ricorrente");
   }
-  void visit(const events::Deadline&) override {
-    label = QObject::tr("Scadenza");
+  void visit(const events::Task&) override {
+    label = QObject::tr("Compito");
   }
-  void visit(const events::Reminder&) override {
-    label = QObject::tr("Promemoria");
+  void visit(const events::Meeting&) override {
+    label = QObject::tr("Riunione");
+  }
+  void visit(const events::Anniversary&) override {
+    label = QObject::tr("Anniversario");
   }
 };
 
@@ -54,6 +59,10 @@ public:
 
   void visit(const events::YearlyGenerator&) override {
     rule = QObject::tr("anno");
+  }
+
+  void visit(const events::MonthlyGenerator& generator) override {
+    rule = QObject::tr("%1 mesi").arg(generator.getMonths());
   }
 
   void visit(const events::NullGenerator&) override {
@@ -78,23 +87,30 @@ public:
                   .arg(rule.rule, localDateTime(event.getStart()));
   }
 
-  void visit(const events::Deadline& deadline) override {
-    summary = localDateTime(deadline.getDue());
-    if (deadline.isDone()) {
-      summary += QLatin1String(" (") + QObject::tr("evasa") + QLatin1Char(')');
-    } else if (deadline.isOverdue(std::chrono::time_point_cast<events::Duration>(
+  void visit(const events::Task& task) override {
+    summary = localDateTime(task.getDue());
+    if (task.isDone()) {
+      summary += QLatin1String(" (") + QObject::tr("evaso") + QLatin1Char(')');
+    } else if (task.isOverdue(std::chrono::time_point_cast<events::Duration>(
                    events::Clock::now()))) {
-      summary += QLatin1String(" (") + QObject::tr("scaduta") + QLatin1Char(')');
+      summary += QLatin1String(" (") + QObject::tr("scaduto") + QLatin1Char(')');
     }
   }
 
-  void visit(const events::Reminder& reminder) override {
-    summary = localDateTime(reminder.getTrigger());
-    if (reminder.isRepeating()) {
+  void visit(const events::Meeting& meeting) override {
+    summary = localDateTime(meeting.getStart()) + QLatin1String(", durata ") +
+              durationLabel(meeting.getDuration());
+    if (!meeting.getLocation().empty()) {
       summary += QLatin1String(", ") +
-                 QObject::tr("ogni %1").arg(durationLabel(
-                     std::chrono::seconds(reminder.getRepeatInterval().count())));
+                 QString::fromStdString(meeting.getLocation());
     }
+  }
+
+void visit(const events::Anniversary& anniversary) override {
+    summary = QObject::tr("ogni anno, dal %1")
+                  .arg(QDateTime::fromSecsSinceEpoch(
+                           anniversary.getStart().time_since_epoch().count())
+                           .toString(QStringLiteral("dd/MM")));
   }
 
 private:
@@ -119,7 +135,10 @@ public:
     fields << QObject::tr("Inizio: %1").arg(localDateTime(event.getStart()))
            << QObject::tr("Fine: %1").arg(localDateTime(event.getEnd()))
            << QObject::tr("Durata: %1")
-                  .arg(durationLabel(event.getDuration()));
+                  .arg(durationLabel(event.getDuration()))
+           << QObject::tr("Stato: %1")
+                  .arg(event.isDone() ? QObject::tr("evaso")
+                                      : QObject::tr("in corso"));
   }
 
   void visit(const events::RecurrentEvent& event) override {
@@ -132,26 +151,37 @@ public:
            << QObject::tr("Eccezioni: %1").arg(event.getExceptions().size());
   }
 
-  void visit(const events::Deadline& deadline) override {
-    fields << QObject::tr("Scadenza: %1").arg(localDateTime(deadline.getDue()))
+  void visit(const events::Task& task) override {
+    fields << QObject::tr("Scadenza: %1").arg(localDateTime(task.getDue()))
            << QObject::tr("Priorita': %1")
                   .arg(QString::fromStdString(
-                      events::Deadline::priorityLabel(deadline.getPriority())))
+                      events::Task::priorityLabel(task.getPriority())))
            << QObject::tr("Stato: %1")
-                  .arg(deadline.isDone() ? QObject::tr("evasa")
-                                         : QObject::tr("in corso"));
+                  .arg(task.isDone() ? QObject::tr("evaso")
+                                     : QObject::tr("in corso"));
   }
 
-  void visit(const events::Reminder& reminder) override {
-    fields << QObject::tr("Attivazione: %1")
-                  .arg(localDateTime(reminder.getTrigger()))
-           << QObject::tr("Messaggio: %1")
-                  .arg(QString::fromStdString(reminder.getMessage()))
-           << QObject::tr("Ripetizione: %1")
-                  .arg(reminder.isRepeating()
-                           ? QObject::tr("%1 giorni")
-                                 .arg(reminder.getRepeatInterval().count() / 86400)
-                           : QObject::tr("una tantum"));
+  void visit(const events::Meeting& meeting) override {
+    fields << QObject::tr("Inizio: %1").arg(localDateTime(meeting.getStart()))
+           << QObject::tr("Fine: %1").arg(localDateTime(meeting.getEnd()))
+           << QObject::tr("Durata: %1")
+                  .arg(durationLabel(meeting.getDuration()))
+           << QObject::tr("Luogo: %1")
+                  .arg(QString::fromStdString(meeting.getLocation()))
+           << QObject::tr("Partecipanti: %1")
+                  .arg(static_cast<int>(meeting.attendeeCount()))
+           << QObject::tr("Stato: %1")
+                  .arg(meeting.isDone() ? QObject::tr("evasa")
+                                        : QObject::tr("in corso"));
+  }
+
+  void visit(const events::Anniversary& anniversary) override {
+    fields << QObject::tr("Data: %1")
+                  .arg(QDateTime::fromSecsSinceEpoch(
+                           anniversary.getStart().time_since_epoch().count())
+                           .toString(QStringLiteral("dd/MM")))
+           << QObject::tr("Anni di ricorrenza: %1")
+                  .arg(static_cast<int>(anniversary.getDoneOccurrences().size()));
   }
 };
 

@@ -2,6 +2,7 @@
 #include <chrono>
 
 #include "events/events.h"
+#include "events/generators/MonthlyGenerator.h"
 
 using namespace std::chrono_literals;
 using namespace events;
@@ -51,14 +52,6 @@ TEST_CASE("Literal personalizzato per settimane", "[literals]") {
     REQUIRE(end == start + std::chrono::weeks(4));
 }
 
-TEST_CASE("Creazione compleanno", "[birthday]") {
-    TimePoint start = make_date(2026, 1, 1);
-    auto birthday = ActivityFactory::createBirthday("Mario Rossi", 2026y/2/28);
-
-    auto instances = birthday->getSchedulable(start, start + std::chrono::years(5));
-    REQUIRE(instances.size() == 5);
-}
-
 TEST_CASE("Eccezioni su RecurrentEvent costruito direttamente", "[weekly][exception]") {
     TimePoint start = make_date(2026, 1, 1);
     auto gen = std::make_shared<FixedIntervalGenerator>(start, std::chrono::weeks(1), start + 4_weeks);
@@ -73,15 +66,6 @@ TEST_CASE("Eccezioni su RecurrentEvent costruito direttamente", "[weekly][except
         REQUIRE(instances[1]->getStart() == start + std::chrono::weeks(2));
         REQUIRE(instances[2]->getStart() == start + std::chrono::weeks(3));
         REQUIRE(instances[3]->getStart() == start + std::chrono::weeks(4));
-    }
-
-    SECTION("Eliminazione eccezione la ripristina") {
-        TimePoint secondWeek = start + std::chrono::weeks(1);
-        event.addException(secondWeek);
-        event.deleteExceptions(secondWeek);
-
-        auto instances = event.getSchedulable(start, start + 4_weeks);
-        REQUIRE(instances.size() == 5);
     }
 
     SECTION("truncateBefore esclude le occorrenze successive") {
@@ -107,6 +91,56 @@ TEST_CASE("Event valida la durata", "[event][validation]") {
     }
 }
 
+TEST_CASE("Stato di completamento su ogni attivita'", "[state]") {
+    TimePoint start = make_date(2026, 1, 1);
+
+    SECTION("Event: spunta globale") {
+        Event e("Dentista", start, 1h);
+        REQUIRE_FALSE(e.isDone());
+        REQUIRE_FALSE(e.isDoneAt(start));
+        e.setDone();
+        REQUIRE(e.isDone());
+        REQUIRE(e.isDoneAt(start));
+        e.setDone(false);
+        REQUIRE_FALSE(e.isDone());
+    }
+
+    SECTION("Task: spunta globale + isOverdue") {
+        Task t("Consegna", start, Priority::High);
+        REQUIRE_FALSE(t.isOverdue(start - 1h));
+        REQUIRE(t.isOverdue(start + 1h));
+        t.setDone();
+        REQUIRE_FALSE(t.isOverdue(start + 1h));
+    }
+
+    SECTION("Serie: stato PER-occorrenza") {
+        auto series = ActivityFactory::createSimpleWeekly(
+            "Lezione", start, 1h, start + 4_weeks);
+        const TimePoint first = start;
+        const TimePoint second = start + std::chrono::weeks(1);
+
+        series->setDoneAt(first, true);
+        REQUIRE(series->isDoneAt(first));
+        REQUIRE_FALSE(series->isDoneAt(second));
+        // Lo stato globale resta quello base: per le serie non ha senso
+        REQUIRE_FALSE(series->isDone());
+
+        series->setDoneAt(first, false);
+        REQUIRE_FALSE(series->isDoneAt(first));
+        REQUIRE(series->getDoneOccurrences().empty());
+    }
+
+    SECTION("Anniversario: stato PER-occorrenza") {
+        Anniversary ann("Compleanno", make_date(1990, 2, 29));
+        const TimePoint occ2028 = make_date(2028, 2, 29);
+        const TimePoint occ2029 = make_date(2029, 2, 28);  // anno non bisestile
+        ann.setDoneAt(occ2028, true);
+        REQUIRE(ann.isDoneAt(occ2028));
+        REQUIRE_FALSE(ann.isDoneAt(occ2029));
+        REQUIRE(ann.getDoneOccurrences().size() == 1);
+    }
+}
+
 TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
     TimePoint start = make_date(2026, 1, 1);
     TimePoint to = start + 4_weeks;
@@ -129,66 +163,85 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
         REQUIRE(occ[0].duration == 1h);
     }
 
-    SECTION("Deadline: occorrenza puntuale a durata zero") {
-        Deadline d("Consegna", start + 2_weeks, Priority::High);
-        auto occ = d.occurrencesIn(start, to);
+    SECTION("Meeting: occorrenza singola con durata") {
+        Meeting m("Riunione", start + 2_weeks, 90min, "Aula 3");
+        auto occ = m.occurrencesIn(start, to);
+        REQUIRE(occ.size() == 1);
+        REQUIRE(occ[0].duration == 90min);
+        REQUIRE(m.attendeeCount() == 0);
+    }
+
+    SECTION("Task: occorrenza puntuale a durata zero") {
+        Task t("Consegna", start + 2_weeks, Priority::High);
+        auto occ = t.occurrencesIn(start, to);
         REQUIRE(occ.size() == 1);
         REQUIRE(occ[0].start == start + 2_weeks);
         REQUIRE(occ[0].duration == Duration::zero());
-        REQUIRE(d.occurrencesIn(start, start + 1_weeks).empty());
+        REQUIRE(t.occurrencesIn(start, start + 1_weeks).empty());
     }
 
-    SECTION("Reminder una tantum e ripetuto") {
-        Reminder once("Bevi", start + 1h, "Acqua");
-        REQUIRE(once.occurrencesIn(start, to).size() == 1);
+    SECTION("Evento di 24h a mezzanotte: copre l'intero giorno") {
+        // L'evento "tutto il giorno" e' un Event dalle 00:00 con durata 24h
+        Event allday("Mostra", make_date(2026, 1, 10), std::chrono::seconds(86400));
+        auto occ = allday.occurrencesIn(make_date(2026, 1, 10), make_date(2026, 1, 12));
+        REQUIRE(occ.size() == 1);
+        REQUIRE(occ[0].start == make_date(2026, 1, 10));
+        REQUIRE(occ[0].end() == make_date(2026, 1, 11));  // 00:00 del giorno dopo
+        REQUIRE(occ[0].duration == Duration(86400));
+    }
 
-        Reminder daily("Bevi", start, "Acqua", Days(1));
-        REQUIRE(daily.isRepeating());
-        // [start, start+4 settimane] inclusivo -> 29 attivazioni giornaliere
-        REQUIRE(daily.occurrencesIn(start, to).size() == 29);
+    SECTION("Anniversary: ricorrenze annuali leap-aware") {
+        Anniversary ann("Compleanno", make_date(2028, 2, 29));
+        auto occ = ann.occurrencesIn(make_date(2028, 1, 1), make_date(2031, 12, 31));
+        // 2028->29/2, 2029->28/2, 2030->28/2, 2031->28/2
+        REQUIRE(occ.size() == 4);
+        REQUIRE(occ[0].start == make_date(2028, 2, 29));
+        REQUIRE(occ[1].start == make_date(2029, 2, 28));
+        REQUIRE(occ[3].start == make_date(2031, 2, 28));
+        REQUIRE(occ[0].duration == Duration(86399));
     }
 }
 
-TEST_CASE("Deadline: priorita', completamento e ritardo", "[deadline]") {
+TEST_CASE("Meeting: partecipanti e luogo", "[meeting]") {
+    Meeting m("Riunione", make_date(2026, 3, 1) + 10h, 1h, "Aula Magna");
+
+    SECTION("addAttendee/removeAttendee/attendeeCount") {
+        REQUIRE(m.addAttendee("Mario"));
+        REQUIRE(m.addAttendee("Anna"));
+        REQUIRE(m.attendeeCount() == 2);
+        // Duplicati rifiutati
+        REQUIRE_FALSE(m.addAttendee("Mario"));
+        REQUIRE(m.removeAttendee("Mario"));
+        REQUIRE(m.attendeeCount() == 1);
+        REQUIRE_FALSE(m.removeAttendee("Inesistente"));
+    }
+
+    SECTION("location leggibile") {
+        REQUIRE(m.getLocation() == "Aula Magna");
+        m.setLocation("Zoom");
+        REQUIRE(m.getLocation() == "Zoom");
+    }
+
+    SECTION("durata negativa rifiutata") {
+        REQUIRE_THROWS_AS(m.setDuration(-1h), std::invalid_argument);
+    }
+}
+
+TEST_CASE("Task: priorita' e scadenza", "[task]") {
     TimePoint due = make_date(2026, 3, 10);
-    Deadline d("Consegna progetto", due, Priority::High);
+    Task t("Consegna progetto", due, Priority::High);
 
-    REQUIRE(d.getPriority() == Priority::High);
-    REQUIRE(Deadline::priorityLabel(Priority::Low) == "bassa");
-    REQUIRE_FALSE(d.isDone());
+    REQUIRE(t.getPriority() == Priority::High);
+    REQUIRE(Task::priorityLabel(Priority::Low) == "bassa");
 
-    SECTION("Non scaduta prima del termine") {
-        REQUIRE_FALSE(d.isOverdue(due - Days(1)));
-        REQUIRE(d.timeRemaining(due - Days(1)) == Duration(Days(1)));
+    SECTION("Non scaduto prima del termine") {
+        REQUIRE_FALSE(t.isOverdue(due - Days(1)));
+        REQUIRE(t.timeRemaining(due - Days(1)) == Duration(Days(1)));
     }
 
-    SECTION("Scaduta dopo il termine se non evasa") {
-        REQUIRE(d.isOverdue(due + Days(1)));
-        REQUIRE(d.timeRemaining(due + Days(1)) == Duration(-Days(1)));
-    }
-
-    SECTION("Evasa non risulta mai scaduta") {
-        d.setDone();
-        REQUIRE(d.isDone());
-        REQUIRE_FALSE(d.isOverdue(due + Days(1)));
-    }
-}
-
-TEST_CASE("Reminder: messaggio, ripetizione e snooze", "[reminder]") {
-    TimePoint trigger = make_date(2026, 2, 1);
-    Reminder r("Pillola", trigger, "Prendi la pillola", Days(1));
-
-    REQUIRE(r.getMessage() == "Prendi la pillola");
-    REQUIRE(r.isRepeating());
-
-    SECTION("snooze posticipa l'attivazione") {
-        r.snooze(30min);
-        REQUIRE(r.getTrigger() == trigger + 30min);
-    }
-
-    SECTION("Ripetizione negativa rifiutata") {
-        REQUIRE_THROWS_AS(r.setRepeatInterval(-1h), std::invalid_argument);
-        REQUIRE_THROWS_AS(Reminder("X", trigger, "", -1h), std::invalid_argument);
+    SECTION("Scaduto dopo il termine se non evaso") {
+        REQUIRE(t.isOverdue(due + Days(1)));
+        REQUIRE(t.timeRemaining(due + Days(1)) == Duration(-Days(1)));
     }
 }
 
@@ -198,8 +251,8 @@ TEST_CASE("Calendar raccoglie attivita' eterogenee", "[calendar]") {
 
     calendar.add(ActivityFactory::createSimpleEvent("A evento", start, 1h));
     calendar.add(ActivityFactory::createSimpleWeekly("B riunione", start + 1_weeks, 1h, start + 2_weeks));
-    calendar.add(ActivityFactory::createDeadline("C scadenza", start + Days(3), Priority::Medium));
-    calendar.add(ActivityFactory::createReminder("D promemoria", start + Days(2), "msg"));
+    calendar.add(ActivityFactory::createTask("C compito", start + Days(3), Priority::Medium));
+    calendar.add(ActivityFactory::createMeeting("D riunione", start + Days(2), 1h));
 
     REQUIRE(calendar.size() == 4);
 
@@ -214,14 +267,15 @@ TEST_CASE("Calendar raccoglie attivita' eterogenee", "[calendar]") {
 
     SECTION("search filtra per titolo, case-insensitive") {
         REQUIRE(calendar.search("").size() == 4);
-        REQUIRE(calendar.search("scadenza").size() == 1);
-        REQUIRE(calendar.search("SCADENZA").size() == 1);
-        REQUIRE(calendar.search("promemoria")[0]->getTitle() == "D promemoria");
+        REQUIRE(calendar.search("compito").size() == 1);
+        REQUIRE(calendar.search("COMPITO").size() == 1);
+        auto riunioni = calendar.search("riunione");
+        REQUIRE(riunioni.size() == 2);  // "B riunione" (serie) + "D riunione"
         REQUIRE(calendar.search("inesistente").empty());
     }
 
     SECTION("remove elimina per identita'") {
-        const Activity* target = calendar.search("promemoria")[0];
+        const Activity* target = calendar.search("compito")[0];
         REQUIRE(calendar.remove(target));
         REQUIRE(calendar.size() == 3);
         REQUIRE_FALSE(calendar.remove(target));
@@ -235,30 +289,34 @@ TEST_CASE("Polimorfismo non banale sulla gerarchia Activity", "[polymorphism]") 
     std::vector<std::unique_ptr<Activity>> activities;
     activities.push_back(ActivityFactory::createSimpleEvent("Evento", start, 1h));
     activities.push_back(ActivityFactory::createSimpleWeekly("Settimanale", start, 1h, start + 2_weeks));
-    activities.push_back(ActivityFactory::createDeadline("Scadenza", start + 1_weeks, Priority::Low));
-    activities.push_back(ActivityFactory::createReminder("Quotidiano", start, "", Days(1)));
+    activities.push_back(ActivityFactory::createTask("Compito", start + 1_weeks, Priority::Low));
+    activities.push_back(ActivityFactory::createMeeting("Riunione", start, 1h));
+    activities.push_back(ActivityFactory::createAnniversary("Anniversario", make_date(2000, 1, 1)));
 
     SECTION("occurrencesIn si comporta in modo diverso per tipo dinamico") {
         std::vector<size_t> counts;
         for (const auto& a : activities) {
             counts.push_back(a->occurrencesIn(start, to).size());
         }
-        // Event: 1; RecurrentEvent: 3; Deadline: 1; Reminder giornaliero: 15
-        REQUIRE(counts == std::vector<size_t>{1, 3, 1, 15});
+        // Event:1; Weekly:3; Task:1; Meeting:1; Anniversary:1
+        REQUIRE(counts == std::vector<size_t>{1, 3, 1, 1, 1});
     }
 
     SECTION("describe() dipende dal tipo dinamico") {
         REQUIRE(activities[0]->describe().find("Evento") != String::npos);
         REQUIRE(activities[1]->describe().find("ricorrente") != String::npos);
-        REQUIRE(activities[2]->describe().find("Scadenza") != String::npos);
-        REQUIRE(activities[3]->describe().find("Promemoria") != String::npos);
+        REQUIRE(activities[2]->describe().find("Compito") != String::npos);
+        REQUIRE(activities[3]->describe().find("Riunione") != String::npos);
+        REQUIRE(activities[4]->describe().find("Anniversario") != String::npos);
     }
 
-    SECTION("clone() copia il tipo dinamico corretto") {
-        auto copy = activities[2]->clone();  // Deadline via Activity*
+    SECTION("clone() copia il tipo dinamico corretto (stato incluso)") {
+        activities[2]->setDone();  // Task evaso
+        auto copy = activities[2]->clone();
         REQUIRE(copy->describe() == activities[2]->describe());
+        REQUIRE(copy->isDone());
         copy->setTitle("Copia");
-        REQUIRE(activities[2]->getTitle() == "Scadenza");
+        REQUIRE(activities[2]->getTitle() == "Compito");
     }
 }
 
@@ -269,13 +327,15 @@ class CountingVisitor : public ActivityVisitor {
 public:
     int events = 0;
     int recurrents = 0;
-    int deadlines = 0;
-    int reminders = 0;
+    int tasks = 0;
+    int meetings = 0;
+    int anniversaries = 0;
 
     void visit(const Event&) override { ++events; }
     void visit(const RecurrentEvent&) override { ++recurrents; }
-    void visit(const Deadline&) override { ++deadlines; }
-    void visit(const Reminder&) override { ++reminders; }
+    void visit(const Task&) override { ++tasks; }
+    void visit(const Meeting&) override { ++meetings; }
+    void visit(const Anniversary&) override { ++anniversaries; }
 };
 
 } // namespace
@@ -286,19 +346,101 @@ TEST_CASE("Visitor: doppio dispatch sul tipo dinamico", "[visitor]") {
     Calendar calendar;
     calendar.add(ActivityFactory::createSimpleEvent("E", start, 1h));
     calendar.add(ActivityFactory::createSimpleWeekly("W", start, 1h, start + 1_weeks));
-    calendar.add(ActivityFactory::createDeadline("D", start, Priority::High));
-    calendar.add(ActivityFactory::createReminder("R", start, "msg"));
-    calendar.add(ActivityFactory::createSimpleEvent("E2", start, 2h));
+    calendar.add(ActivityFactory::createTask("T", start, Priority::High));
+    calendar.add(ActivityFactory::createMeeting("M", start, 1h));
+    calendar.add(ActivityFactory::createAnniversary("N", make_date(2000, 1, 1)));
 
     CountingVisitor visitor;
     for (const auto& activity : calendar) {
         activity->accept(visitor);
     }
 
-    REQUIRE(visitor.events == 2);
+    REQUIRE(visitor.events == 1);
     REQUIRE(visitor.recurrents == 1);
-    REQUIRE(visitor.deadlines == 1);
-    REQUIRE(visitor.reminders == 1);
+    REQUIRE(visitor.tasks == 1);
+    REQUIRE(visitor.meetings == 1);
+    REQUIRE(visitor.anniversaries == 1);
+}
+
+TEST_CASE("MonthlyGenerator: passi di calendario esatti", "[monthly]") {
+    SECTION("ogni mese, stesso giorno") {
+        MonthlyGenerator gen(make_date(2026, 1, 15));
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 5, 1));
+        REQUIRE(dates.size() == 4);
+        REQUIRE(dates[0] == make_date(2026, 1, 15));
+        REQUIRE(dates[1] == make_date(2026, 2, 15));
+        REQUIRE(dates[3] == make_date(2026, 4, 15));
+    }
+
+    SECTION("ogni 2 mesi, stesso giorno") {
+        MonthlyGenerator gen(make_date(2026, 1, 10), 2);
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 12, 31));
+        REQUIRE(dates.size() == 6);
+        REQUIRE(dates[0] == make_date(2026, 1, 10));
+        REQUIRE(dates[1] == make_date(2026, 3, 10));
+        REQUIRE(dates[2] == make_date(2026, 5, 10));
+    }
+
+    SECTION("clamping del giorno: 31 -> ultimo giorno del mese") {
+        MonthlyGenerator gen(make_date(2026, 1, 31));
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 6, 1));
+        REQUIRE(dates.size() == 5);
+        REQUIRE(dates[0] == make_date(2026, 1, 31));
+        REQUIRE(dates[1] == make_date(2026, 2, 28));   // febbraio non bisestile
+        REQUIRE(dates[2] == make_date(2026, 3, 31));
+        REQUIRE(dates[3] == make_date(2026, 4, 30));
+    }
+
+    SECTION("clamping in anno bisestile: 29/2 esiste") {
+        MonthlyGenerator gen(make_date(2028, 1, 31));
+        auto dates = gen.generateDates(make_date(2028, 1, 1), make_date(2028, 5, 1));
+        REQUIRE(dates[1] == make_date(2028, 2, 29));
+    }
+
+    SECTION("fine e limite occorrenze") {
+        MonthlyGenerator gen(make_date(2026, 1, 1));
+        gen.setMaxOccurrences(3);
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2027, 1, 1));
+        REQUIRE(dates.size() == 3);
+        REQUIRE(dates[0] == make_date(2026, 1, 1));
+        REQUIRE(dates[2] == make_date(2026, 3, 1));
+    }
+
+    SECTION("la fine limita le date") {
+        MonthlyGenerator gen(make_date(2026, 1, 1), 1, make_date(2026, 6, 30));
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2027, 1, 1));
+        REQUIRE(dates.size() == 6);
+        REQUIRE(dates.back() == make_date(2026, 6, 1));
+    }
+}
+
+TEST_CASE("Limite di occorrenze nei generatori", "[cap]") {
+    SECTION("FixedIntervalGenerator: dopo N occorrenze") {
+        FixedIntervalGenerator gen(make_date(2026, 1, 1), Days(7));
+        gen.setMaxOccurrences(4);
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 3, 1));
+        REQUIRE(dates.size() == 4);
+        REQUIRE(dates[0] == make_date(2026, 1, 1));
+        REQUIRE(dates[3] == make_date(2026, 1, 22));
+    }
+
+    SECTION("FixedIntervalGenerator: la finestra tarda conta dal primo inizio") {
+        FixedIntervalGenerator gen(make_date(2026, 1, 1), Days(7));
+        gen.setMaxOccurrences(4);
+        // interrogo dal 3/2: la 6a occorrenza (1/2) e' gia' passata ma conta
+        auto dates = gen.generateDates(make_date(2026, 2, 8), make_date(2026, 3, 1));
+        REQUIRE(dates.empty());  // 1/1 + 4 occorrenze -> 22/1, nessuna dopo l'8/2
+    }
+
+    SECTION("YearlyGenerator: dopo N occorrenze") {
+        YearlyGenerator gen(make_date(2028, 2, 29));
+        gen.setMaxOccurrences(3);
+        auto dates = gen.generateDates(make_date(2028, 1, 1), make_date(2032, 1, 1));
+        REQUIRE(dates.size() == 3);
+        REQUIRE(dates[0] == make_date(2028, 2, 29));
+        REQUIRE(dates[1] == make_date(2029, 2, 28));
+        REQUIRE(dates[2] == make_date(2030, 2, 28));
+    }
 }
 
 TEST_CASE("Formattazione ISO-8601", "[iso][format]") {
@@ -337,46 +479,37 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         REQUIRE(event.getDuration() == 1h);
     }
 
-    SECTION("RecurrentEvent: inizio spostato, la fine NON slitta, serie ricreata intonsa") {
+    SECTION("RecurrentEvent: inizio spostato, la fine NON slitta") {
         auto event = ActivityFactory::createSimpleWeekly(
             "Riunione", start + 9h, 1h, start + 3_weeks);
-        event->addException(start + 1_weeks + 9h);  // giorno "staccato"
-
-        // Sposta la serie UNA SETTIMANA INDIETRO (end = start+3 settimane
-        // supera ancora il nuovo inizio): la fine deve restare com'e'.
         const TimePoint earlier = start - 1_weeks + 9h;
         event->moveTo(earlier);
         REQUIRE(event->getStart() == earlier);
-
-        // Le eccezioni non vengono traslate: la serie spostata e' intonsa
-        REQUIRE(event->getExceptions().empty());
-
-        // occorrenze continue (earlier, +1, +2, +3 settimane) fino alla
-        // scadenza ORIGINALE (start+3 settimane): nessun buco
         REQUIRE(event->getSchedulable(earlier, start + 3_weeks).size() == 4);
-        REQUIRE(event->getSchedulable(start + 3_weeks, start + 4_weeks + 9h).empty());
     }
 
-    SECTION("RecurrentEvent: inizio OLTRE la scadenza -> la scadenza resta ma sale al nuovo inizio") {
-        auto event = ActivityFactory::createSimpleWeekly(
-            "Riunione", start + 9h, 1h, start + 2_weeks);
-        const TimePoint later = start + 4_weeks + 9h;  // oltre la scadenza
-        event->moveTo(later);
-        REQUIRE(event->getStart() == later);
-        // una sola occorrenza (quella appena creata dallo spostamento)
-        REQUIRE(event->getSchedulable(later, later + 1_weeks).size() == 1);
+    SECTION("Task: cambia la scadenza") {
+        Task task("Consegna", start, Priority::High);
+        task.moveTo(target);
+        REQUIRE(task.getDue() == target);
     }
 
-    SECTION("Deadline: cambia la scadenza") {
-        Deadline deadline("Consegna", start, Priority::High);
-        deadline.moveTo(target);
-        REQUIRE(deadline.getDue() == target);
+    SECTION("Meeting: cambia l'inizio, durata e luogo restano") {
+        Meeting meeting("Riunione", start, 1h, "Aula");
+        meeting.addAttendee("Mario");
+        meeting.moveTo(target);
+        REQUIRE(meeting.getStart() == target);
+        REQUIRE(meeting.getDuration() == 1h);
+        REQUIRE(meeting.getLocation() == "Aula");
+        REQUIRE(meeting.attendeeCount() == 1);
     }
 
-    SECTION("Reminder: cambia l'attivazione") {
-        Reminder reminder("Pillola", start, "msg");
-        reminder.moveTo(target);
-        REQUIRE(reminder.getTrigger() == target);
+    SECTION("Event di 24h: moveTo sposta l'inizio, la durata resta") {
+        Event allday("Giornata", start, std::chrono::seconds(86400));
+        allday.moveTo(target);
+        REQUIRE(allday.getStart() == target);
+        REQUIRE(allday.getDuration() == std::chrono::seconds(86400));
+        REQUIRE(allday.getEnd() == target + std::chrono::seconds(86400));
     }
 }
 

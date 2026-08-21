@@ -2,19 +2,25 @@
 #define APP_ACTIVITY_FORM_PAGE_H
 
 #include <QDateTime>
+#include <QList>
 #include <QWidget>
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "events/events.h"
 
+class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QDateEdit;
 class QDateTimeEdit;
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QPushButton;
+class QRadioButton;
 class QSpinBox;
 class QStackedWidget;
 class QTimeEdit;
@@ -25,11 +31,18 @@ class CalendarController;
 
 /** @brief Pagina "creazione / modifica" di un'attivita'.
  *
- *  Ogni tipo ha un pannello con i propri campi, organizzati in righe con
- *  l'etichetta a sinistra e la box di input affiancata a destra (es.
- *  "Titolo [________]", "Data e ora [__/__/____ __:__]"). Cambiando tipo,
- *  titolo e data vengono conservati (i campi non sono condivisi tra i
- *  pannelli, evita i bug di visibilita' nei QStackedWidget).
+ *  La creazione NON chiede il tipo: pone delle DOMANDE e in base alle
+ *  risposte istanzia l'oggetto giusto (meccanica "a domande").
+ *
+ *  Per un evento: titolo, data/ora, durata e la checkbox "Si ripete?". Se
+ *  si ripete: unita' (giorni/settimane/mesi/anno), "ogni N", per le
+ *  settimane i giorni della settimana (pulsanti cliccabili) e la fine
+ *  (mai / fino a data / dopo N occorrenze). In base alle risposte viene
+ *  istanziato un Event oppure uno o piu' RecurrentEvent (uno per giorno
+ *  della settimana selezionato).
+ *
+ *  Gli altri tipi (Riunione, Compito, Tutto il giorno, Anniversario) hanno
+ *  un pannello dedicato, scelto dalla combo.
  */
 class ActivityFormPage : public QWidget {
     Q_OBJECT
@@ -59,24 +72,26 @@ private slots:
     void onSave();
     void onDelete();
     void onTypeChanged(int index);
-    void onRecurrenceEndToggled(bool checked);
+    void onRepeatToggled(bool checked);
+    void onUnitChanged(int index);
+    void onAddAttendee();
+    void onRemoveAttendee();
 
 private:
     /** @brief Emette l'anteprima corrente (dati del pannello attivo). */
     void emitPreview();
 
-private:
-    /** @brief Orario di fine dell'evento ripetuto (inizio + durata). */
-    QTime recurrenceEndTime() const;
+    /** @brief Costruisce le attivita' del pannello Evento "a domande":
+     *  un Event oppure uno o piu' RecurrentEvent (uno per giorno della
+     *  settimana selezionato, per la ricorrenza settimanale). */
+    std::vector<std::unique_ptr<events::Activity>> buildEventActivities() const;
 
-    /** @brief Sincronizza l'orario della scadenza con la fine dell'evento
-     *  ripetuto (la data di scadenza resta quella scelta). */
-    void syncRecurrenceEndTime();
+private:
     // Pannelli dei campi (form specifico per tipo, vincolo PAO)
     QWidget* buildEventPanel();
-    QWidget* buildRecurrentPanel();
-    QWidget* buildDeadlinePanel();
-    QWidget* buildReminderPanel();
+    QWidget* buildMeetingPanel();
+    QWidget* buildTaskPanel();
+    QWidget* buildAnniversaryPanel();
 
     // Lettura dei campi -> oggetto di dominio
     std::unique_ptr<events::Activity> buildActivity() const;
@@ -84,8 +99,9 @@ private:
     // Popolamento dei campi in modifica
     void populateEvent(const events::Event& event);
     void populateRecurrent(const events::RecurrentEvent& event);
-    void populateDeadline(const events::Deadline& deadline);
-    void populateReminder(const events::Reminder& reminder);
+    void populateMeeting(const events::Meeting& meeting);
+    void populateTask(const events::Task& task);
+    void populateAnniversary(const events::Anniversary& anniversary);
 
     // Campi comuni per pannello (titolo/data/durata) e loro sincronizzazione
     QLineEdit* titleOf(int panel) const;
@@ -105,30 +121,43 @@ private:
     QComboBox* m_typeCombo = nullptr;
     QStackedWidget* m_forms = nullptr;
 
-    // Evento
+    // Evento "a domande"
     QLineEdit* m_titleE = nullptr;
-    QDateTimeEdit* m_startE = nullptr;
+    QDateEdit* m_startDateE = nullptr;  // slot Data (separato dall'ora)
+    QTimeEdit* m_startTimeE = nullptr;  // slot Ora (nascosto se tutto il giorno)
+    QWidget* m_timeRow = nullptr;       // riga "Ora" (etichetta + box)
+    QWidget* m_durationRow = nullptr;   // riga "Durata" (nascosta se tutto il giorno)
     QTimeEdit* m_durationE = nullptr;
+    QCheckBox* m_allDayCheck = nullptr;  // "Tutto il giorno" (sostituisce l'ora)
+    QCheckBox* m_repeatCheck = nullptr;
+    QWidget* m_repeatBox = nullptr;      // contenitore delle impostazioni di ricorrenza
+    QComboBox* m_unitCombo = nullptr;    // giorni / settimane / mesi / anno
+    QSpinBox* m_everySpin = nullptr;     // "ogni N"
+    QWidget* m_dayRow = nullptr;         // riga dei giorni della settimana
+    QList<QPushButton*> m_dayButtons;    // Lun..Dom (checkable, uno per giorno)
+    QRadioButton* m_endNever = nullptr;
+    QRadioButton* m_endDateRadio = nullptr;
+    QDateEdit* m_endDate = nullptr;
+    QRadioButton* m_endCountRadio = nullptr;
+    QSpinBox* m_countSpin = nullptr;     // "dopo N occorrenze"
 
-    // Ricorrente
-    QLineEdit* m_titleR = nullptr;
-    QDateTimeEdit* m_startR = nullptr;
-    QTimeEdit* m_durationR = nullptr;
-    QSpinBox* m_intervalDays = nullptr;
-    QCheckBox* m_hasEndCheck = nullptr;
-    QDateTimeEdit* m_endEdit = nullptr;
+    // Riunione
+    QLineEdit* m_titleMt = nullptr;
+    QDateTimeEdit* m_startMt = nullptr;
+    QTimeEdit* m_durationMt = nullptr;
+    QLineEdit* m_locationMt = nullptr;
+    QLineEdit* m_attendeeEdit = nullptr;
+    QListWidget* m_attendeesList = nullptr;
 
-    // Scadenza
-    QLineEdit* m_titleD = nullptr;
-    QDateTimeEdit* m_dueEdit = nullptr;
+    // Compito
+    QLineEdit* m_titleT = nullptr;
+    QDateTimeEdit* m_dueT = nullptr;
     QComboBox* m_priorityCombo = nullptr;
     QCheckBox* m_doneCheck = nullptr;
 
-    // Promemoria
-    QLineEdit* m_titleM = nullptr;
-    QDateTimeEdit* m_triggerEdit = nullptr;
-    QLineEdit* m_messageEdit = nullptr;
-    QSpinBox* m_repeatDays = nullptr;
+    // Anniversario
+    QLineEdit* m_titleAn = nullptr;
+    QDateEdit* m_dateAn = nullptr;
 
     QPushButton* m_saveButton = nullptr;
     QPushButton* m_deleteButton = nullptr;

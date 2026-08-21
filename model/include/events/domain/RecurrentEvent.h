@@ -27,6 +27,7 @@ private:
     std::shared_ptr<DateGenerator> m_generator;   ///< Generatore delle date di ricorrenza
     Event m_templateEvent;                        ///< Evento template da cui generare le occorrenze
     std::unordered_set<TimePoint, TimePointHasher> m_exceptions;  ///< Occorrenze escluse
+    std::unordered_set<TimePoint, TimePointHasher> m_doneOccurrences;  ///< Occorrenze evase
 
 protected:
     RecurrentEvent* clone_impl() const override;
@@ -64,6 +65,18 @@ public:
      *  @param tp Inizio della prima occorrenza da sopprimere (esclusa)
      */
     void truncateBefore(TimePoint tp);
+
+    // --- Stato per-occorrenza ----------------------------------------------
+
+    /** @return Le occorrenze gia' evase */
+    const std::unordered_set<TimePoint, TimePointHasher>&
+    getDoneOccurrences() const;
+
+    /** @return true se l'occorrenza all'istante indicato e' evasa */
+    bool isDoneAt(TimePoint occurrenceStart) const override;
+
+    /** @brief Segna l'occorrenza all'istante indicato come evasa/non evasa */
+    void setDoneAt(TimePoint occurrenceStart, bool done) override;
 
     /** @brief Restituisce le occorrenze in [from, to] come cloni indipendenti del template
      *  @param from Inizio dell'intervallo

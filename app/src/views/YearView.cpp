@@ -151,7 +151,8 @@ void YearView::paintEvent(QPaintEvent*) {
             const QRect cell(panel.left() + d * cellW,
                              dayGridTop + r * cellH, cellW, cellH);
             painter.setPen(Qt::NoPen);
-            painter.setBrush(activityColor(occ.source));
+            const bool done = occ.source->isDoneAt(occ.start);
+            painter.setBrush(done ? QColor("#bdc1c6") : activityColor(occ.source));
             painter.drawEllipse(QPointF(cell.center().x(), cell.bottom() - 4),
                                 2.5, 2.5);
         }

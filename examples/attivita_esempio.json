@@ -1,56 +1,66 @@
 {
+    "version": 1,
     "activities": [
         {
-            "duration_seconds": 3600,
-            "start": "2026-09-07T10:30:00",
+            "type": "event",
             "title": "Visita dal dentista",
-            "type": "event"
+            "start": "2026-09-07T10:30:00",
+            "duration_seconds": 3600,
+            "done": false
         },
         {
+            "type": "meeting",
+            "title": "Riunione di laboratorio",
+            "start": "2026-09-08T15:00:00",
+            "duration_seconds": 5400,
+            "location": "Aula M",
+            "attendees": [
+                "Alice",
+                "Bob",
+                "Carlo"
+            ],
+            "done": false
+        },
+        {
+            "type": "recurrent",
+            "title": "Lezione di Programmazione a Oggetti",
+            "template": {
+                "title": "Lezione di Programmazione a Oggetti",
+                "start": "2026-09-07T14:00:00",
+                "duration_seconds": 7200
+            },
+            "generator": {
+                "type": "fixed",
+                "start": "2026-09-07T14:00:00",
+                "interval_seconds": 604800,
+                "end": "2026-12-21T00:00:00"
+            },
             "exceptions": [
                 "2026-11-16T14:00:00"
             ],
-            "generator": {
-                "end": "2026-12-21T00:00:00",
-                "interval_seconds": 604800,
-                "start": "2026-09-07T14:00:00",
-                "type": "fixed"
-            },
-            "template": {
-                "duration_seconds": 7200,
-                "start": "2026-09-07T14:00:00",
-                "title": "Lezione di Programmazione a Oggetti"
-            },
-            "type": "recurrent"
+            "done_occurrences": [
+                "2026-09-07T14:00:00"
+            ]
         },
         {
-            "exceptions": [
-            ],
-            "generator": {
-                "start": "2026-02-28T00:00:00",
-                "type": "yearly"
-            },
-            "template": {
-                "duration_seconds": 86399,
-                "start": "2026-02-28T00:00:00",
-                "title": "Mario Rossi - Compleanno"
-            },
-            "type": "recurrent"
-        },
-        {
-            "done": false,
+            "type": "task",
+            "title": "Consegna relazione PAO",
             "due": "2026-09-15T00:00:00",
             "priority": "high",
-            "title": "Consegna relazione PAO",
-            "type": "deadline"
+            "done": false
         },
         {
-            "message": "2 compresse",
-            "repeat_seconds": 86400,
-            "title": "Prendi la pillola",
-            "trigger": "2026-09-07T08:00:00",
-            "type": "reminder"
+            "type": "event",
+            "title": "Hackathon di fine corso",
+            "start": "2026-12-18T00:00:00",
+            "done": false,
+            "duration_seconds": 172800
+        },
+        {
+            "type": "anniversary",
+            "title": "Mario Rossi - Compleanno",
+            "date": "1990-02-28T00:00:00",
+            "done_occurrences": []
         }
-    ],
-    "version": 1
+    ]
 }

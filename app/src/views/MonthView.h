@@ -56,6 +56,8 @@ signals:
     void modifyEventRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: elimina l'occorrenza/attivita'. */
     void deleteEventRequested(const events::Occurrence& occurrence);
+    /** @brief Clic sulla spunta: inverte lo stato evaso/da fare dell'occorrenza. */
+    void doneToggled(const events::Occurrence& occurrence);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -79,6 +81,7 @@ private:
 
     std::vector<events::Occurrence> m_occurrences;
     std::vector<QRect> m_chipRects;   // chip corrente (parallelo a m_occurrences)
+    std::vector<QRect> m_checkRects;  // spunta di ogni chip
     std::vector<int> m_extraCounts;   // occorrenze oltre i chip mostrati, per cella
     QDate m_month;
     int m_selected = -1;

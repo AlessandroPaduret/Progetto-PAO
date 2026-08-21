@@ -26,6 +26,14 @@ void FixedIntervalGenerator::setInterval(Duration newInterval) {
 
 void FixedIntervalGenerator::setEnd(TimePoint newEnd) { m_end = newEnd; }
 
+void FixedIntervalGenerator::setMaxOccurrences(std::size_t n) {
+  m_maxOccurrences = n;
+}
+
+std::size_t FixedIntervalGenerator::getMaxOccurrences() const {
+  return m_maxOccurrences;
+}
+
 /// Implementazione dei metodi virtuali di DateGenerator
 
 std::vector<TimePoint>
@@ -51,8 +59,15 @@ FixedIntervalGenerator::generateDates(const TimePoint from,
         current += m_interval;
     }
 
-    // 3. Generazione nel range
+    // 3. Generazione nel range (con limite di occorrenze, contate da m_start)
     while (current <= to && current <= m_end) {
+        if (m_maxOccurrences > 0) {
+            const std::size_t index = static_cast<std::size_t>(
+                (current - m_start) / m_interval);
+            if (index >= m_maxOccurrences) {
+                break;
+            }
+        }
         dates.push_back(current);
         current += m_interval;
     }

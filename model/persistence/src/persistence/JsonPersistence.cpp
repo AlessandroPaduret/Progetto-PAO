@@ -11,11 +11,13 @@
 #include "events/core/ActivityVisitor.h"
 #include "events/core/DateGeneratorVisitor.h"
 #include "events/core/Format.h"
-#include "events/domain/Deadline.h"
+#include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
+#include "events/domain/Meeting.h"
 #include "events/domain/RecurrentEvent.h"
-#include "events/domain/Reminder.h"
+#include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
+#include "events/generators/MonthlyGenerator.h"
 #include "events/generators/NullGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 
@@ -110,6 +112,24 @@ public:
     if (generator.getEnd() != TimePoint::max()) {
       object.insert(QLatin1String("end"), iso(generator.getEnd()));
     }
+    if (generator.getMaxOccurrences() > 0) {
+      object.insert(QLatin1String("max_occurrences"),
+                    QJsonValue(qint64(generator.getMaxOccurrences())));
+    }
+  }
+
+  void visit(const events::MonthlyGenerator &generator) override {
+    object.insert(QLatin1String("type"), QLatin1String("monthly"));
+    object.insert(QLatin1String("start"), iso(generator.getStart()));
+    object.insert(QLatin1String("interval_months"),
+                  QJsonValue(generator.getMonths()));
+    if (generator.getEnd() != TimePoint::max()) {
+      object.insert(QLatin1String("end"), iso(generator.getEnd()));
+    }
+    if (generator.getMaxOccurrences() > 0) {
+      object.insert(QLatin1String("max_occurrences"),
+                    QJsonValue(qint64(generator.getMaxOccurrences())));
+    }
   }
 
   void visit(const events::YearlyGenerator &generator) override {
@@ -117,6 +137,10 @@ public:
     object.insert(QLatin1String("start"), iso(generator.getStart()));
     if (generator.getEnd() != TimePoint::max()) {
       object.insert(QLatin1String("end"), iso(generator.getEnd()));
+    }
+    if (generator.getMaxOccurrences() > 0) {
+      object.insert(QLatin1String("max_occurrences"),
+                    QJsonValue(qint64(generator.getMaxOccurrences())));
     }
   }
 
@@ -138,6 +162,7 @@ public:
     object.insert(QLatin1String("start"), iso(event.getStart()));
     object.insert(QLatin1String("duration_seconds"),
                   QJsonValue(qint64(event.getDuration().count())));
+    object.insert(QLatin1String("done"), event.isDone());
   }
 
   void visit(const events::RecurrentEvent &event) override {
@@ -161,27 +186,54 @@ public:
       exceptions.append(iso(tp));
     }
     object.insert(QLatin1String("exceptions"), exceptions);
+
+    QJsonArray doneOccurrences;
+    for (const TimePoint tp : event.getDoneOccurrences()) {
+      doneOccurrences.append(iso(tp));
+    }
+    object.insert(QLatin1String("done_occurrences"), doneOccurrences);
   }
 
-  void visit(const events::Deadline &deadline) override {
-    object.insert(QLatin1String("type"), QLatin1String("deadline"));
+  void visit(const events::Task &task) override {
+    object.insert(QLatin1String("type"), QLatin1String("task"));
     object.insert(QLatin1String("title"),
-                  QString::fromStdString(deadline.getTitle()));
-    object.insert(QLatin1String("due"), iso(deadline.getDue()));
+                  QString::fromStdString(task.getTitle()));
+    object.insert(QLatin1String("due"), iso(task.getDue()));
     object.insert(QLatin1String("priority"),
-                 priorityKey(deadline.getPriority()));
-    object.insert(QLatin1String("done"), deadline.isDone());
+                 priorityKey(task.getPriority()));
+    object.insert(QLatin1String("done"), task.isDone());
   }
 
-  void visit(const events::Reminder &reminder) override {
-    object.insert(QLatin1String("type"), QLatin1String("reminder"));
+  void visit(const events::Meeting &meeting) override {
+    object.insert(QLatin1String("type"), QLatin1String("meeting"));
     object.insert(QLatin1String("title"),
-                  QString::fromStdString(reminder.getTitle()));
-    object.insert(QLatin1String("trigger"), iso(reminder.getTrigger()));
-    object.insert(QLatin1String("message"),
-                  QString::fromStdString(reminder.getMessage()));
-    object.insert(QLatin1String("repeat_seconds"),
-                  QJsonValue(qint64(reminder.getRepeatInterval().count())));
+                  QString::fromStdString(meeting.getTitle()));
+    object.insert(QLatin1String("start"), iso(meeting.getStart()));
+    object.insert(QLatin1String("duration_seconds"),
+                  QJsonValue(qint64(meeting.getDuration().count())));
+    object.insert(QLatin1String("location"),
+                  QString::fromStdString(meeting.getLocation()));
+    QJsonArray attendees;
+    for (const events::String &name : meeting.getAttendees()) {
+      attendees.append(QString::fromStdString(name));
+    }
+    object.insert(QLatin1String("attendees"), attendees);
+    object.insert(QLatin1String("done"), meeting.isDone());
+  }
+
+  void visit(const events::Anniversary &anniversary) override {
+    object.insert(QLatin1String("type"), QLatin1String("anniversary"));
+    object.insert(QLatin1String("title"),
+                  QString::fromStdString(anniversary.getTitle()));
+    object.insert(QLatin1String("date"), iso(anniversary.getStart()));
+    if (anniversary.getEnd() != TimePoint::max()) {
+      object.insert(QLatin1String("end"), iso(anniversary.getEnd()));
+    }
+    QJsonArray doneOccurrences;
+    for (const TimePoint tp : anniversary.getDoneOccurrences()) {
+      doneOccurrences.append(iso(tp));
+    }
+    object.insert(QLatin1String("done_occurrences"), doneOccurrences);
   }
 
 private:
@@ -209,7 +261,14 @@ std::unique_ptr<events::Event> eventFromJson(const QJsonObject &json,
   if (!timePointFromJson(json, "start", start, error)) return nullptr;
   if (!secondsFromJson(json, "duration_seconds", duration, false, error))
     return nullptr;
-  return std::make_unique<events::Event>(title.toStdString(), start, duration);
+  auto event =
+      std::make_unique<events::Event>(title.toStdString(), start, duration);
+  if (json.contains(QLatin1String("done"))) {
+    bool done = false;
+    if (!boolFromJson(json, "done", done, error)) return nullptr;
+    event->setDone(done);
+  }
+  return event;
 }
 
 std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json,
@@ -217,6 +276,20 @@ std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json
   const QString type = json.value(QLatin1String("type")).toString();
   TimePoint start;
   TimePoint end = TimePoint::max();
+
+  auto readMaxOccurrences = [&json, error](std::size_t &out) -> bool {
+    if (!json.contains(QLatin1String("max_occurrences"))) {
+      out = 0;
+      return true;
+    }
+    const QJsonValue value = json.value(QLatin1String("max_occurrences"));
+    if (!value.isDouble() || value.toInteger() < 0) {
+      setError(error, "Campo max_occurrences non valido");
+      return false;
+    }
+    out = static_cast<std::size_t>(value.toInteger());
+    return true;
+  };
 
   if (type == QLatin1String("fixed")) {
     Duration interval;
@@ -230,15 +303,40 @@ std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json
     if (json.contains(QLatin1String("end")) &&
         !timePointFromJson(json, "end", end, error))
       return nullptr;
-    return std::make_shared<events::FixedIntervalGenerator>(start, interval,
-                                                            end);
+    auto gen = std::make_shared<events::FixedIntervalGenerator>(start, interval,
+                                                                end);
+    std::size_t maxOcc = 0;
+    if (!readMaxOccurrences(maxOcc)) return nullptr;
+    gen->setMaxOccurrences(maxOcc);
+    return gen;
+  }
+  if (type == QLatin1String("monthly")) {
+    if (!timePointFromJson(json, "start", start, error)) return nullptr;
+    const QJsonValue monthsValue = json.value(QLatin1String("interval_months"));
+    if (!monthsValue.isDouble() || monthsValue.toInteger() <= 0) {
+      setError(error, "Campo interval_months non valido");
+      return nullptr;
+    }
+    if (json.contains(QLatin1String("end")) &&
+        !timePointFromJson(json, "end", end, error))
+      return nullptr;
+    auto gen = std::make_shared<events::MonthlyGenerator>(
+        start, static_cast<int>(monthsValue.toInteger()), end);
+    std::size_t maxOcc = 0;
+    if (!readMaxOccurrences(maxOcc)) return nullptr;
+    gen->setMaxOccurrences(maxOcc);
+    return gen;
   }
   if (type == QLatin1String("yearly")) {
     if (!timePointFromJson(json, "start", start, error)) return nullptr;
     if (json.contains(QLatin1String("end")) &&
         !timePointFromJson(json, "end", end, error))
       return nullptr;
-    return std::make_shared<events::YearlyGenerator>(start, end);
+    auto gen = std::make_shared<events::YearlyGenerator>(start, end);
+    std::size_t maxOcc = 0;
+    if (!readMaxOccurrences(maxOcc)) return nullptr;
+    gen->setMaxOccurrences(maxOcc);
+    return gen;
   }
   if (type == QLatin1String("null")) {
     return std::make_shared<events::NullGenerator>();
@@ -291,14 +389,31 @@ std::unique_ptr<events::RecurrentEvent> recurrentFromJson(const QJsonObject &jso
       result->addException(tp);
     }
   }
+
+  const QJsonValue doneValue = json.value(QLatin1String("done_occurrences"));
+  if (doneValue.isArray()) {
+    for (const QJsonValue &value : doneValue.toArray()) {
+      if (!value.isString()) {
+        setError(error, "Occorrenza evasa non valida nell'elenco");
+        return nullptr;
+      }
+      TimePoint tp;
+      if (!events::parseIso8601(value.toString().toStdString(), tp)) {
+        setError(error, "Data di occorrenza evasa non valida: " +
+                            value.toString());
+        return nullptr;
+      }
+      result->setDoneAt(tp, true);
+    }
+  }
+
   return result;
 }
 
-std::unique_ptr<events::Deadline> deadlineFromJson(const QJsonObject &json,
-                                                   QString *error) {
+std::unique_ptr<events::Task> taskFromJson(const QJsonObject &json,
+                                           QString *error) {
   QString title;
   TimePoint due;
-  bool done = false;
   if (!stringFromJson(json, "title", title, error)) return nullptr;
   if (!timePointFromJson(json, "due", due, error)) return nullptr;
 
@@ -316,30 +431,81 @@ std::unique_ptr<events::Deadline> deadlineFromJson(const QJsonObject &json,
     return nullptr;
   }
 
-  if (json.contains(QLatin1String("done")) &&
-      !boolFromJson(json, "done", done, error))
-    return nullptr;
-
-  auto deadline =
-      std::make_unique<events::Deadline>(title.toStdString(), due, priority);
-  deadline->setDone(done);
-  return deadline;
+  auto task = std::make_unique<events::Task>(title.toStdString(), due, priority);
+  if (json.contains(QLatin1String("done"))) {
+    bool done = false;
+    if (!boolFromJson(json, "done", done, error)) return nullptr;
+    task->setDone(done);
+  }
+  return task;
 }
 
-std::unique_ptr<events::Reminder> reminderFromJson(const QJsonObject &json,
-                                                   QString *error) {
+std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json,
+                                                 QString *error) {
   QString title;
-  QString message;
-  TimePoint trigger;
-  Duration repeat = Duration::zero();
+  QString location;
+  TimePoint start;
+  Duration duration;
   if (!stringFromJson(json, "title", title, error)) return nullptr;
-  if (!timePointFromJson(json, "trigger", trigger, error)) return nullptr;
-  if (!stringFromJson(json, "message", message, error)) return nullptr;
-  if (json.contains(QLatin1String("repeat_seconds")) &&
-      !secondsFromJson(json, "repeat_seconds", repeat, false, error))
+  if (!timePointFromJson(json, "start", start, error)) return nullptr;
+  if (!secondsFromJson(json, "duration_seconds", duration, false, error))
     return nullptr;
-  return std::make_unique<events::Reminder>(title.toStdString(), trigger,
-                                            message.toStdString(), repeat);
+  if (!stringFromJson(json, "location", location, error)) return nullptr;
+
+  auto meeting = std::make_unique<events::Meeting>(
+      title.toStdString(), start, duration, location.toStdString());
+
+  const QJsonValue attendeesValue = json.value(QLatin1String("attendees"));
+  if (attendeesValue.isArray()) {
+    for (const QJsonValue &value : attendeesValue.toArray()) {
+      if (!value.isString()) {
+        setError(error, "Partecipante non valido nell'elenco attendees");
+        return nullptr;
+      }
+      meeting->addAttendee(value.toString().toStdString());
+    }
+  }
+
+  if (json.contains(QLatin1String("done"))) {
+    bool done = false;
+    if (!boolFromJson(json, "done", done, error)) return nullptr;
+    meeting->setDone(done);
+  }
+  return meeting;
+}
+
+std::unique_ptr<events::Anniversary> anniversaryFromJson(
+    const QJsonObject &json, QString *error) {
+  QString title;
+  TimePoint date;
+  if (!stringFromJson(json, "title", title, error)) return nullptr;
+  if (!timePointFromJson(json, "date", date, error)) return nullptr;
+
+  TimePoint end = TimePoint::max();
+  if (json.contains(QLatin1String("end")) &&
+      !timePointFromJson(json, "end", end, error))
+    return nullptr;
+
+  auto anniversary = std::make_unique<events::Anniversary>(
+      title.toStdString(), date, end);
+
+  const QJsonValue doneValue = json.value(QLatin1String("done_occurrences"));
+  if (doneValue.isArray()) {
+    for (const QJsonValue &value : doneValue.toArray()) {
+      if (!value.isString()) {
+        setError(error, "Occorrenza evasa non valida nell'elenco");
+        return nullptr;
+      }
+      TimePoint tp;
+      if (!events::parseIso8601(value.toString().toStdString(), tp)) {
+        setError(error, "Data di occorrenza evasa non valida: " +
+                            value.toString());
+        return nullptr;
+      }
+      anniversary->setDoneAt(tp, true);
+    }
+  }
+  return anniversary;
 }
 
 } // namespace
@@ -372,11 +538,14 @@ std::unique_ptr<events::Activity> activityFromJson(const QJsonObject &json,
   if (type == QLatin1String("recurrent")) {
     return recurrentFromJson(json, error);
   }
-  if (type == QLatin1String("deadline")) {
-    return deadlineFromJson(json, error);
+  if (type == QLatin1String("task")) {
+    return taskFromJson(json, error);
   }
-  if (type == QLatin1String("reminder")) {
-    return reminderFromJson(json, error);
+  if (type == QLatin1String("meeting")) {
+    return meetingFromJson(json, error);
+  }
+  if (type == QLatin1String("anniversary")) {
+    return anniversaryFromJson(json, error);
   }
   setError(error, "Tipo di attivita' sconosciuto: " + type);
   return nullptr;

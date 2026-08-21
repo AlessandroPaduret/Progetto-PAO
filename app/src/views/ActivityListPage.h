@@ -6,6 +6,7 @@
 #include "events/events.h"
 
 class QComboBox;
+class QCheckBox;
 class QLineEdit;
 class QPushButton;
 class QTableWidget;
@@ -48,6 +49,7 @@ private slots:
     void onHeaderClicked(int section);
     void onOpenDetail();
     void onEdit();
+    void onPendingOnlyToggled(bool checked);
 
 private:
     void reloadTable();
@@ -59,6 +61,7 @@ private:
     CalendarController* m_controller;
     QLineEdit* m_searchBox;
     QComboBox* m_typeFilter = nullptr;
+    QCheckBox* m_pendingOnly = nullptr;
     QTableWidget* m_table;
     QPushButton* m_detailButton;
     QPushButton* m_editButton;

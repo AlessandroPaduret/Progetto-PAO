@@ -24,6 +24,23 @@ inline QDateTime localTime(const events::TimePoint tp) {
     return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();
 }
 
+/** @brief true se l'occorrenza copre ALMENO un giorno di calendario intero
+ *  (mezzanotte-mezzanotte): in tal caso va mostrata nella striscia in alto
+ *  degli "eventi tutto il giorno".
+ *
+ *  Esempi: 12/12 13:50 -> 13/12 23:00 NON copre un giorno intero (normale);
+ *  12/12 13:50 -> 14/12 01:00 copre interamente il 13/12 (all-day). */
+inline bool coversFullDay(const events::Occurrence& occ) {
+    const QDateTime start = localTime(occ.start);
+    // Prima mezzanotte >= all'inizio (se l'inizio e' a mezzanotte, quella stessa)
+    QDateTime dayStart(start.date(), QTime(0, 0));
+    if (start > dayStart) {
+        dayStart = dayStart.addDays(1);
+    }
+    const QDateTime dayEnd = dayStart.addDays(1);
+    return dayEnd <= localTime(occ.end());
+}
+
 /** @brief Nome corto del giorno della settimana (1 = lunedi', 7 = domenica). */
 inline const char* shortDayName(int dayOfWeek) {
     static const char* kNames[] = {"Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"};
