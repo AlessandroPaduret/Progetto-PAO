@@ -38,10 +38,6 @@ const std::shared_ptr<DateGenerator> &RecurrentEvent::getGenerator() const {
   return m_generator;
 }
 
-void RecurrentEvent::setAllDay(const bool allDay) { m_allDay = allDay; }
-
-bool RecurrentEvent::isAllDay() const { return m_allDay; }
-
 const Event &RecurrentEvent::getTemplateEvent() const { return m_templateEvent; }
 
 const std::unordered_set<TimePoint, TimePointHasher> &

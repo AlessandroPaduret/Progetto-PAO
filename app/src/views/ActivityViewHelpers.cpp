@@ -4,7 +4,6 @@
 
 #include "events/core/ActivityVisitor.h"
 #include "events/core/DateGeneratorVisitor.h"
-#include "events/domain/AllDayEvent.h"
 #include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
@@ -38,9 +37,6 @@ public:
   }
   void visit(const events::Meeting&) override {
     label = QObject::tr("Riunione");
-  }
-  void visit(const events::AllDayEvent&) override {
-    label = QObject::tr("Tutto il giorno");
   }
   void visit(const events::Anniversary&) override {
     label = QObject::tr("Anniversario");
@@ -110,18 +106,7 @@ public:
     }
   }
 
-  void visit(const events::AllDayEvent& event) override {
-    summary = QObject::tr("dal %1 al %2")
-                  .arg(QDateTime::fromSecsSinceEpoch(
-                           event.getStart().time_since_epoch().count())
-                           .toString(QStringLiteral("dd/MM/yyyy")),
-                       QDateTime::fromSecsSinceEpoch(
-                           event.getEnd().time_since_epoch().count())
-                           .addSecs(-1)
-                           .toString(QStringLiteral("dd/MM/yyyy")));
-  }
-
-  void visit(const events::Anniversary& anniversary) override {
+void visit(const events::Anniversary& anniversary) override {
     summary = QObject::tr("ogni anno, dal %1")
                   .arg(QDateTime::fromSecsSinceEpoch(
                            anniversary.getStart().time_since_epoch().count())
@@ -188,17 +173,6 @@ public:
            << QObject::tr("Stato: %1")
                   .arg(meeting.isDone() ? QObject::tr("evasa")
                                         : QObject::tr("in corso"));
-  }
-
-  void visit(const events::AllDayEvent& event) override {
-    fields << QObject::tr("Dal: %1")
-                  .arg(localDateTime(event.getStart()).section(QLatin1Char(' '), 0, 0))
-           << QObject::tr("Al: %1")
-                  .arg(localDateTime(event.getEnd()).section(QLatin1Char(' '), 0, 0))
-           << QObject::tr("Giorni: %1").arg(event.days())
-           << QObject::tr("Stato: %1")
-                  .arg(event.isDone() ? QObject::tr("evaso")
-                                      : QObject::tr("in corso"));
   }
 
   void visit(const events::Anniversary& anniversary) override {

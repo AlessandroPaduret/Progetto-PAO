@@ -11,7 +11,6 @@
 #include "events/core/ActivityVisitor.h"
 #include "events/core/DateGeneratorVisitor.h"
 #include "events/core/Format.h"
-#include "events/domain/AllDayEvent.h"
 #include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
@@ -193,9 +192,6 @@ public:
       doneOccurrences.append(iso(tp));
     }
     object.insert(QLatin1String("done_occurrences"), doneOccurrences);
-    if (event.isAllDay()) {
-      object.insert(QLatin1String("allday"), true);
-    }
   }
 
   void visit(const events::Task &task) override {
@@ -223,15 +219,6 @@ public:
     }
     object.insert(QLatin1String("attendees"), attendees);
     object.insert(QLatin1String("done"), meeting.isDone());
-  }
-
-  void visit(const events::AllDayEvent &event) override {
-    object.insert(QLatin1String("type"), QLatin1String("allday"));
-    object.insert(QLatin1String("title"),
-                  QString::fromStdString(event.getTitle()));
-    object.insert(QLatin1String("start"), iso(event.getStart()));
-    object.insert(QLatin1String("end"), iso(event.getEnd()));
-    object.insert(QLatin1String("done"), event.isDone());
   }
 
   void visit(const events::Anniversary &anniversary) override {
@@ -420,9 +407,6 @@ std::unique_ptr<events::RecurrentEvent> recurrentFromJson(const QJsonObject &jso
     }
   }
 
-  if (json.value(QLatin1String("allday")).toBool()) {
-    result->setAllDay(true);
-  }
   return result;
 }
 
@@ -488,29 +472,6 @@ std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json,
     meeting->setDone(done);
   }
   return meeting;
-}
-
-std::unique_ptr<events::AllDayEvent> alldayFromJson(const QJsonObject &json,
-                                                    QString *error) {
-  QString title;
-  TimePoint start;
-  TimePoint end;
-  if (!stringFromJson(json, "title", title, error)) return nullptr;
-  if (!timePointFromJson(json, "start", start, error)) return nullptr;
-  if (!timePointFromJson(json, "end", end, error)) return nullptr;
-  if (end <= start) {
-    setError(error, "La fine deve essere successiva all'inizio (almeno un giorno).");
-    return nullptr;
-  }
-
-  auto event = std::make_unique<events::AllDayEvent>(title.toStdString(), start,
-                                                     end);
-  if (json.contains(QLatin1String("done"))) {
-    bool done = false;
-    if (!boolFromJson(json, "done", done, error)) return nullptr;
-    event->setDone(done);
-  }
-  return event;
 }
 
 std::unique_ptr<events::Anniversary> anniversaryFromJson(
@@ -582,9 +543,6 @@ std::unique_ptr<events::Activity> activityFromJson(const QJsonObject &json,
   }
   if (type == QLatin1String("meeting")) {
     return meetingFromJson(json, error);
-  }
-  if (type == QLatin1String("allday")) {
-    return alldayFromJson(json, error);
   }
   if (type == QLatin1String("anniversary")) {
     return anniversaryFromJson(json, error);

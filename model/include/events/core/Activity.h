@@ -59,11 +59,6 @@ public:
      *  Default: aggiorna lo stato dell'attivita' intera. */
     virtual void setDoneAt(TimePoint occurrenceStart, bool done);
 
-    /** @return true se l'attivita' occupa date intere SENZA orario e va
-     *  mostrata nella striscia "tutto il giorno" (AllDayEvent, Anniversary).
-     *  Default: false. */
-    virtual bool isAllDay() const;
-
     /** @return L'istante temporale di riferimento dell'attivita'
      *          (inizio per gli eventi, scadenza per le Deadline, ecc.) */
     virtual TimePoint getStart() const = 0;

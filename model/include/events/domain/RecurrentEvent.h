@@ -28,7 +28,6 @@ private:
     Event m_templateEvent;                        ///< Evento template da cui generare le occorrenze
     std::unordered_set<TimePoint, TimePointHasher> m_exceptions;  ///< Occorrenze escluse
     std::unordered_set<TimePoint, TimePointHasher> m_doneOccurrences;  ///< Occorrenze evase
-    bool m_allDay = false;  ///< true se ogni occorrenza occupa l'intero giorno
 
 protected:
     RecurrentEvent* clone_impl() const override;
@@ -48,13 +47,6 @@ public:
 
     /** @return L'evento template */
     const Event& getTemplateEvent() const;
-
-    /** @brief Marca la serie come "tutto il giorno": ogni occorrenza occupa
-     *  l'intero giorno (da mostrare nella striscia in alto). */
-    void setAllDay(bool allDay);
-
-    /** @return true se la serie e' "tutto il giorno" */
-    bool isAllDay() const override;
 
     /** @return L'insieme delle eccezioni (date delle occorrenze escluse) */
     const std::unordered_set<TimePoint, TimePointHasher>& getExceptions() const;

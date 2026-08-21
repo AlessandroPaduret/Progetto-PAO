@@ -3,7 +3,6 @@
 
 #include "events/core/CommonTypes.h"
 #include "events/domain/ActivityFactory.h"
-#include "events/domain/AllDayEvent.h"
 #include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
@@ -44,11 +43,6 @@ std::unique_ptr<Task> ActivityFactory::createTask(const String &title,
                                                   TimePoint due,
                                                   Priority priority) {
   return std::make_unique<Task>(title, due, priority);
-}
-
-std::unique_ptr<AllDayEvent> ActivityFactory::createAllDayEvent(
-    const String &title, TimePoint start, TimePoint end) {
-  return std::make_unique<AllDayEvent>(title, start, end);
 }
 
 std::unique_ptr<Anniversary> ActivityFactory::createAnniversary(

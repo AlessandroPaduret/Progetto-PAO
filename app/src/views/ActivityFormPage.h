@@ -91,7 +91,6 @@ private:
     QWidget* buildEventPanel();
     QWidget* buildMeetingPanel();
     QWidget* buildTaskPanel();
-    QWidget* buildAllDayPanel();
     QWidget* buildAnniversaryPanel();
 
     // Lettura dei campi -> oggetto di dominio
@@ -102,7 +101,6 @@ private:
     void populateRecurrent(const events::RecurrentEvent& event);
     void populateMeeting(const events::Meeting& meeting);
     void populateTask(const events::Task& task);
-    void populateAllDay(const events::AllDayEvent& event);
     void populateAnniversary(const events::Anniversary& anniversary);
 
     // Campi comuni per pannello (titolo/data/durata) e loro sincronizzazione
@@ -156,11 +154,6 @@ private:
     QDateTimeEdit* m_dueT = nullptr;
     QComboBox* m_priorityCombo = nullptr;
     QCheckBox* m_doneCheck = nullptr;
-
-    // Tutto il giorno
-    QLineEdit* m_titleA = nullptr;
-    QDateEdit* m_startDateA = nullptr;
-    QDateEdit* m_endDateA = nullptr;
 
     // Anniversario
     QLineEdit* m_titleAn = nullptr;

@@ -25,7 +25,6 @@
 
 #include "CalendarController.h"
 #include "events/domain/ActivityFactory.h"
-#include "events/domain/AllDayEvent.h"
 #include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
@@ -43,9 +42,8 @@ namespace {
 constexpr int kEventPanel = 0;
 constexpr int kMeetingPanel = 1;
 constexpr int kTaskPanel = 2;
-constexpr int kAllDayPanel = 3;
-constexpr int kAnniversaryPanel = 4;
-constexpr int kPanelCount = 5;
+constexpr int kAnniversaryPanel = 3;
+constexpr int kPanelCount = 4;
 
 // Unita' di ricorrenza (indici della combo)
 constexpr int kUnitDays = 0;
@@ -96,14 +94,12 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     m_typeCombo->addItem(tr("Evento"));
     m_typeCombo->addItem(tr("Riunione"));
     m_typeCombo->addItem(tr("Compito"));
-    m_typeCombo->addItem(tr("Tutto il giorno"));
     m_typeCombo->addItem(tr("Anniversario"));
 
     m_forms = new QStackedWidget(this);
     m_forms->addWidget(buildEventPanel());
     m_forms->addWidget(buildMeetingPanel());
     m_forms->addWidget(buildTaskPanel());
-    m_forms->addWidget(buildAllDayPanel());
     m_forms->addWidget(buildAnniversaryPanel());
 
     auto* saveButton = new QPushButton(tr("Salva"), this);
@@ -318,20 +314,6 @@ QWidget* ActivityFormPage::buildTaskPanel() {
     return panel;
 }
 
-QWidget* ActivityFormPage::buildAllDayPanel() {
-    auto* panel = new QWidget(this);
-    m_titleA = makeTitle(panel);
-    m_startDateA = makeDay(panel);
-    m_endDateA = makeDay(panel);
-
-    auto* grid = new QGridLayout(panel);
-    grid->setColumnStretch(1, 1);
-    addRow(grid, 0, tr("Titolo"), m_titleA);
-    addRow(grid, 1, tr("Dal"), m_startDateA);
-    addRow(grid, 2, tr("Al"), m_endDateA);
-    return panel;
-}
-
 QWidget* ActivityFormPage::buildAnniversaryPanel() {
     auto* panel = new QWidget(this);
     m_titleAn = makeTitle(panel);
@@ -360,8 +342,6 @@ QLineEdit* ActivityFormPage::titleOf(int panel) const {
     return m_titleMt;
   case kTaskPanel:
     return m_titleT;
-  case kAllDayPanel:
-    return m_titleA;
   case kAnniversaryPanel:
     return m_titleAn;
   default:
@@ -377,7 +357,6 @@ QDateTimeEdit* ActivityFormPage::dateOf(int panel) const {
     return m_startMt;
   case kTaskPanel:
     return m_dueT;
-  case kAllDayPanel:
   case kAnniversaryPanel:
   default:
     return nullptr;
@@ -391,7 +370,6 @@ QTimeEdit* ActivityFormPage::durationOf(int panel) const {
   case kMeetingPanel:
     return m_durationMt;
   case kTaskPanel:
-  case kAllDayPanel:
   case kAnniversaryPanel:
   default:
     return nullptr;
@@ -508,7 +486,6 @@ void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
   m_titleE->clear();
   m_titleMt->clear();
   m_titleT->clear();
-  m_titleA->clear();
   m_titleAn->clear();
   m_locationMt->clear();
   m_attendeeEdit->clear();
@@ -541,8 +518,6 @@ void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
   m_startTimeE->setTime(value.time());
   m_startMt->setDateTime(value);
   m_dueT->setDateTime(value);
-  m_startDateA->setDate(value.date());
-  m_endDateA->setDate(value.date());
   m_dateAn->setDate(value.date());
   m_endDate->setDate(value.date());
 
@@ -568,8 +543,6 @@ void ActivityFormPage::startEditActivity(const events::Activity* activity) {
     populateMeeting(*meeting);
   } else if (auto* task = dynamic_cast<const events::Task*>(activity)) {
     populateTask(*task);
-  } else if (auto* allday = dynamic_cast<const events::AllDayEvent*>(activity)) {
-    populateAllDay(*allday);
   } else if (auto* anniversary = dynamic_cast<const events::Anniversary*>(activity)) {
     populateAnniversary(*anniversary);
   }
@@ -626,7 +599,11 @@ void ActivityFormPage::populateRecurrent(const events::RecurrentEvent& event) {
   m_startTimeE->setTime(start.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
       static_cast<int>(templ.getDuration().count())));
-  m_allDayCheck->setChecked(event.isAllDay());  // nasconde Ora e Durata se all-day
+  // "Tutto il giorno" se il template parte a mezzanotte e dura 24h
+  // (l'ora e la durata spariscono, ma la ricorrenza resta configurabile)
+  const bool allDay =
+      start.time() == QTime(0, 0) && templ.getDuration().count() == 86400;
+  m_allDayCheck->setChecked(allDay);
   m_repeatCheck->setChecked(true);
   m_repeatBox->setVisible(true);
 
@@ -715,16 +692,6 @@ void ActivityFormPage::populateTask(const events::Task& task) {
   m_forms->setCurrentIndex(kTaskPanel);
 }
 
-void ActivityFormPage::populateAllDay(const events::AllDayEvent& event) {
-  m_titleA->setText(QString::fromStdString(event.getTitle()));
-  m_startDateA->setDate(QDateTime::fromSecsSinceEpoch(
-      event.getStart().time_since_epoch().count()).date());
-  m_endDateA->setDate(QDateTime::fromSecsSinceEpoch(
-      event.getEnd().time_since_epoch().count()).addDays(-1).date());
-  m_typeCombo->setCurrentIndex(kAllDayPanel);
-  m_forms->setCurrentIndex(kAllDayPanel);
-}
-
 void ActivityFormPage::populateAnniversary(const events::Anniversary& anniversary) {
   m_titleAn->setText(QString::fromStdString(anniversary.getTitle()));
   m_dateAn->setDate(QDateTime::fromSecsSinceEpoch(
@@ -736,9 +703,9 @@ void ActivityFormPage::populateAnniversary(const events::Anniversary& anniversar
 void ActivityFormPage::emitPreview() {
   const int panel = m_forms->currentIndex();
   const QString title = titleOf(panel)->text();
-  // Niente anteprima per i tipi senza data/ora nella griglia (all-day
-  // compreso: va nella striscia in alto, non nella griglia oraria)
-  if (panel == kAllDayPanel || panel == kAnniversaryPanel ||
+  // Niente anteprima per i tipi senza data/ora nella griglia (l'all-day va
+  // nella striscia in alto, non nella griglia oraria)
+  if (panel == kAnniversaryPanel ||
       (panel == kEventPanel && m_allDayCheck->isChecked())) {
     emit previewChanged(title, QDateTime(), 0, false);
     return;
@@ -771,10 +738,13 @@ ActivityFormPage::buildEventActivities() const {
                                               m_durationE->time().msecsSinceStartOfDay() /
                                               1000);
 
-  // "Tutto il giorno" SENZA ripetizione -> un AllDayEvent singolo
+  // "Tutto il giorno" SENZA ripetizione -> un Event dalle 00:00 di 24h
   if (allDay && !m_repeatCheck->isChecked()) {
-    auto allday = events::ActivityFactory::createAllDayEvent(
-        title.toStdString(), start, start + events::Days(1));
+    // Evento che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno
+    // dopo): la striscia in alto lo riconosce perche' copre un giorno intero.
+    auto allday = events::ActivityFactory::createSimpleEvent(
+        title.toStdString(), start, std::chrono::seconds(86400));
+    allday->setDone(false);
     result.push_back(std::move(allday));
     return result;
   }
@@ -800,13 +770,9 @@ ActivityFormPage::buildEventActivities() const {
 
   auto pushRecurrent = [&](std::shared_ptr<events::DateGenerator> generator,
                            events::TimePoint anchor) {
-    auto recurrent = std::make_unique<events::RecurrentEvent>(
+    result.push_back(std::make_unique<events::RecurrentEvent>(
         std::move(generator),
-        events::Event(title.toStdString(), anchor, duration));
-    if (allDay) {
-      recurrent->setAllDay(true);
-    }
-    result.push_back(std::move(recurrent));
+        events::Event(title.toStdString(), anchor, duration)));
   };
 
   const int unit = m_unitCombo->currentIndex();
@@ -917,15 +883,6 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
     return task;
   }
 
-  case kAllDayPanel: {
-    const events::TimePoint start =
-        toTimePoint(QDateTime(m_startDateA->date(), QTime(0, 0)));
-    const events::TimePoint end =
-        toTimePoint(QDateTime(m_endDateA->date().addDays(1), QTime(0, 0)));
-    return events::ActivityFactory::createAllDayEvent(
-        title.toStdString(), start, end);
-  }
-
   case kAnniversaryPanel: {
     const events::TimePoint date =
         toTimePoint(QDateTime(m_dateAn->date(), QTime(0, 0)));
@@ -983,15 +940,6 @@ void ActivityFormPage::onDelete() {
 }
 
 void ActivityFormPage::onSave() {
-  // Vincolo "tutto il giorno": la fine deve essere >= l'inizio
-  if (m_forms->currentIndex() == kAllDayPanel) {
-    if (m_endDateA->date() < m_startDateA->date()) {
-      m_errorLabel->setText(
-          tr("La data finale non puo' precedere quella iniziale."));
-      return;
-    }
-  }
-
   // Pannello Evento "a domande": Event o uno o piu' RecurrentEvent
   if (m_forms->currentIndex() == kEventPanel) {
     auto activities = buildEventActivities();

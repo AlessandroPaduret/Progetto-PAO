@@ -112,23 +112,6 @@ TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meet
     REQUIRE(m->getAttendees()[1] == "Anna");
 }
 
-TEST_CASE("Persistenza: AllDayEvent round-trip", "[json][allday]") {
-    auto allday = ActivityFactory::createAllDayEvent("Mostra", make_date(2026, 5, 10), make_date(2026, 5, 13));
-
-    QJsonObject json = persistence::activityToJson(*allday);
-    REQUIRE(json.value("type").toString() == "allday");
-    REQUIRE(json.value("start").toString() == "2026-05-10T00:00:00");
-    REQUIRE(json.value("end").toString() == "2026-05-13T00:00:00");
-
-    auto back = persistence::activityFromJson(json);
-    REQUIRE(back != nullptr);
-    auto a = dynamic_cast<AllDayEvent*>(back.get());
-    REQUIRE(a != nullptr);
-    REQUIRE(a->getStart() == make_date(2026, 5, 10));
-    REQUIRE(a->getEnd() == make_date(2026, 5, 13));
-    REQUIRE(a->days() == 3);
-}
-
 TEST_CASE("Persistenza: Anniversary round-trip (leap-aware, occorrenze evase)", "[json][anniversary]") {
     auto anniversary = ActivityFactory::createAnniversary("Mario", make_date(2028, 2, 29));
     anniversary->setDoneAt(make_date(2028, 2, 29), true);
@@ -162,7 +145,10 @@ TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][fi
     calendar.add(ActivityFactory::createSimpleWeekly("Riunione B", make_date(2026, 1, 2) + 10h, 30min, make_date(2026, 3, 1)));
     calendar.add(ActivityFactory::createTask("Compito C", make_date(2026, 2, 1), Priority::High));
     calendar.add(ActivityFactory::createMeeting("Riunione D", make_date(2026, 1, 3) + 8h, 1h, "Zoom"));
-    calendar.add(ActivityFactory::createAllDayEvent("Giornata E", make_date(2026, 1, 4), make_date(2026, 1, 5)));
+    // Evento "tutto il giorno": dalle 00:00 con durata 24h
+    auto allday = ActivityFactory::createSimpleEvent(
+        "Giornata E", make_date(2026, 1, 4), std::chrono::seconds(86400));
+    calendar.add(std::move(allday));
     calendar.add(ActivityFactory::createAnniversary("Anniversario F", make_date(2000, 1, 6)));
 
     QTemporaryDir dir;
@@ -233,25 +219,23 @@ TEST_CASE("Persistenza: RecurrentEvent settimanale con limite occorrenze", "[jso
     REQUIRE(rec->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 3, 1)).size() == 3);
 }
 
-TEST_CASE("Persistenza: serie ricorrente 'tutto il giorno'", "[json][recurrent][allday]") {
+TEST_CASE("Persistenza: serie ricorrente di un giorno intero (00:00, 24h)", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 5);
     auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7));
     auto series = std::make_unique<events::RecurrentEvent>(
-        gen, events::Event("Turno", start, 86399s));
-    series->setAllDay(true);
+        gen, events::Event("Turno", start, std::chrono::seconds(86400)));
 
     QJsonObject json = persistence::activityToJson(*series);
     REQUIRE(json.value("type").toString() == "recurrent");
-    REQUIRE(json.value("allday").toBool() == true);
+    REQUIRE(json.value("template").toObject().value("duration_seconds").toInteger() == 86400);
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
     auto rec = dynamic_cast<RecurrentEvent*>(back.get());
     REQUIRE(rec != nullptr);
-    REQUIRE(rec->isAllDay());
     auto occ = rec->occurrencesIn(make_date(2026, 1, 5), make_date(2026, 1, 12));
     REQUIRE(occ.size() == 2);
-    REQUIRE(occ[0].duration == Duration(86399));
+    REQUIRE(occ[0].duration == Duration(86400));
 }
 
 TEST_CASE("Persistenza: input non validi rifiutati", "[json][invalid]") {
@@ -290,9 +274,9 @@ TEST_CASE("Persistenza: input non validi rifiutati", "[json][invalid]") {
         REQUIRE(persistence::activityFromJson(json) == nullptr);
     }
 
-    SECTION("all-day con fine <= inizio") {
-        QJsonObject json{{"type", "allday"}, {"title", "X"},
-                         {"start", "2026-01-10T00:00:00"}, {"end", "2026-01-10T00:00:00"}};
+    SECTION("durata negativa di un evento") {
+        QJsonObject json{{"type", "event"}, {"title", "X"},
+                         {"start", "2026-01-10T00:00:00"}, {"duration_seconds", -1}};
         REQUIRE(persistence::activityFromJson(json) == nullptr);
     }
 

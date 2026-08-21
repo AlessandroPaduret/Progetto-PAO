@@ -7,7 +7,6 @@ class Event;
 class RecurrentEvent;
 class Task;
 class Meeting;
-class AllDayEvent;
 class Anniversary;
 
 /**
@@ -25,7 +24,6 @@ public:
     virtual void visit(const RecurrentEvent& event) = 0;
     virtual void visit(const Task& task) = 0;
     virtual void visit(const Meeting& meeting) = 0;
-    virtual void visit(const AllDayEvent& event) = 0;
     virtual void visit(const Anniversary& anniversary) = 0;
 };
 

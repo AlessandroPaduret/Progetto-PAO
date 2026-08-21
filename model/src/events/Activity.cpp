@@ -19,8 +19,6 @@ bool Activity::isDoneAt(const TimePoint) const { return m_done; }
 
 void Activity::setDoneAt(const TimePoint, const bool done) { m_done = done; }
 
-bool Activity::isAllDay() const { return false; }
-
 std::unique_ptr<Activity> Activity::clone() const {
   return std::unique_ptr<Activity>(clone_impl());
 }

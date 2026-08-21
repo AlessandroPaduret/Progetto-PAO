@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "events/core/CommonTypes.h"
-#include "events/domain/AllDayEvent.h"
 #include "events/domain/Anniversary.h"
 #include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
@@ -61,14 +60,6 @@ public:
      *  @return Un puntatore unico al compito creato
      */
     static std::unique_ptr<Task> createTask(const String& title, TimePoint due, Priority priority = Priority::Medium);
-
-    /** @brief Crea un'attivita' "tutto il giorno" su una o piu' date intere.
-     *  @param title Il titolo
-     *  @param start Mezzanotte del primo giorno
-     *  @param end Mezzanotte del giorno successivo all'ultimo (esclusa)
-     *  @return Un puntatore unico all'attivita' creata
-     */
-    static std::unique_ptr<AllDayEvent> createAllDayEvent(const String& title, TimePoint start, TimePoint end);
 
     /** @brief Crea un anniversario annuale (gestione anni bisestili inclusa).
      *  @param title Il titolo (es. "Mario - Compleanno")

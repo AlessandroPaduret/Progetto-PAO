@@ -67,9 +67,6 @@ public:
 
     /// Implementazione dei metodi virtuali di Activity
 
-    /** @return true (occupa l'intero giorno, va nella striscia all-day) */
-    bool isAllDay() const override;
-
     /** @return Le ricorrenze annuali in [from, to] (leap-aware) */
     std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
 

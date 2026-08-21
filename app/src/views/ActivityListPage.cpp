@@ -60,7 +60,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_typeFilter->addItem(tr("Tutti i tipi"), QString());
     for (const QString& type :
          {tr("Evento"), tr("Ricorrente"), tr("Riunione"), tr("Compito"),
-          tr("Tutto il giorno"), tr("Anniversario")}) {
+          tr("Anniversario")}) {
         m_typeFilter->addItem(type, type);
     }
 

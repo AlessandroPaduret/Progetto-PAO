@@ -66,8 +66,6 @@ std::vector<Occurrence> Anniversary::occurrencesIn(const TimePoint from,
 
 void Anniversary::moveTo(const TimePoint newStart) { m_date = newStart; }
 
-bool Anniversary::isAllDay() const { return true; }
-
 String Anniversary::describe() const {
   return "Anniversario: " + getTitle() + " - ogni anno il " +
          formatDateTime(m_date);

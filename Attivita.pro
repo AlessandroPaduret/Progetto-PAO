@@ -26,7 +26,6 @@ SOURCES += \
     app/src/views/YearView.cpp \
     model/src/events/Activity.cpp \
     model/src/events/ActivityFactory.cpp \
-    model/src/events/AllDayEvent.cpp \
     model/src/events/Anniversary.cpp \
     model/src/events/Calendar.cpp \
     model/src/events/Event.cpp \
@@ -61,7 +60,6 @@ HEADERS += \
     model/include/events/core/Format.h \
     model/include/events/core/Occurrence.h \
     model/include/events/domain/ActivityFactory.h \
-    model/include/events/domain/AllDayEvent.h \
     model/include/events/domain/Anniversary.h \
     model/include/events/domain/Calendar.h \
     model/include/events/domain/Event.h \

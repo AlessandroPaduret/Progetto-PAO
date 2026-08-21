@@ -14,7 +14,7 @@ namespace persistence {
 /** @brief Serializza un'attivita' in un oggetto JSON (doppio dispatch via Visitor).
  *  @param activity L'attivita' da serializzare
  *  @return L'oggetto JSON, con campo "type" tra
- *          event|recurrent|task|meeting|allday|anniversary
+ *          event|recurrent|task|meeting|anniversary
  */
 QJsonObject activityToJson(const events::Activity& activity);
 

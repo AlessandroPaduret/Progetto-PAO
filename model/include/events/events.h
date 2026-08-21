@@ -15,7 +15,6 @@
 #include "events/domain/RecurrentEvent.h"
 #include "events/domain/Task.h"
 #include "events/domain/Meeting.h"
-#include "events/domain/AllDayEvent.h"
 #include "events/domain/Anniversary.h"
 #include "events/domain/Calendar.h"
 #include "events/domain/ActivityFactory.h"

@@ -24,10 +24,6 @@ QRect checkRectOf(const QRect& block) {
     return QRect(block.right() - 14, block.bottom() - 14, 13, 13);
 }
 
-bool isAllDay(const events::Activity* source) {
-    return source->isAllDay();
-}
-
 } // namespace
 
 WeekView::WeekView(QWidget* parent) : QWidget(parent) {
@@ -119,7 +115,7 @@ void WeekView::ensureRects() {
     // --- Striscia "tutto il giorno" -----------------------------------------
     for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
         const events::Occurrence& occ = m_occurrences[i];
-        if (!isAllDay(occ.source)) {
+        if (!coversFullDay(occ)) {
             continue;
         }
         const QDate startDate = localTime(occ.start).date();
@@ -144,7 +140,7 @@ void WeekView::ensureRects() {
         // Indici delle occorrenze del giorno (ordinate per inizio)
         std::vector<int> dayIndex;
         for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-            if (isAllDay(m_occurrences[i].source)) {
+            if (coversFullDay(m_occurrences[i])) {
                 continue;
             }
             if (m_monday.daysTo(localTime(m_occurrences[i].start).date()) == day) {
@@ -473,7 +469,7 @@ void WeekView::mousePressEvent(QMouseEvent* event) {
         // Avvia il potenziale trascinamento se si preme su un'occorrenza
         // (non "tutto il giorno": la striscia non si trascina)
         const bool draggable =
-            index >= 0 && !isAllDay(m_occurrences[index].source);
+            index >= 0 && !coversFullDay(m_occurrences[index]);
         m_dragActive = draggable;
         m_dragMoved = false;
         m_dragIndex = draggable ? index : -1;

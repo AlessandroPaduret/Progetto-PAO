@@ -139,27 +139,6 @@ TEST_CASE("Stato di completamento su ogni attivita'", "[state]") {
         REQUIRE_FALSE(ann.isDoneAt(occ2029));
         REQUIRE(ann.getDoneOccurrences().size() == 1);
     }
-
-    SECTION("isAllDay: solo AllDayEvent e Anniversary") {
-        REQUIRE_FALSE(Event("E", start, 1h).isAllDay());
-        REQUIRE_FALSE(Task("T", start).isAllDay());
-        REQUIRE_FALSE(Meeting("M", start, 1h).isAllDay());
-        REQUIRE_FALSE(RecurrentEvent(std::make_shared<FixedIntervalGenerator>(start, Days(7)), Event("R", start, 1h)).isAllDay());
-        REQUIRE(AllDayEvent("A", start, start + Days(1)).isAllDay());
-        REQUIRE(Anniversary("N", start).isAllDay());
-    }
-
-    SECTION("Serie ricorrente 'tutto il giorno': flag isAllDay") {
-        auto series = ActivityFactory::createSimpleWeekly(
-            "Turno", start, std::chrono::hours(24) - std::chrono::seconds(1), start + 4_weeks);
-        REQUIRE_FALSE(series->isAllDay());
-        series->setAllDay(true);
-        REQUIRE(series->isAllDay());
-        // Le occorrenze coprono l'intero giorno
-        auto occ = series->occurrencesIn(start, start + 1_weeks);
-        REQUIRE(occ.size() == 2);
-        REQUIRE(occ[0].duration == Duration(86399));
-    }
 }
 
 TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
@@ -201,21 +180,14 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
         REQUIRE(t.occurrencesIn(start, start + 1_weeks).empty());
     }
 
-    SECTION("AllDayEvent: copre le date intere, appare se interseca il range") {
-        // Evento di 3 giorni: [10/1, 13/1)
-        AllDayEvent allday("Mostra", make_date(2026, 1, 10), make_date(2026, 1, 13));
+    SECTION("Evento di 24h a mezzanotte: copre l'intero giorno") {
+        // L'evento "tutto il giorno" e' un Event dalle 00:00 con durata 24h
+        Event allday("Mostra", make_date(2026, 1, 10), std::chrono::seconds(86400));
         auto occ = allday.occurrencesIn(make_date(2026, 1, 10), make_date(2026, 1, 12));
         REQUIRE(occ.size() == 1);
         REQUIRE(occ[0].start == make_date(2026, 1, 10));
-        REQUIRE(occ[0].end() == make_date(2026, 1, 13));
-        REQUIRE(allday.days() == 3);
-        // Interroga solo il giorno centrale: compare comunque
-        REQUIRE(allday.occurrencesIn(make_date(2026, 1, 11), make_date(2026, 1, 11)).size() == 1);
-        // Prima dell'inizio o dopo la fine: assente
-        REQUIRE(allday.occurrencesIn(make_date(2026, 1, 1), make_date(2026, 1, 9)).empty());
-        REQUIRE(allday.occurrencesIn(make_date(2026, 1, 13), make_date(2026, 1, 20)).empty());
-        REQUIRE_THROWS_AS(AllDayEvent("Male", make_date(2026, 1, 10), make_date(2026, 1, 10)),
-                          std::invalid_argument);
+        REQUIRE(occ[0].end() == make_date(2026, 1, 11));  // 00:00 del giorno dopo
+        REQUIRE(occ[0].duration == Duration(86400));
     }
 
     SECTION("Anniversary: ricorrenze annuali leap-aware") {
@@ -319,7 +291,6 @@ TEST_CASE("Polimorfismo non banale sulla gerarchia Activity", "[polymorphism]") 
     activities.push_back(ActivityFactory::createSimpleWeekly("Settimanale", start, 1h, start + 2_weeks));
     activities.push_back(ActivityFactory::createTask("Compito", start + 1_weeks, Priority::Low));
     activities.push_back(ActivityFactory::createMeeting("Riunione", start, 1h));
-    activities.push_back(ActivityFactory::createAllDayEvent("Giornata", start, start + Days(2)));
     activities.push_back(ActivityFactory::createAnniversary("Anniversario", make_date(2000, 1, 1)));
 
     SECTION("occurrencesIn si comporta in modo diverso per tipo dinamico") {
@@ -327,8 +298,8 @@ TEST_CASE("Polimorfismo non banale sulla gerarchia Activity", "[polymorphism]") 
         for (const auto& a : activities) {
             counts.push_back(a->occurrencesIn(start, to).size());
         }
-        // Event:1; Weekly:3; Task:1; Meeting:1; AllDay:1; Anniversary:1
-        REQUIRE(counts == std::vector<size_t>{1, 3, 1, 1, 1, 1});
+        // Event:1; Weekly:3; Task:1; Meeting:1; Anniversary:1
+        REQUIRE(counts == std::vector<size_t>{1, 3, 1, 1, 1});
     }
 
     SECTION("describe() dipende dal tipo dinamico") {
@@ -336,8 +307,7 @@ TEST_CASE("Polimorfismo non banale sulla gerarchia Activity", "[polymorphism]") 
         REQUIRE(activities[1]->describe().find("ricorrente") != String::npos);
         REQUIRE(activities[2]->describe().find("Compito") != String::npos);
         REQUIRE(activities[3]->describe().find("Riunione") != String::npos);
-        REQUIRE(activities[4]->describe().find("Tutto il giorno") != String::npos);
-        REQUIRE(activities[5]->describe().find("Anniversario") != String::npos);
+        REQUIRE(activities[4]->describe().find("Anniversario") != String::npos);
     }
 
     SECTION("clone() copia il tipo dinamico corretto (stato incluso)") {
@@ -359,14 +329,12 @@ public:
     int recurrents = 0;
     int tasks = 0;
     int meetings = 0;
-    int alldays = 0;
     int anniversaries = 0;
 
     void visit(const Event&) override { ++events; }
     void visit(const RecurrentEvent&) override { ++recurrents; }
     void visit(const Task&) override { ++tasks; }
     void visit(const Meeting&) override { ++meetings; }
-    void visit(const AllDayEvent&) override { ++alldays; }
     void visit(const Anniversary&) override { ++anniversaries; }
 };
 
@@ -380,7 +348,6 @@ TEST_CASE("Visitor: doppio dispatch sul tipo dinamico", "[visitor]") {
     calendar.add(ActivityFactory::createSimpleWeekly("W", start, 1h, start + 1_weeks));
     calendar.add(ActivityFactory::createTask("T", start, Priority::High));
     calendar.add(ActivityFactory::createMeeting("M", start, 1h));
-    calendar.add(ActivityFactory::createAllDayEvent("A", start, start + Days(1)));
     calendar.add(ActivityFactory::createAnniversary("N", make_date(2000, 1, 1)));
 
     CountingVisitor visitor;
@@ -392,7 +359,6 @@ TEST_CASE("Visitor: doppio dispatch sul tipo dinamico", "[visitor]") {
     REQUIRE(visitor.recurrents == 1);
     REQUIRE(visitor.tasks == 1);
     REQUIRE(visitor.meetings == 1);
-    REQUIRE(visitor.alldays == 1);
     REQUIRE(visitor.anniversaries == 1);
 }
 
@@ -538,12 +504,12 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         REQUIRE(meeting.attendeeCount() == 1);
     }
 
-    SECTION("AllDayEvent: sposta la mezzanotte di inizio, span invariato") {
-        AllDayEvent allday("Giornata", start, start + Days(3));
+    SECTION("Event di 24h: moveTo sposta l'inizio, la durata resta") {
+        Event allday("Giornata", start, std::chrono::seconds(86400));
         allday.moveTo(target);
         REQUIRE(allday.getStart() == target);
-        REQUIRE(allday.getEnd() == target + Days(3));
-        REQUIRE(allday.days() == 3);
+        REQUIRE(allday.getDuration() == std::chrono::seconds(86400));
+        REQUIRE(allday.getEnd() == target + std::chrono::seconds(86400));
     }
 }
 
