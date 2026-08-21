@@ -19,9 +19,9 @@ namespace {
 
 constexpr int kMinutesPerDay = 24 * 60;
 
-// Spunta (checkbox) disegnata in alto a sinistra di ogni occorrenza
+// Spunta (checkbox) disegnata in basso a destra di ogni occorrenza
 QRect checkRectOf(const QRect& block) {
-    return QRect(block.left() + 2, block.top() + 2, 13, 13);
+    return QRect(block.right() - 14, block.bottom() - 14, 13, 13);
 }
 
 bool isAllDay(const events::Activity* source) {
@@ -399,7 +399,9 @@ void WeekView::paintEvent(QPaintEvent*) {
             text = localTime(occurrence.start).toString(QStringLiteral("HH:mm")) +
                    QLatin1Char(' ') + text;
         }
-        painter.drawText(rect.adjusted(4, 3, -4, -3),
+        // Margine in basso per non sovrapporre il testo alla spunta (basso a destra)
+        const int bottomPad = rect.height() >= 40 ? 18 : 3;
+        painter.drawText(rect.adjusted(4, 3, -4, -bottomPad),
                          Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, text);
     }
 

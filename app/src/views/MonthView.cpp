@@ -148,9 +148,9 @@ void MonthView::ensureRects() {
                 }
                 m_chipRects[i] =
                     QRect(cell.left() + 2, y, cell.width() - 4, kChipHeight);
-                // Spunta in alto a sinistra del chip
-                m_checkRects[i] =
-                    QRect(cell.left() + 5, y + (kChipHeight - 11) / 2, 11, 11);
+                // Spunta in basso a destra del chip
+                m_checkRects[i] = QRect(m_chipRects[i].right() - 13,
+                                        m_chipRects[i].bottom() - 12, 11, 11);
                 y += kChipHeight + 2;
                 ++shown;
             }
@@ -247,7 +247,7 @@ void MonthView::paintEvent(QPaintEvent*) {
         const QString title = metrics.elidedText(
             QString::fromStdString(occ.source->getTitle()),
             Qt::ElideRight, rect.width() - 20);
-        painter.drawText(rect.adjusted(18, 0, -3, 0),
+        painter.drawText(rect.adjusted(3, 0, -16, 0),
                          Qt::AlignLeft | Qt::AlignVCenter, title);
     }
 
