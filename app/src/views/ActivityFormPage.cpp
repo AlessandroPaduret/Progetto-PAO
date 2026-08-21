@@ -142,12 +142,15 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     connect(m_endCountRadio, &QRadioButton::toggled, this, [this](bool on) {
         m_countSpin->setEnabled(on);
     });
-    // "Tutto il giorno" e "Si ripete" si escludono a vicenda
+    // "Tutto il giorno" e "Si ripete" si escludono a vicenda; in piu',
+    // "tutto il giorno" nasconde gli slot Ora e Durata.
     connect(m_allDayCheck, &QCheckBox::toggled, this, [this](bool on) {
         m_repeatCheck->setEnabled(!on);
         if (on) {
             m_repeatCheck->setChecked(false);
         }
+        m_timeRow->setVisible(!on);
+        m_durationRow->setVisible(!on);
         emitPreview();
     });
     connect(m_repeatCheck, &QCheckBox::toggled, this, [this](bool on) {
@@ -169,7 +172,8 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     // Anteprima live: ogni modifica dei campi aggiorna la griglia
     const auto refreshPreview = [this] { emitPreview(); };
     connect(m_titleE, &QLineEdit::textChanged, this, refreshPreview);
-    connect(m_startE, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
+    connect(m_startDateE, &QDateEdit::dateChanged, this, refreshPreview);
+    connect(m_startTimeE, &QTimeEdit::timeChanged, this, refreshPreview);
     connect(m_durationE, &QTimeEdit::timeChanged, this, refreshPreview);
     connect(m_titleMt, &QLineEdit::textChanged, this, refreshPreview);
     connect(m_startMt, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
@@ -184,7 +188,10 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
 QWidget* ActivityFormPage::buildEventPanel() {
     auto* panel = new QWidget(this);
     m_titleE = makeTitle(panel);
-    m_startE = makeDate(panel);
+    // Data e Ora in DUE slot separati (l'ora sparisce se "Tutto il giorno")
+    m_startDateE = makeDay(panel);
+    m_startTimeE = new QTimeEdit(QTime(9, 0), panel);
+    m_startTimeE->setDisplayFormat(QStringLiteral("HH:mm"));
     m_durationE = makeDuration(panel);
     m_allDayCheck = new QCheckBox(tr("Tutto il giorno"), panel);
     m_repeatCheck = new QCheckBox(tr("Si ripete"), panel);
@@ -247,14 +254,33 @@ QWidget* ActivityFormPage::buildEventPanel() {
     auto* grid = new QGridLayout(panel);
     grid->setColumnStretch(1, 1);
     addRow(grid, 0, tr("Titolo"), m_titleE);
-    addRow(grid, 1, tr("Data"), m_startE);
-    addRow(grid, 2, tr("Durata"), m_durationE);
+    addRow(grid, 1, tr("Data"), m_startDateE);
+
+    // Righe "Ora" e "Durata": contenitori nascosti quando "Tutto il giorno"
+    m_timeRow = new QWidget(panel);
+    auto* timeLayout = new QHBoxLayout(m_timeRow);
+    timeLayout->setContentsMargins(0, 0, 0, 0);
+    auto* timeCaption = new QLabel(tr("Ora"), m_timeRow);
+    timeCaption->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    timeLayout->addWidget(timeCaption);
+    timeLayout->addWidget(m_startTimeE, 1);
+    grid->addWidget(m_timeRow, 2, 0, 1, 2);
+
+    m_durationRow = new QWidget(panel);
+    auto* durLayout = new QHBoxLayout(m_durationRow);
+    durLayout->setContentsMargins(0, 0, 0, 0);
+    auto* durCaption = new QLabel(tr("Durata"), m_durationRow);
+    durCaption->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    durLayout->addWidget(durCaption);
+    durLayout->addWidget(m_durationE, 1);
+    grid->addWidget(m_durationRow, 3, 0, 1, 2);
+
     auto* checksRow = new QHBoxLayout;
     checksRow->addWidget(m_allDayCheck);
     checksRow->addWidget(m_repeatCheck);
     checksRow->addStretch(1);
-    grid->addLayout(checksRow, 3, 0, 1, 2);
-    grid->addWidget(m_repeatBox, 4, 0, 1, 2);
+    grid->addLayout(checksRow, 4, 0, 1, 2);
+    grid->addWidget(m_repeatBox, 5, 0, 1, 2);
     return panel;
 }
 
@@ -355,8 +381,8 @@ QLineEdit* ActivityFormPage::titleOf(int panel) const {
 
 QDateTimeEdit* ActivityFormPage::dateOf(int panel) const {
   switch (panel) {
-  case kEventPanel:
-    return m_startE;
+  case kEventPanel:  // data e ora sono in DUE slot separati
+    return nullptr;
   case kMeetingPanel:
     return m_startMt;
   case kTaskPanel:
@@ -401,11 +427,28 @@ void ActivityFormPage::syncCommonFields(int fromPanel, int toPanel) {
   }
   // Conserva quello che l'utente ha gia' scritto quando cambia tipo
   titleOf(toPanel)->setText(titleOf(fromPanel)->text());
-  if (QDateTimeEdit* fromDate = dateOf(fromPanel)) {
+
+  // Data: il pannello Evento usa due slot separati (Data + Ora)
+  if (fromPanel == kEventPanel && toPanel == kEventPanel) {
+    // niente da fare
+  } else if (fromPanel == kEventPanel) {
     if (QDateTimeEdit* toDate = dateOf(toPanel)) {
-      toDate->setDateTime(fromDate->dateTime());
+      toDate->setDateTime(
+          QDateTime(m_startDateE->date(), m_startTimeE->time()));
+    }
+  } else if (toPanel == kEventPanel) {
+    if (QDateTimeEdit* fromDate = dateOf(fromPanel)) {
+      m_startDateE->setDate(fromDate->date());
+      m_startTimeE->setTime(fromDate->time());
+    }
+  } else {
+    if (QDateTimeEdit* fromDate = dateOf(fromPanel)) {
+      if (QDateTimeEdit* toDate = dateOf(toPanel)) {
+        toDate->setDateTime(fromDate->dateTime());
+      }
     }
   }
+
   if (QTimeEdit* fromDur = durationOf(fromPanel)) {
     if (QTimeEdit* toDur = durationOf(toPanel)) {
       toDur->setTime(fromDur->time());
@@ -426,7 +469,7 @@ void ActivityFormPage::onRepeatToggled(bool checked) {
       }
     }
     if (!any) {
-      m_dayButtons[m_startE->date().dayOfWeek() - 1]->setChecked(true);
+      m_dayButtons[m_startDateE->date().dayOfWeek() - 1]->setChecked(true);
     }
   }
   emitPreview();
@@ -459,8 +502,8 @@ void ActivityFormPage::onUnitChanged(int index) {
         break;
       }
     }
-    if (!any && m_startE) {
-      m_dayButtons[m_startE->date().dayOfWeek() - 1]->setChecked(true);
+    if (!any && m_startDateE) {
+      m_dayButtons[m_startDateE->date().dayOfWeek() - 1]->setChecked(true);
     }
   }
 }
@@ -504,7 +547,8 @@ void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
   const QDateTime value = suggestedStart.isValid()
                               ? suggestedStart
                               : QDateTime::currentDateTime();
-  m_startE->setDateTime(value);
+  m_startDateE->setDate(value.date());
+  m_startTimeE->setTime(value.time());
   m_startMt->setDateTime(value);
   m_dueT->setDateTime(value);
   m_startDateA->setDate(value.date());
@@ -559,7 +603,9 @@ void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence)
   m_typeCombo->setEnabled(false);
   m_typeCombo->setCurrentIndex(kEventPanel);
   m_titleE->setText(QString::fromStdString(occurrence.source->getTitle()));
-  m_startE->setDateTime(toLocal(occurrence.start));
+  const QDateTime occStart = toLocal(occurrence.start);
+  m_startDateE->setDate(occStart.date());
+  m_startTimeE->setTime(occStart.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
       static_cast<int>(occurrence.duration.count())));
   m_saveButton->setText(tr("Salva"));
@@ -570,7 +616,9 @@ void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence)
 
 void ActivityFormPage::populateEvent(const events::Event& event) {
   m_titleE->setText(QString::fromStdString(event.getTitle()));
-  m_startE->setDateTime(toLocal(event.getStart()));
+  const QDateTime start = toLocal(event.getStart());
+  m_startDateE->setDate(start.date());
+  m_startTimeE->setTime(start.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
       static_cast<int>(event.getDuration().count())));
   m_allDayCheck->setChecked(false);
@@ -583,16 +631,19 @@ void ActivityFormPage::populateEvent(const events::Event& event) {
 void ActivityFormPage::populateRecurrent(const events::RecurrentEvent& event) {
   const events::Event& templ = event.getTemplateEvent();
   m_titleE->setText(QString::fromStdString(event.getTitle()));
-  m_startE->setDateTime(toLocal(templ.getStart()));
+  const QDateTime start = toLocal(templ.getStart());
+  m_startDateE->setDate(start.date());
+  m_startTimeE->setTime(start.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
       static_cast<int>(templ.getDuration().count())));
+  m_allDayCheck->setChecked(false);
   m_repeatCheck->setChecked(true);
   m_repeatBox->setVisible(true);
 
   for (auto* button : m_dayButtons) {
     button->setChecked(false);
   }
-  const int startDow = m_startE->date().dayOfWeek();
+  const int startDow = m_startDateE->date().dayOfWeek();
 
   // Legge la regola dal generatore
   std::size_t maxOcc = 0;
@@ -703,7 +754,9 @@ void ActivityFormPage::emitPreview() {
     return;
   }
   const QDateTime start =
-      dateOf(panel) ? dateOf(panel)->dateTime() : QDateTime();
+      panel == kEventPanel
+          ? QDateTime(m_startDateE->date(), m_startTimeE->time())
+          : (dateOf(panel) ? dateOf(panel)->dateTime() : QDateTime());
   qint64 durationSeconds = 0;
   if (QTimeEdit* dur = durationOf(panel)) {
     durationSeconds = dur->time().msecsSinceStartOfDay() / 1000;
@@ -718,7 +771,8 @@ ActivityFormPage::buildEventActivities() const {
   if (title.isEmpty()) {
     return result;
   }
-  const events::TimePoint start = toTimePoint(m_startE->dateTime());
+  const events::TimePoint start = toTimePoint(
+      QDateTime(m_startDateE->date(), m_startTimeE->time()));
   const events::Duration duration = std::chrono::seconds(
       m_durationE->time().msecsSinceStartOfDay() / 1000);
 
@@ -726,7 +780,7 @@ ActivityFormPage::buildEventActivities() const {
   // l'evento viene registrato nella striscia in alto delle viste.
   if (m_allDayCheck->isChecked()) {
     const events::TimePoint dayStart =
-        toTimePoint(QDateTime(m_startE->date(), QTime(0, 0)));
+        toTimePoint(QDateTime(m_startDateE->date(), QTime(0, 0)));
     auto allday = events::ActivityFactory::createAllDayEvent(
         title.toStdString(), dayStart, dayStart + events::Days(1));
     result.push_back(std::move(allday));
@@ -772,9 +826,9 @@ ActivityFormPage::buildEventActivities() const {
     // singola serie: es. lun+mar+mer con N=5 -> sett1 lun/mar/mer + sett2
     // lun/mar = 5 eventi totali. La fine e' quindi la data della N-esima
     // occorrenza complessiva.
-    const int baseDow = m_startE->date().dayOfWeek();
-    const QDate startDate = m_startE->date();
-    const QTime time = m_startE->time();
+    const int baseDow = m_startDateE->date().dayOfWeek();
+    const QDate startDate = m_startDateE->date();
+    const QTime time = m_startTimeE->time();
 
     // Giorni selezionati (fallback: il giorno dell'inizio)
     QList<int> selected;

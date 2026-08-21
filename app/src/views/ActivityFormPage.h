@@ -87,12 +87,6 @@ private:
     std::vector<std::unique_ptr<events::Activity>> buildEventActivities() const;
 
 private:
-    /** @brief Orario di fine dell'evento ripetuto (inizio + durata). */
-    QTime recurrenceEndTime() const;
-
-    /** @brief Sincronizza l'orario della scadenza con la fine dell'evento
-     *  ripetuto (la data di scadenza resta quella scelta). */
-    void syncRecurrenceEndTime();
     // Pannelli dei campi (form specifico per tipo, vincolo PAO)
     QWidget* buildEventPanel();
     QWidget* buildMeetingPanel();
@@ -131,7 +125,10 @@ private:
 
     // Evento "a domande"
     QLineEdit* m_titleE = nullptr;
-    QDateTimeEdit* m_startE = nullptr;
+    QDateEdit* m_startDateE = nullptr;  // slot Data (separato dall'ora)
+    QTimeEdit* m_startTimeE = nullptr;  // slot Ora (nascosto se tutto il giorno)
+    QWidget* m_timeRow = nullptr;       // riga "Ora" (etichetta + box)
+    QWidget* m_durationRow = nullptr;   // riga "Durata" (nascosta se tutto il giorno)
     QTimeEdit* m_durationE = nullptr;
     QCheckBox* m_allDayCheck = nullptr;  // "Tutto il giorno" (sostituisce l'ora)
     QCheckBox* m_repeatCheck = nullptr;
