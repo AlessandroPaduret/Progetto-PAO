@@ -142,22 +142,12 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     connect(m_endCountRadio, &QRadioButton::toggled, this, [this](bool on) {
         m_countSpin->setEnabled(on);
     });
-    // "Tutto il giorno" e "Si ripete" si escludono a vicenda; in piu',
-    // "tutto il giorno" nasconde gli slot Ora e Durata.
+    // "Tutto il giorno" nasconde gli slot Ora e Durata (si puo' combinare
+    // con "Si ripete": una serie che ricorre a giornate intere).
     connect(m_allDayCheck, &QCheckBox::toggled, this, [this](bool on) {
-        m_repeatCheck->setEnabled(!on);
-        if (on) {
-            m_repeatCheck->setChecked(false);
-        }
         m_timeRow->setVisible(!on);
         m_durationRow->setVisible(!on);
         emitPreview();
-    });
-    connect(m_repeatCheck, &QCheckBox::toggled, this, [this](bool on) {
-        m_allDayCheck->setEnabled(!on);
-        if (on) {
-            m_allDayCheck->setChecked(false);
-        }
     });
     // Partecipanti della riunione
     connect(m_attendeeEdit, &QLineEdit::returnPressed,
@@ -636,7 +626,7 @@ void ActivityFormPage::populateRecurrent(const events::RecurrentEvent& event) {
   m_startTimeE->setTime(start.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
       static_cast<int>(templ.getDuration().count())));
-  m_allDayCheck->setChecked(false);
+  m_allDayCheck->setChecked(event.isAllDay());  // nasconde Ora e Durata se all-day
   m_repeatCheck->setChecked(true);
   m_repeatBox->setVisible(true);
 
@@ -771,18 +761,20 @@ ActivityFormPage::buildEventActivities() const {
   if (title.isEmpty()) {
     return result;
   }
-  const events::TimePoint start = toTimePoint(
-      QDateTime(m_startDateE->date(), m_startTimeE->time()));
-  const events::Duration duration = std::chrono::seconds(
-      m_durationE->time().msecsSinceStartOfDay() / 1000);
+  const bool allDay = m_allDayCheck->isChecked();
+  // "Tutto il giorno": inizio a mezzanotte, occorrenza di 24h - 1s
+  const events::TimePoint start = toTimePoint(QDateTime(
+      m_startDateE->date(), allDay ? QTime(0, 0) : m_startTimeE->time()));
+  const events::Duration duration = allDay
+                                        ? std::chrono::seconds(86399)
+                                        : std::chrono::seconds(
+                                              m_durationE->time().msecsSinceStartOfDay() /
+                                              1000);
 
-  // "Tutto il giorno": l'ora scelta viene sostituita dalla data intera;
-  // l'evento viene registrato nella striscia in alto delle viste.
-  if (m_allDayCheck->isChecked()) {
-    const events::TimePoint dayStart =
-        toTimePoint(QDateTime(m_startDateE->date(), QTime(0, 0)));
+  // "Tutto il giorno" SENZA ripetizione -> un AllDayEvent singolo
+  if (allDay && !m_repeatCheck->isChecked()) {
     auto allday = events::ActivityFactory::createAllDayEvent(
-        title.toStdString(), dayStart, dayStart + events::Days(1));
+        title.toStdString(), start, start + events::Days(1));
     result.push_back(std::move(allday));
     return result;
   }
@@ -808,9 +800,13 @@ ActivityFormPage::buildEventActivities() const {
 
   auto pushRecurrent = [&](std::shared_ptr<events::DateGenerator> generator,
                            events::TimePoint anchor) {
-    result.push_back(std::make_unique<events::RecurrentEvent>(
+    auto recurrent = std::make_unique<events::RecurrentEvent>(
         std::move(generator),
-        events::Event(title.toStdString(), anchor, duration)));
+        events::Event(title.toStdString(), anchor, duration));
+    if (allDay) {
+      recurrent->setAllDay(true);
+    }
+    result.push_back(std::move(recurrent));
   };
 
   const int unit = m_unitCombo->currentIndex();
@@ -828,7 +824,7 @@ ActivityFormPage::buildEventActivities() const {
     // occorrenza complessiva.
     const int baseDow = m_startDateE->date().dayOfWeek();
     const QDate startDate = m_startDateE->date();
-    const QTime time = m_startTimeE->time();
+    const QTime time = allDay ? QTime(0, 0) : m_startTimeE->time();
 
     // Giorni selezionati (fallback: il giorno dell'inizio)
     QList<int> selected;

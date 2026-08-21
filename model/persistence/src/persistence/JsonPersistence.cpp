@@ -193,6 +193,9 @@ public:
       doneOccurrences.append(iso(tp));
     }
     object.insert(QLatin1String("done_occurrences"), doneOccurrences);
+    if (event.isAllDay()) {
+      object.insert(QLatin1String("allday"), true);
+    }
   }
 
   void visit(const events::Task &task) override {
@@ -415,6 +418,10 @@ std::unique_ptr<events::RecurrentEvent> recurrentFromJson(const QJsonObject &jso
       }
       result->setDoneAt(tp, true);
     }
+  }
+
+  if (json.value(QLatin1String("allday")).toBool()) {
+    result->setAllDay(true);
   }
   return result;
 }

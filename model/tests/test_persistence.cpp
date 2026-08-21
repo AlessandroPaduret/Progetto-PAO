@@ -233,6 +233,27 @@ TEST_CASE("Persistenza: RecurrentEvent settimanale con limite occorrenze", "[jso
     REQUIRE(rec->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 3, 1)).size() == 3);
 }
 
+TEST_CASE("Persistenza: serie ricorrente 'tutto il giorno'", "[json][recurrent][allday]") {
+    TimePoint start = make_date(2026, 1, 5);
+    auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7));
+    auto series = std::make_unique<events::RecurrentEvent>(
+        gen, events::Event("Turno", start, 86399s));
+    series->setAllDay(true);
+
+    QJsonObject json = persistence::activityToJson(*series);
+    REQUIRE(json.value("type").toString() == "recurrent");
+    REQUIRE(json.value("allday").toBool() == true);
+
+    auto back = persistence::activityFromJson(json);
+    REQUIRE(back != nullptr);
+    auto rec = dynamic_cast<RecurrentEvent*>(back.get());
+    REQUIRE(rec != nullptr);
+    REQUIRE(rec->isAllDay());
+    auto occ = rec->occurrencesIn(make_date(2026, 1, 5), make_date(2026, 1, 12));
+    REQUIRE(occ.size() == 2);
+    REQUIRE(occ[0].duration == Duration(86399));
+}
+
 TEST_CASE("Persistenza: input non validi rifiutati", "[json][invalid]") {
     SECTION("tipo di attivita' sconosciuto") {
         QJsonObject json{{"type", "ufo"}};

@@ -148,6 +148,18 @@ TEST_CASE("Stato di completamento su ogni attivita'", "[state]") {
         REQUIRE(AllDayEvent("A", start, start + Days(1)).isAllDay());
         REQUIRE(Anniversary("N", start).isAllDay());
     }
+
+    SECTION("Serie ricorrente 'tutto il giorno': flag isAllDay") {
+        auto series = ActivityFactory::createSimpleWeekly(
+            "Turno", start, std::chrono::hours(24) - std::chrono::seconds(1), start + 4_weeks);
+        REQUIRE_FALSE(series->isAllDay());
+        series->setAllDay(true);
+        REQUIRE(series->isAllDay());
+        // Le occorrenze coprono l'intero giorno
+        auto occ = series->occurrencesIn(start, start + 1_weeks);
+        REQUIRE(occ.size() == 2);
+        REQUIRE(occ[0].duration == Duration(86399));
+    }
 }
 
 TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
