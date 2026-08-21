@@ -133,6 +133,7 @@ private:
     QLineEdit* m_titleE = nullptr;
     QDateTimeEdit* m_startE = nullptr;
     QTimeEdit* m_durationE = nullptr;
+    QCheckBox* m_allDayCheck = nullptr;  // "Tutto il giorno" (sostituisce l'ora)
     QCheckBox* m_repeatCheck = nullptr;
     QWidget* m_repeatBox = nullptr;      // contenitore delle impostazioni di ricorrenza
     QComboBox* m_unitCombo = nullptr;    // giorni / settimane / mesi / anno
