@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "persistence/JsonPersistence.h"
+#include "events/generators/MonthlyGenerator.h"
 
 namespace app {
 
@@ -30,6 +31,21 @@ bool CalendarController::addActivity(std::unique_ptr<events::Activity> activity)
     return false;
   }
   m_calendar.add(std::move(activity));
+  emit activitiesChanged();
+  return true;
+}
+
+bool CalendarController::addActivities(
+    std::vector<std::unique_ptr<events::Activity>> activities) {
+  if (activities.empty()) {
+    return false;
+  }
+  for (auto& activity : activities) {
+    if (!activity) {
+      return false;
+    }
+    m_calendar.add(std::move(activity));
+  }
   emit activitiesChanged();
   return true;
 }
@@ -119,6 +135,17 @@ public:
       safeEnd = newStart;
     }
     result = std::make_shared<events::YearlyGenerator>(newStart, safeEnd);
+  }
+
+  void visit(const events::MonthlyGenerator& generator) override {
+    events::TimePoint safeEnd = end;
+    if (safeEnd < newStart) {
+      safeEnd = newStart;
+    }
+    auto monthly = std::make_shared<events::MonthlyGenerator>(
+        newStart, generator.getMonths(), safeEnd);
+    monthly->setMaxOccurrences(generator.getMaxOccurrences());
+    result = monthly;
   }
 
   void visit(const events::NullGenerator&) override {

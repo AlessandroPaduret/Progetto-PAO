@@ -10,6 +10,7 @@
 #include "events/domain/Meeting.h"
 #include "events/domain/RecurrentEvent.h"
 #include "events/domain/Task.h"
+#include "events/generators/MonthlyGenerator.h"
 
 namespace app {
 namespace ActivityViewHelpers {
@@ -62,6 +63,10 @@ public:
 
   void visit(const events::YearlyGenerator&) override {
     rule = QObject::tr("anno");
+  }
+
+  void visit(const events::MonthlyGenerator& generator) override {
+    rule = QObject::tr("%1 mesi").arg(generator.getMonths());
   }
 
   void visit(const events::NullGenerator&) override {

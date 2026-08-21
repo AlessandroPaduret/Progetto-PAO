@@ -32,6 +32,7 @@ SOURCES += \
     model/src/events/Event.cpp \
     model/src/events/FixedIntervalGenerator.cpp \
     model/src/events/Meeting.cpp \
+    model/src/events/MonthlyGenerator.cpp \
     model/src/events/RecurrentEvent.cpp \
     model/src/events/Task.cpp \
     model/src/events/YearlyGenerator.cpp \
@@ -68,6 +69,7 @@ HEADERS += \
     model/include/events/domain/RecurrentEvent.h \
     model/include/events/domain/Task.h \
     model/include/events/generators/FixedIntervalGenerator.h \
+    model/include/events/generators/MonthlyGenerator.h \
     model/include/events/generators/NullGenerator.h \
     model/include/events/generators/YearlyGenerator.h \
     model/persistence/include/persistence/JsonPersistence.h

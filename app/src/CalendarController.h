@@ -33,6 +33,11 @@ public:
     /** @brief Aggiunge un'attivita' al calendario (ne acquisisce la proprieta') */
     bool addActivity(std::unique_ptr<events::Activity> activity);
 
+    /** @brief Aggiunge piu' attivita' in un colpo solo (es. piu' serie
+     *  ricorrenti, una per giorno della settimana). Emette un unico
+     *  activitiesChanged. */
+    bool addActivities(std::vector<std::unique_ptr<events::Activity>> activities);
+
     /** @brief Rimuove l'attivita' identificata dal puntatore */
     bool removeActivity(const events::Activity* activity);
 

@@ -15,6 +15,7 @@ class YearlyGenerator : public DateGenerator {
 private:
     TimePoint m_start;
     TimePoint m_end;
+    std::size_t m_maxOccurrences = 0;  ///< 0 = illimitate
 public:
     /** @brief Costruttore */
     YearlyGenerator(TimePoint start, TimePoint end = TimePoint::max());
@@ -48,6 +49,13 @@ public:
      * @param newEnd La nuova data di fine dell'intervallo
      */
     void setEnd(TimePoint newEnd) override;
+
+    /** @brief Imposta il numero massimo di occorrenze generate
+     *  (0 = nessun limite). @param n Numero massimo di occorrenze */
+    void setMaxOccurrences(std::size_t n);
+
+    /** @return Il numero massimo di occorrenze (0 = illimitate) */
+    std::size_t getMaxOccurrences() const;
 
     /// Implementazione dei metodi virtuali di DateGenerator
 

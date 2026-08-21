@@ -18,6 +18,7 @@
 #include "events/domain/RecurrentEvent.h"
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
+#include "events/generators/MonthlyGenerator.h"
 #include "events/generators/NullGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 
@@ -112,6 +113,24 @@ public:
     if (generator.getEnd() != TimePoint::max()) {
       object.insert(QLatin1String("end"), iso(generator.getEnd()));
     }
+    if (generator.getMaxOccurrences() > 0) {
+      object.insert(QLatin1String("max_occurrences"),
+                    QJsonValue(qint64(generator.getMaxOccurrences())));
+    }
+  }
+
+  void visit(const events::MonthlyGenerator &generator) override {
+    object.insert(QLatin1String("type"), QLatin1String("monthly"));
+    object.insert(QLatin1String("start"), iso(generator.getStart()));
+    object.insert(QLatin1String("interval_months"),
+                  QJsonValue(generator.getMonths()));
+    if (generator.getEnd() != TimePoint::max()) {
+      object.insert(QLatin1String("end"), iso(generator.getEnd()));
+    }
+    if (generator.getMaxOccurrences() > 0) {
+      object.insert(QLatin1String("max_occurrences"),
+                    QJsonValue(qint64(generator.getMaxOccurrences())));
+    }
   }
 
   void visit(const events::YearlyGenerator &generator) override {
@@ -119,6 +138,10 @@ public:
     object.insert(QLatin1String("start"), iso(generator.getStart()));
     if (generator.getEnd() != TimePoint::max()) {
       object.insert(QLatin1String("end"), iso(generator.getEnd()));
+    }
+    if (generator.getMaxOccurrences() > 0) {
+      object.insert(QLatin1String("max_occurrences"),
+                    QJsonValue(qint64(generator.getMaxOccurrences())));
     }
   }
 
@@ -264,6 +287,20 @@ std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json
   TimePoint start;
   TimePoint end = TimePoint::max();
 
+  auto readMaxOccurrences = [&json, error](std::size_t &out) -> bool {
+    if (!json.contains(QLatin1String("max_occurrences"))) {
+      out = 0;
+      return true;
+    }
+    const QJsonValue value = json.value(QLatin1String("max_occurrences"));
+    if (!value.isDouble() || value.toInteger() < 0) {
+      setError(error, "Campo max_occurrences non valido");
+      return false;
+    }
+    out = static_cast<std::size_t>(value.toInteger());
+    return true;
+  };
+
   if (type == QLatin1String("fixed")) {
     Duration interval;
     if (!timePointFromJson(json, "start", start, error)) return nullptr;
@@ -276,15 +313,40 @@ std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json
     if (json.contains(QLatin1String("end")) &&
         !timePointFromJson(json, "end", end, error))
       return nullptr;
-    return std::make_shared<events::FixedIntervalGenerator>(start, interval,
-                                                            end);
+    auto gen = std::make_shared<events::FixedIntervalGenerator>(start, interval,
+                                                                end);
+    std::size_t maxOcc = 0;
+    if (!readMaxOccurrences(maxOcc)) return nullptr;
+    gen->setMaxOccurrences(maxOcc);
+    return gen;
+  }
+  if (type == QLatin1String("monthly")) {
+    if (!timePointFromJson(json, "start", start, error)) return nullptr;
+    const QJsonValue monthsValue = json.value(QLatin1String("interval_months"));
+    if (!monthsValue.isDouble() || monthsValue.toInteger() <= 0) {
+      setError(error, "Campo interval_months non valido");
+      return nullptr;
+    }
+    if (json.contains(QLatin1String("end")) &&
+        !timePointFromJson(json, "end", end, error))
+      return nullptr;
+    auto gen = std::make_shared<events::MonthlyGenerator>(
+        start, static_cast<int>(monthsValue.toInteger()), end);
+    std::size_t maxOcc = 0;
+    if (!readMaxOccurrences(maxOcc)) return nullptr;
+    gen->setMaxOccurrences(maxOcc);
+    return gen;
   }
   if (type == QLatin1String("yearly")) {
     if (!timePointFromJson(json, "start", start, error)) return nullptr;
     if (json.contains(QLatin1String("end")) &&
         !timePointFromJson(json, "end", end, error))
       return nullptr;
-    return std::make_shared<events::YearlyGenerator>(start, end);
+    auto gen = std::make_shared<events::YearlyGenerator>(start, end);
+    std::size_t maxOcc = 0;
+    if (!readMaxOccurrences(maxOcc)) return nullptr;
+    gen->setMaxOccurrences(maxOcc);
+    return gen;
   }
   if (type == QLatin1String("null")) {
     return std::make_shared<events::NullGenerator>();

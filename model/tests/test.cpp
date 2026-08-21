@@ -2,6 +2,7 @@
 #include <chrono>
 
 #include "events/events.h"
+#include "events/generators/MonthlyGenerator.h"
 
 using namespace std::chrono_literals;
 using namespace events;
@@ -381,6 +382,87 @@ TEST_CASE("Visitor: doppio dispatch sul tipo dinamico", "[visitor]") {
     REQUIRE(visitor.meetings == 1);
     REQUIRE(visitor.alldays == 1);
     REQUIRE(visitor.anniversaries == 1);
+}
+
+TEST_CASE("MonthlyGenerator: passi di calendario esatti", "[monthly]") {
+    SECTION("ogni mese, stesso giorno") {
+        MonthlyGenerator gen(make_date(2026, 1, 15));
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 5, 1));
+        REQUIRE(dates.size() == 4);
+        REQUIRE(dates[0] == make_date(2026, 1, 15));
+        REQUIRE(dates[1] == make_date(2026, 2, 15));
+        REQUIRE(dates[3] == make_date(2026, 4, 15));
+    }
+
+    SECTION("ogni 2 mesi, stesso giorno") {
+        MonthlyGenerator gen(make_date(2026, 1, 10), 2);
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 12, 31));
+        REQUIRE(dates.size() == 6);
+        REQUIRE(dates[0] == make_date(2026, 1, 10));
+        REQUIRE(dates[1] == make_date(2026, 3, 10));
+        REQUIRE(dates[2] == make_date(2026, 5, 10));
+    }
+
+    SECTION("clamping del giorno: 31 -> ultimo giorno del mese") {
+        MonthlyGenerator gen(make_date(2026, 1, 31));
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 6, 1));
+        REQUIRE(dates.size() == 5);
+        REQUIRE(dates[0] == make_date(2026, 1, 31));
+        REQUIRE(dates[1] == make_date(2026, 2, 28));   // febbraio non bisestile
+        REQUIRE(dates[2] == make_date(2026, 3, 31));
+        REQUIRE(dates[3] == make_date(2026, 4, 30));
+    }
+
+    SECTION("clamping in anno bisestile: 29/2 esiste") {
+        MonthlyGenerator gen(make_date(2028, 1, 31));
+        auto dates = gen.generateDates(make_date(2028, 1, 1), make_date(2028, 5, 1));
+        REQUIRE(dates[1] == make_date(2028, 2, 29));
+    }
+
+    SECTION("fine e limite occorrenze") {
+        MonthlyGenerator gen(make_date(2026, 1, 1));
+        gen.setMaxOccurrences(3);
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2027, 1, 1));
+        REQUIRE(dates.size() == 3);
+        REQUIRE(dates[0] == make_date(2026, 1, 1));
+        REQUIRE(dates[2] == make_date(2026, 3, 1));
+    }
+
+    SECTION("la fine limita le date") {
+        MonthlyGenerator gen(make_date(2026, 1, 1), 1, make_date(2026, 6, 30));
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2027, 1, 1));
+        REQUIRE(dates.size() == 6);
+        REQUIRE(dates.back() == make_date(2026, 6, 1));
+    }
+}
+
+TEST_CASE("Limite di occorrenze nei generatori", "[cap]") {
+    SECTION("FixedIntervalGenerator: dopo N occorrenze") {
+        FixedIntervalGenerator gen(make_date(2026, 1, 1), Days(7));
+        gen.setMaxOccurrences(4);
+        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 3, 1));
+        REQUIRE(dates.size() == 4);
+        REQUIRE(dates[0] == make_date(2026, 1, 1));
+        REQUIRE(dates[3] == make_date(2026, 1, 22));
+    }
+
+    SECTION("FixedIntervalGenerator: la finestra tarda conta dal primo inizio") {
+        FixedIntervalGenerator gen(make_date(2026, 1, 1), Days(7));
+        gen.setMaxOccurrences(4);
+        // interrogo dal 3/2: la 6a occorrenza (1/2) e' gia' passata ma conta
+        auto dates = gen.generateDates(make_date(2026, 2, 8), make_date(2026, 3, 1));
+        REQUIRE(dates.empty());  // 1/1 + 4 occorrenze -> 22/1, nessuna dopo l'8/2
+    }
+
+    SECTION("YearlyGenerator: dopo N occorrenze") {
+        YearlyGenerator gen(make_date(2028, 2, 29));
+        gen.setMaxOccurrences(3);
+        auto dates = gen.generateDates(make_date(2028, 1, 1), make_date(2032, 1, 1));
+        REQUIRE(dates.size() == 3);
+        REQUIRE(dates[0] == make_date(2028, 2, 29));
+        REQUIRE(dates[1] == make_date(2029, 2, 28));
+        REQUIRE(dates[2] == make_date(2030, 2, 28));
+    }
 }
 
 TEST_CASE("Formattazione ISO-8601", "[iso][format]") {

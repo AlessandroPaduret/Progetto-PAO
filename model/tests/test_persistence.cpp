@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "events/events.h"
+#include "events/generators/MonthlyGenerator.h"
 #include "persistence/JsonPersistence.h"
 
 using namespace std::chrono_literals;
@@ -186,6 +187,50 @@ TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][fi
 
     REQUIRE(loaded.search("compito").size() == 1);
     REQUIRE(loaded.search("anniversario").size() == 1);
+}
+
+TEST_CASE("Persistenza: RecurrentEvent mensile (con limite occorrenze)", "[json][recurrent][monthly]") {
+    TimePoint start = make_date(2026, 1, 10) + 9h;
+    auto gen = std::make_shared<events::MonthlyGenerator>(start, 2);
+    gen->setMaxOccurrences(5);
+    RecurrentEvent event(gen, events::Event("Pagamento", start, 1h));
+
+    QJsonObject json = persistence::activityToJson(event);
+    REQUIRE(json.value("generator").toObject().value("type").toString() == "monthly");
+    REQUIRE(json.value("generator").toObject().value("interval_months").toInteger() == 2);
+    REQUIRE(json.value("generator").toObject().value("max_occurrences").toInteger() == 5);
+
+    auto back = persistence::activityFromJson(json);
+    REQUIRE(back != nullptr);
+    auto rec = dynamic_cast<RecurrentEvent*>(back.get());
+    REQUIRE(rec != nullptr);
+    auto* monthly = dynamic_cast<events::MonthlyGenerator*>(rec->getGenerator().get());
+    REQUIRE(monthly != nullptr);
+    REQUIRE(monthly->getMonths() == 2);
+    REQUIRE(monthly->getMaxOccurrences() == 5);
+
+    auto a = event.occurrencesIn(make_date(2026, 1, 1), make_date(2027, 1, 1));
+    auto b = rec->occurrencesIn(make_date(2026, 1, 1), make_date(2027, 1, 1));
+    REQUIRE(a.size() == b.size());
+    REQUIRE(a.size() == 5);  // 10/1, 10/3, 10/5, 10/7, 10/9
+}
+
+TEST_CASE("Persistenza: RecurrentEvent settimanale con limite occorrenze", "[json][recurrent][cap]") {
+    TimePoint start = make_date(2026, 1, 5) + 9h;
+    auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7));
+    gen->setMaxOccurrences(3);
+    RecurrentEvent event(gen, events::Event("Corso", start, 1h));
+
+    QJsonObject json = persistence::activityToJson(event);
+    REQUIRE(json.value("generator").toObject().value("max_occurrences").toInteger() == 3);
+
+    auto back = persistence::activityFromJson(json);
+    REQUIRE(back != nullptr);
+    auto rec = dynamic_cast<RecurrentEvent*>(back.get());
+    auto* fixed = dynamic_cast<events::FixedIntervalGenerator*>(rec->getGenerator().get());
+    REQUIRE(fixed != nullptr);
+    REQUIRE(fixed->getMaxOccurrences() == 3);
+    REQUIRE(rec->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 3, 1)).size() == 3);
 }
 
 TEST_CASE("Persistenza: input non validi rifiutati", "[json][invalid]") {

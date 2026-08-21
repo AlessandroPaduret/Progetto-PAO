@@ -26,6 +26,14 @@ Duration YearlyGenerator::getInterval() const {
 void YearlyGenerator::setStart(TimePoint newStart) { m_start = newStart; }
 void YearlyGenerator::setEnd(TimePoint newEnd) { m_end = newEnd; }
 
+void YearlyGenerator::setMaxOccurrences(std::size_t n) {
+  m_maxOccurrences = n;
+}
+
+std::size_t YearlyGenerator::getMaxOccurrences() const {
+  return m_maxOccurrences;
+}
+
 // Metodo vuoto o che lancia eccezione se YearlyGenerator non permette intervalli custom
 void YearlyGenerator::setInterval(Duration) {
     // La ricorrenza annuale è logicamente fissa a 1 anno calendariale
@@ -46,7 +54,13 @@ std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint 
     year end_year = year_month_day{floor<days>(to)}.year();
 
     // 3. Iteriamo solo sugli anni del range
+    const year base_year = year_month_day{floor<days>(m_start)}.year();
     for (year y = start_year; y <= end_year; ++y) {
+        // Limite di occorrenze: contate dall'anno di partenza del generatore
+        if (m_maxOccurrences > 0 &&
+            (y - base_year).count() >= static_cast<int>(m_maxOccurrences)) {
+            break;
+        }
         // Creiamo il candidato per l'anno corrente
         year_month_day candidate = y / month / day;
 

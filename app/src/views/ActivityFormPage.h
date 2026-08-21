@@ -2,13 +2,16 @@
 #define APP_ACTIVITY_FORM_PAGE_H
 
 #include <QDateTime>
+#include <QList>
 #include <QWidget>
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "events/events.h"
 
+class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QDateEdit;
@@ -17,6 +20,7 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QRadioButton;
 class QSpinBox;
 class QStackedWidget;
 class QTimeEdit;
@@ -27,11 +31,18 @@ class CalendarController;
 
 /** @brief Pagina "creazione / modifica" di un'attivita'.
  *
- *  Ogni tipo ha un pannello con i propri campi, organizzati in righe con
- *  l'etichetta a sinistra e la box di input affiancata a destra (es.
- *  "Titolo [________]", "Data e ora [__/__/____ __:__]"). Cambiando tipo,
- *  titolo e data vengono conservati (i campi non sono condivisi tra i
- *  pannelli, evita i bug di visibilita' nei QStackedWidget).
+ *  La creazione NON chiede il tipo: pone delle DOMANDE e in base alle
+ *  risposte istanzia l'oggetto giusto (meccanica "a domande").
+ *
+ *  Per un evento: titolo, data/ora, durata e la checkbox "Si ripete?". Se
+ *  si ripete: unita' (giorni/settimane/mesi/anno), "ogni N", per le
+ *  settimane i giorni della settimana (pulsanti cliccabili) e la fine
+ *  (mai / fino a data / dopo N occorrenze). In base alle risposte viene
+ *  istanziato un Event oppure uno o piu' RecurrentEvent (uno per giorno
+ *  della settimana selezionato).
+ *
+ *  Gli altri tipi (Riunione, Compito, Tutto il giorno, Anniversario) hanno
+ *  un pannello dedicato, scelto dalla combo.
  */
 class ActivityFormPage : public QWidget {
     Q_OBJECT
@@ -61,13 +72,19 @@ private slots:
     void onSave();
     void onDelete();
     void onTypeChanged(int index);
-    void onRecurrenceEndToggled(bool checked);
+    void onRepeatToggled(bool checked);
+    void onUnitChanged(int index);
     void onAddAttendee();
     void onRemoveAttendee();
 
 private:
     /** @brief Emette l'anteprima corrente (dati del pannello attivo). */
     void emitPreview();
+
+    /** @brief Costruisce le attivita' del pannello Evento "a domande":
+     *  un Event oppure uno o piu' RecurrentEvent (uno per giorno della
+     *  settimana selezionato, per la ricorrenza settimanale). */
+    std::vector<std::unique_ptr<events::Activity>> buildEventActivities() const;
 
 private:
     /** @brief Orario di fine dell'evento ripetuto (inizio + durata). */
@@ -78,7 +95,6 @@ private:
     void syncRecurrenceEndTime();
     // Pannelli dei campi (form specifico per tipo, vincolo PAO)
     QWidget* buildEventPanel();
-    QWidget* buildRecurrentPanel();
     QWidget* buildMeetingPanel();
     QWidget* buildTaskPanel();
     QWidget* buildAllDayPanel();
@@ -113,18 +129,21 @@ private:
     QComboBox* m_typeCombo = nullptr;
     QStackedWidget* m_forms = nullptr;
 
-    // Evento
+    // Evento "a domande"
     QLineEdit* m_titleE = nullptr;
     QDateTimeEdit* m_startE = nullptr;
     QTimeEdit* m_durationE = nullptr;
-
-    // Ricorrente
-    QLineEdit* m_titleR = nullptr;
-    QDateTimeEdit* m_startR = nullptr;
-    QTimeEdit* m_durationR = nullptr;
-    QSpinBox* m_intervalDays = nullptr;
-    QCheckBox* m_hasEndCheck = nullptr;
-    QDateTimeEdit* m_endEdit = nullptr;
+    QCheckBox* m_repeatCheck = nullptr;
+    QWidget* m_repeatBox = nullptr;      // contenitore delle impostazioni di ricorrenza
+    QComboBox* m_unitCombo = nullptr;    // giorni / settimane / mesi / anno
+    QSpinBox* m_everySpin = nullptr;     // "ogni N"
+    QWidget* m_dayRow = nullptr;         // riga dei giorni della settimana
+    QList<QPushButton*> m_dayButtons;    // Lun..Dom (checkable, uno per giorno)
+    QRadioButton* m_endNever = nullptr;
+    QRadioButton* m_endDateRadio = nullptr;
+    QDateEdit* m_endDate = nullptr;
+    QRadioButton* m_endCountRadio = nullptr;
+    QSpinBox* m_countSpin = nullptr;     // "dopo N occorrenze"
 
     // Riunione
     QLineEdit* m_titleMt = nullptr;

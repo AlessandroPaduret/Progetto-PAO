@@ -65,6 +65,25 @@ TEST_CASE("Controller: CRUD di base", "[controller]") {
     }
 }
 
+TEST_CASE("Controller: addActivities aggiunge piu' attivita' in un colpo", "[controller]") {
+    app::CalendarController controller;
+    std::vector<std::unique_ptr<events::Activity>> activities;
+    activities.push_back(ActivityFactory::createSimpleEvent(
+        "A", tp(utc(2026, 1, 8, 10)), 1h));
+    activities.push_back(ActivityFactory::createTask(
+        "B", tp(utc(2026, 1, 9)), Priority::Medium));
+    activities.push_back(ActivityFactory::createMeeting(
+        "C", tp(utc(2026, 1, 10)), 1h));
+
+    REQUIRE(controller.addActivities(std::move(activities)));
+    REQUIRE(controller.calendar().size() == 3);
+    REQUIRE(controller.search("").size() == 3);
+
+    SECTION("lista vuota rifiutata") {
+        REQUIRE_FALSE(controller.addActivities({}));
+    }
+}
+
 TEST_CASE("Controller: stato di completamento (toggleDone)", "[controller][done]") {
     app::CalendarController controller;
 
