@@ -26,6 +26,10 @@ Priority Task::getPriority() const { return m_priority; }
 
 void Task::setPriority(const Priority priority) { m_priority = priority; }
 
+bool Task::isDone() const { return m_done; }
+
+void Task::setDone(const bool done) { m_done = done; }
+
 bool Task::isOverdue(const TimePoint now) const {
   return !isDone() && now > m_due;
 }

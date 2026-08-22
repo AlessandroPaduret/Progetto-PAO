@@ -19,16 +19,15 @@ TimePoint make_date(int y, int m, int d) {
     return std::chrono::sys_days{std::chrono::year{y}/std::chrono::month{static_cast<unsigned>(m)}/std::chrono::day{static_cast<unsigned>(d)}};
 }
 
-TEST_CASE("Persistenza: Event round-trip (con stato)", "[json][event]") {
+TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
     TimePoint start = make_date(2026, 1, 8) + 10h;
     auto event = ActivityFactory::createSimpleEvent("Dentista", start, 1h);
-    event->setDone();
 
     QJsonObject json = persistence::activityToJson(*event);
     REQUIRE(json.value("type").toString() == "event");
     REQUIRE(json.value("start").toString() == "2026-01-08T10:00:00");
     REQUIRE(json.value("duration_seconds").toInteger() == 3600);
-    REQUIRE(json.value("done").toBool() == true);
+    REQUIRE_FALSE(json.contains("done"));
 
     QString error;
     auto back = persistence::activityFromJson(json, &error);
@@ -38,19 +37,17 @@ TEST_CASE("Persistenza: Event round-trip (con stato)", "[json][event]") {
     REQUIRE(e->getTitle() == "Dentista");
     REQUIRE(e->getStart() == start);
     REQUIRE(e->getDuration() == 1h);
-    REQUIRE(e->isDone());
 }
 
-TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip (con occorrenze evase)", "[json][recurrent]") {
+TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 1) + 9h;
     auto event = ActivityFactory::createSimpleWeekly("Meeting", start, 1h, make_date(2026, 3, 1));
     event->addException(make_date(2026, 1, 15) + 9h);
-    event->setDoneAt(make_date(2026, 1, 8) + 9h, true);  // seconda lezione evasa
 
     QJsonObject json = persistence::activityToJson(*event);
     REQUIRE(json.value("type").toString() == "recurrent");
     REQUIRE(json.value("generator").toObject().value("type").toString() == "fixed");
-    REQUIRE(json.value("done_occurrences").toArray().size() == 1);
+    REQUIRE_FALSE(json.contains("done_occurrences"));
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
@@ -58,8 +55,6 @@ TEST_CASE("Persistenza: RecurrentEvent (fixed) round-trip (con occorrenze evase)
     REQUIRE(rec != nullptr);
     REQUIRE(rec->getTitle() == "Meeting");
     REQUIRE(rec->getExceptions().size() == 1);
-    REQUIRE(rec->getDoneOccurrences().size() == 1);
-    REQUIRE(rec->isDoneAt(make_date(2026, 1, 8) + 9h));
 
     auto a = event->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
     auto b = rec->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
@@ -112,22 +107,19 @@ TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meet
     REQUIRE(m->getAttendees()[1] == "Anna");
 }
 
-TEST_CASE("Persistenza: Anniversary round-trip (leap-aware, occorrenze evase)", "[json][anniversary]") {
+TEST_CASE("Persistenza: Anniversary round-trip (leap-aware)", "[json][anniversary]") {
     auto anniversary = ActivityFactory::createAnniversary("Mario", make_date(2028, 2, 29));
-    anniversary->setDoneAt(make_date(2028, 2, 29), true);
-    anniversary->setDoneAt(make_date(2029, 2, 28), true);
 
     QJsonObject json = persistence::activityToJson(*anniversary);
     REQUIRE(json.value("type").toString() == "anniversary");
     REQUIRE(json.value("date").toString() == "2028-02-29T00:00:00");
-    REQUIRE(json.value("done_occurrences").toArray().size() == 2);
+    REQUIRE_FALSE(json.contains("done_occurrences"));
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
     auto ann = dynamic_cast<Anniversary*>(back.get());
     REQUIRE(ann != nullptr);
     REQUIRE(ann->getStart() == make_date(2028, 2, 29));
-    REQUIRE(ann->getDoneOccurrences().size() == 2);
 
     auto a = anniversary->occurrencesIn(make_date(2028, 1, 1), make_date(2031, 12, 31));
     auto b = ann->occurrencesIn(make_date(2028, 1, 1), make_date(2031, 12, 31));

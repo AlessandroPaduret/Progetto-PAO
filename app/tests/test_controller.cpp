@@ -84,50 +84,30 @@ TEST_CASE("Controller: addActivities aggiunge piu' attivita' in un colpo", "[con
     }
 }
 
-TEST_CASE("Controller: stato di completamento (toggleDone)", "[controller][done]") {
+TEST_CASE("Controller: stato di completamento (toggleDone, solo su Task)", "[controller][done]") {
     app::CalendarController controller;
 
-    SECTION("evento singolo: spunta globale") {
+    SECTION("task: spunta globale") {
+        controller.addActivity(ActivityFactory::createTask(
+            "Consegna", tp(utc(2026, 1, 15)), Priority::High));
+        auto occurrences = controller.occurrencesIn(utc(2026, 1, 15), utc(2026, 1, 15));
+        REQUIRE(occurrences.size() == 1);
+
+        const auto* task = dynamic_cast<const Task*>(occurrences[0].source);
+        REQUIRE(task != nullptr);
+        REQUIRE_FALSE(task->isDone());
+        REQUIRE(controller.toggleDone(occurrences[0]));
+        REQUIRE(task->isDone());
+        REQUIRE(controller.toggleDone(occurrences[0]));
+        REQUIRE_FALSE(task->isDone());
+    }
+
+    SECTION("evento: toggle non ha effetto (nessuno stato)") {
         controller.addActivity(ActivityFactory::createSimpleEvent(
             "Dentista", tp(utc(2026, 1, 8, 10)), 1h));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 8, 0, 0), utc(2026, 1, 8, 23, 59));
         REQUIRE(occurrences.size() == 1);
-
-        REQUIRE(controller.toggleDone(occurrences[0]));
-        REQUIRE(occurrences[0].source->isDone());
-        REQUIRE(controller.toggleDone(occurrences[0]));
-        REQUIRE_FALSE(occurrences[0].source->isDone());
-    }
-
-    SECTION("serie: stato per singola occorrenza") {
-        controller.addActivity(ActivityFactory::createSimpleWeekly(
-            "Lezione", tp(utc(2026, 1, 5, 9)), 1h, tp(utc(2026, 2, 1))));
-        auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
-        REQUIRE(occurrences.size() == 4);
-
-        // Spunta solo la seconda lezione
-        const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
-        REQUIRE(second != nullptr);
-        REQUIRE(controller.toggleDone(*second));
-
-        const auto* series = dynamic_cast<const RecurrentEvent*>(second->source);
-        REQUIRE(series != nullptr);
-        REQUIRE(series->isDoneAt(tp(utc(2026, 1, 12, 9))));
-        REQUIRE_FALSE(series->isDoneAt(tp(utc(2026, 1, 5, 9))));
-        REQUIRE(series->getDoneOccurrences().size() == 1);
-    }
-
-    SECTION("anniversario: stato per singola ricorrenza") {
-        controller.addActivity(ActivityFactory::createAnniversary(
-            "Mario", tp(utc(2028, 2, 29))));
-        auto occurrences = controller.occurrencesIn(utc(2028, 1, 1), utc(2030, 12, 31));
-        REQUIRE(occurrences.size() == 3);
-
-        const Occurrence* occ2029 = findByStart(occurrences, tp(utc(2029, 2, 28)));
-        REQUIRE(occ2029 != nullptr);
-        REQUIRE(controller.toggleDone(*occ2029));
-        REQUIRE(occ2029->source->isDoneAt(tp(utc(2029, 2, 28))));
-        REQUIRE_FALSE(occ2029->source->isDoneAt(tp(utc(2028, 2, 29))));
+        REQUIRE_FALSE(controller.toggleDone(occurrences[0]));
     }
 }
 

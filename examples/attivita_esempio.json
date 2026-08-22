@@ -5,8 +5,7 @@
             "type": "event",
             "title": "Visita dal dentista",
             "start": "2026-09-07T10:30:00",
-            "duration_seconds": 3600,
-            "done": false
+            "duration_seconds": 3600
         },
         {
             "type": "meeting",
@@ -18,8 +17,7 @@
                 "Alice",
                 "Bob",
                 "Carlo"
-            ],
-            "done": false
+            ]
         },
         {
             "type": "recurrent",
@@ -37,9 +35,6 @@
             },
             "exceptions": [
                 "2026-11-16T14:00:00"
-            ],
-            "done_occurrences": [
-                "2026-09-07T14:00:00"
             ]
         },
         {
@@ -53,14 +48,12 @@
             "type": "event",
             "title": "Hackathon di fine corso",
             "start": "2026-12-18T00:00:00",
-            "done": false,
             "duration_seconds": 172800
         },
         {
             "type": "anniversary",
             "title": "Mario Rossi - Compleanno",
-            "date": "1990-02-28T00:00:00",
-            "done_occurrences": []
+            "date": "1990-02-28T00:00:00"
         }
     ]
 }

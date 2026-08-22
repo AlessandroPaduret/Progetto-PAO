@@ -135,10 +135,7 @@ public:
     fields << QObject::tr("Inizio: %1").arg(localDateTime(event.getStart()))
            << QObject::tr("Fine: %1").arg(localDateTime(event.getEnd()))
            << QObject::tr("Durata: %1")
-                  .arg(durationLabel(event.getDuration()))
-           << QObject::tr("Stato: %1")
-                  .arg(event.isDone() ? QObject::tr("evaso")
-                                      : QObject::tr("in corso"));
+                  .arg(durationLabel(event.getDuration()));
   }
 
   void visit(const events::RecurrentEvent& event) override {
@@ -169,19 +166,14 @@ public:
            << QObject::tr("Luogo: %1")
                   .arg(QString::fromStdString(meeting.getLocation()))
            << QObject::tr("Partecipanti: %1")
-                  .arg(static_cast<int>(meeting.attendeeCount()))
-           << QObject::tr("Stato: %1")
-                  .arg(meeting.isDone() ? QObject::tr("evasa")
-                                        : QObject::tr("in corso"));
+                  .arg(static_cast<int>(meeting.attendeeCount()));
   }
 
   void visit(const events::Anniversary& anniversary) override {
     fields << QObject::tr("Data: %1")
                   .arg(QDateTime::fromSecsSinceEpoch(
                            anniversary.getStart().time_since_epoch().count())
-                           .toString(QStringLiteral("dd/MM")))
-           << QObject::tr("Anni di ricorrenza: %1")
-                  .arg(static_cast<int>(anniversary.getDoneOccurrences().size()));
+                           .toString(QStringLiteral("dd/MM")));
   }
 };
 

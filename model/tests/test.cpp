@@ -91,53 +91,19 @@ TEST_CASE("Event valida la durata", "[event][validation]") {
     }
 }
 
-TEST_CASE("Stato di completamento su ogni attivita'", "[state]") {
+TEST_CASE("Stato di completamento (solo su Task)", "[state]") {
     TimePoint start = make_date(2026, 1, 1);
-
-    SECTION("Event: spunta globale") {
-        Event e("Dentista", start, 1h);
-        REQUIRE_FALSE(e.isDone());
-        REQUIRE_FALSE(e.isDoneAt(start));
-        e.setDone();
-        REQUIRE(e.isDone());
-        REQUIRE(e.isDoneAt(start));
-        e.setDone(false);
-        REQUIRE_FALSE(e.isDone());
-    }
 
     SECTION("Task: spunta globale + isOverdue") {
         Task t("Consegna", start, Priority::High);
+        REQUIRE_FALSE(t.isDone());
         REQUIRE_FALSE(t.isOverdue(start - 1h));
         REQUIRE(t.isOverdue(start + 1h));
         t.setDone();
+        REQUIRE(t.isDone());
         REQUIRE_FALSE(t.isOverdue(start + 1h));
-    }
-
-    SECTION("Serie: stato PER-occorrenza") {
-        auto series = ActivityFactory::createSimpleWeekly(
-            "Lezione", start, 1h, start + 4_weeks);
-        const TimePoint first = start;
-        const TimePoint second = start + std::chrono::weeks(1);
-
-        series->setDoneAt(first, true);
-        REQUIRE(series->isDoneAt(first));
-        REQUIRE_FALSE(series->isDoneAt(second));
-        // Lo stato globale resta quello base: per le serie non ha senso
-        REQUIRE_FALSE(series->isDone());
-
-        series->setDoneAt(first, false);
-        REQUIRE_FALSE(series->isDoneAt(first));
-        REQUIRE(series->getDoneOccurrences().empty());
-    }
-
-    SECTION("Anniversario: stato PER-occorrenza") {
-        Anniversary ann("Compleanno", make_date(1990, 2, 29));
-        const TimePoint occ2028 = make_date(2028, 2, 29);
-        const TimePoint occ2029 = make_date(2029, 2, 28);  // anno non bisestile
-        ann.setDoneAt(occ2028, true);
-        REQUIRE(ann.isDoneAt(occ2028));
-        REQUIRE_FALSE(ann.isDoneAt(occ2029));
-        REQUIRE(ann.getDoneOccurrences().size() == 1);
+        t.setDone(false);
+        REQUIRE_FALSE(t.isDone());
     }
 }
 
@@ -311,10 +277,14 @@ TEST_CASE("Polimorfismo non banale sulla gerarchia Activity", "[polymorphism]") 
     }
 
     SECTION("clone() copia il tipo dinamico corretto (stato incluso)") {
-        activities[2]->setDone();  // Task evaso
+        auto* task = dynamic_cast<Task*>(activities[2].get());
+        REQUIRE(task != nullptr);
+        task->setDone();  // Task evaso
         auto copy = activities[2]->clone();
         REQUIRE(copy->describe() == activities[2]->describe());
-        REQUIRE(copy->isDone());
+        auto* copyTask = dynamic_cast<Task*>(copy.get());
+        REQUIRE(copyTask != nullptr);
+        REQUIRE(copyTask->isDone());
         copy->setTitle("Copia");
         REQUIRE(activities[2]->getTitle() == "Compito");
     }

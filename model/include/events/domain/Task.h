@@ -26,6 +26,7 @@ class Task : public Activity {
 private:
     TimePoint m_due;      ///< Scadenza (istante)
     Priority m_priority;  ///< Priorita' del compito
+    bool m_done = false;  ///< Stato di completamento (evaso/non evaso)
 
 protected:
     Task* clone_impl() const override;
@@ -53,6 +54,12 @@ public:
 
     /** @brief Imposta la priorita' del compito */
     void setPriority(Priority priority);
+
+    /** @return true se il compito e' stato evaso */
+    bool isDone() const;
+
+    /** @brief Segna il compito come evaso/non evaso */
+    void setDone(bool done = true);
 
     /** @return true se non e' evaso e l'istante indicato e' successivo alla scadenza */
     bool isOverdue(TimePoint now) const;

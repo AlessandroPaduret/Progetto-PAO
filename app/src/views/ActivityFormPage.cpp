@@ -744,7 +744,6 @@ ActivityFormPage::buildEventActivities() const {
     // dopo): la striscia in alto lo riconosce perche' copre un giorno intero.
     auto allday = events::ActivityFactory::createSimpleEvent(
         title.toStdString(), start, std::chrono::seconds(86400));
-    allday->setDone(false);
     result.push_back(std::move(allday));
     return result;
   }
@@ -753,7 +752,6 @@ ActivityFormPage::buildEventActivities() const {
   if (!m_repeatCheck->isChecked()) {
     auto event =
         events::ActivityFactory::createSimpleEvent(title.toStdString(), start, duration);
-    event->setDone(false);
     result.push_back(std::move(event));
     return result;
   }

@@ -220,8 +220,12 @@ bool CalendarController::modifyOccurrence(
 }
 
 bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
-  auto* activity = const_cast<events::Activity*>(occurrence.source);
-  activity->setDoneAt(occurrence.start, !activity->isDoneAt(occurrence.start));
+  auto* task =
+      dynamic_cast<events::Task*>(const_cast<events::Activity*>(occurrence.source));
+  if (!task) {
+    return false;
+  }
+  task->setDone(!task->isDone());
   emit activitiesChanged();
   return true;
 }
