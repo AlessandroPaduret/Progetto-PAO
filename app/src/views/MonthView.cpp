@@ -148,9 +148,11 @@ void MonthView::ensureRects() {
                 }
                 m_chipRects[i] =
                     QRect(cell.left() + 2, y, cell.width() - 4, kChipHeight);
-                // Spunta in basso a destra del chip
-                m_checkRects[i] = QRect(m_chipRects[i].right() - 13,
-                                        m_chipRects[i].bottom() - 12, 11, 11);
+                // Spunta in basso a destra del chip (solo per i Compiti)
+                if (isTask(m_occurrences[i].source)) {
+                    m_checkRects[i] = QRect(m_chipRects[i].right() - 13,
+                                            m_chipRects[i].bottom() - 12, 11, 11);
+                }
                 y += kChipHeight + 2;
                 ++shown;
             }
@@ -225,21 +227,24 @@ void MonthView::paintEvent(QPaintEvent*) {
         }
         const events::Occurrence& occ = m_occurrences[i];
         const QColor color = activityColor(occ.source);
-        const bool done = occ.source->isDoneAt(occ.start);
+        const bool done = isTaskDone(occ.source);
+        const bool hasCheck = m_checkRects[i].isValid();
 
         QColor fill = done ? QColor("#bdc1c6") : color;
         painter.setPen(i == m_selected ? QPen(kTodayColor, 2) : Qt::NoPen);
         painter.setBrush(fill);
         painter.drawRoundedRect(rect, 3, 3);
 
-        // Spunta (checkbox) in alto a sinistra
-        const QRect check = m_checkRects[i];
-        painter.setPen(QColor("#3c4043"));
-        painter.setBrush(done ? QColor("#1a73e8") : Qt::white);
-        painter.drawRect(check);
-        if (done) {
-            painter.setPen(Qt::white);
-            painter.drawText(check, Qt::AlignCenter, QStringLiteral("\u2713"));
+        // Spunta (checkbox) in alto a sinistra (solo per i Compiti)
+        if (hasCheck) {
+            const QRect check = m_checkRects[i];
+            painter.setPen(QColor("#3c4043"));
+            painter.setBrush(done ? QColor("#1a73e8") : Qt::white);
+            painter.drawRect(check);
+            if (done) {
+                painter.setPen(Qt::white);
+                painter.drawText(check, Qt::AlignCenter, QStringLiteral("\u2713"));
+            }
         }
 
         painter.setFont(chipFont);

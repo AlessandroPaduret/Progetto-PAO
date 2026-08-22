@@ -21,9 +21,9 @@ namespace app {
  *  In alto, sotto i giorni, c'e' una STRISCIA dedicata alle attivita'
  *  "tutto il giorno" (chip che coprono una o piu' date).
  *
- *  Ogni occorrenza ha una spunta (checkbox) in alto a sinistra: un clic sulla
- *  spunta emette `doneToggled` (meccanica "agenda con stati"); gli eventi
- *  evasi vengono mostrati attenuati con la spunta barrata.
+ *  Solo i COMPITI hanno una spunta (checkbox) in alto a sinistra: un clic
+ *  sulla spunta emette `doneToggled` (lo stato "evaso" esiste solo per i
+ *  Compiti); i compiti evasi vengono mostrati attenuati con la spunta barrata.
  *
  *  Le occorrenze che si sovrappongono temporalmente nello stesso giorno
  *  vengono AFFIANCATE in colonne (come in Google Calendar), cosi' possono
@@ -104,7 +104,7 @@ signals:
      *  spostare la serie o la singola occorrenza. */
     void occurrenceDragChoiceRequested(const events::Occurrence& occurrence,
                                        const QDateTime& newStart);
-    /** @brief Clic sulla spunta: inverte lo stato evaso/da fare dell'occorrenza. */
+    /** @brief Clic sulla spunta di un COMPITO: inverte lo stato evaso/da fare. */
     void doneToggled(const events::Occurrence& occurrence);
 
 protected:

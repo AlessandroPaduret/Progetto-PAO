@@ -56,7 +56,7 @@ signals:
     void modifyEventRequested(const events::Occurrence& occurrence);
     /** @brief Menu contestuale: elimina l'occorrenza/attivita'. */
     void deleteEventRequested(const events::Occurrence& occurrence);
-    /** @brief Clic sulla spunta: inverte lo stato evaso/da fare dell'occorrenza. */
+    /** @brief Clic sulla spunta di un COMPITO: inverte lo stato evaso/da fare. */
     void doneToggled(const events::Occurrence& occurrence);
 
 protected:

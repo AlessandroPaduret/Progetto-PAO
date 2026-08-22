@@ -87,8 +87,8 @@ public:
     bool modifyOccurrence(const events::Occurrence& occurrence,
                           std::unique_ptr<events::Event> replacement);
 
-    /** @brief Inverte lo stato di completamento dell'occorrenza indicata
-     *  (per-occorrenza per Serie/Anniversario, attivita' intera altrimenti). */
+    /** @brief Inverte lo stato di completamento di un COMPITO (l'unico tipo
+     *  con stato "evaso/da fare"). Non ha effetto sugli altri tipi. */
     bool toggleDone(const events::Occurrence& occurrence);
 
     // --- Persistenza --------------------------------------------------------

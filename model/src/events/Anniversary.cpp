@@ -36,23 +36,6 @@ TimePoint Anniversary::getEnd() const { return m_end; }
 
 void Anniversary::setEnd(const TimePoint end) { m_end = end; }
 
-const std::unordered_set<TimePoint, TimePointHasher> &
-Anniversary::getDoneOccurrences() const {
-  return m_doneOccurrences;
-}
-
-bool Anniversary::isDoneAt(const TimePoint occurrenceStart) const {
-  return m_doneOccurrences.find(occurrenceStart) != m_doneOccurrences.end();
-}
-
-void Anniversary::setDoneAt(const TimePoint occurrenceStart, const bool done) {
-  if (done) {
-    m_doneOccurrences.insert(occurrenceStart);
-  } else {
-    m_doneOccurrences.erase(occurrenceStart);
-  }
-}
-
 std::vector<Occurrence> Anniversary::occurrencesIn(const TimePoint from,
                                                    const TimePoint to) const {
   // Riusa YearlyGenerator per la gestione degli anni bisestili (29/2 -> 28/2)

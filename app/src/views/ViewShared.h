@@ -19,6 +19,20 @@ inline QColor activityColor(const events::Activity* activity) {
     return kPalette[(address >> 4) % count];
 }
 
+/** @brief true se l'attivita' e' un Compito (l'unico tipo con stato "evaso").
+ *  Non-Comptiti restituiscono sempre false. */
+inline bool isTask(const events::Activity* activity) {
+    return dynamic_cast<const events::Task*>(activity) != nullptr;
+}
+
+/** @brief true se l'attivita' e' un Compito EVASO; false per gli altri tipi. */
+inline bool isTaskDone(const events::Activity* activity) {
+    if (const auto* task = dynamic_cast<const events::Task*>(activity)) {
+        return task->isDone();
+    }
+    return false;
+}
+
 /** @brief Converte un istante assoluto (UTC) in data/ora locale. */
 inline QDateTime localTime(const events::TimePoint tp) {
     return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();

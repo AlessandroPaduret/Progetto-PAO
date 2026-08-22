@@ -162,7 +162,6 @@ public:
     object.insert(QLatin1String("start"), iso(event.getStart()));
     object.insert(QLatin1String("duration_seconds"),
                   QJsonValue(qint64(event.getDuration().count())));
-    object.insert(QLatin1String("done"), event.isDone());
   }
 
   void visit(const events::RecurrentEvent &event) override {
@@ -186,12 +185,6 @@ public:
       exceptions.append(iso(tp));
     }
     object.insert(QLatin1String("exceptions"), exceptions);
-
-    QJsonArray doneOccurrences;
-    for (const TimePoint tp : event.getDoneOccurrences()) {
-      doneOccurrences.append(iso(tp));
-    }
-    object.insert(QLatin1String("done_occurrences"), doneOccurrences);
   }
 
   void visit(const events::Task &task) override {
@@ -218,7 +211,6 @@ public:
       attendees.append(QString::fromStdString(name));
     }
     object.insert(QLatin1String("attendees"), attendees);
-    object.insert(QLatin1String("done"), meeting.isDone());
   }
 
   void visit(const events::Anniversary &anniversary) override {
@@ -229,11 +221,6 @@ public:
     if (anniversary.getEnd() != TimePoint::max()) {
       object.insert(QLatin1String("end"), iso(anniversary.getEnd()));
     }
-    QJsonArray doneOccurrences;
-    for (const TimePoint tp : anniversary.getDoneOccurrences()) {
-      doneOccurrences.append(iso(tp));
-    }
-    object.insert(QLatin1String("done_occurrences"), doneOccurrences);
   }
 
 private:
@@ -261,14 +248,7 @@ std::unique_ptr<events::Event> eventFromJson(const QJsonObject &json,
   if (!timePointFromJson(json, "start", start, error)) return nullptr;
   if (!secondsFromJson(json, "duration_seconds", duration, false, error))
     return nullptr;
-  auto event =
-      std::make_unique<events::Event>(title.toStdString(), start, duration);
-  if (json.contains(QLatin1String("done"))) {
-    bool done = false;
-    if (!boolFromJson(json, "done", done, error)) return nullptr;
-    event->setDone(done);
-  }
-  return event;
+  return std::make_unique<events::Event>(title.toStdString(), start, duration);
 }
 
 std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json,
@@ -390,23 +370,6 @@ std::unique_ptr<events::RecurrentEvent> recurrentFromJson(const QJsonObject &jso
     }
   }
 
-  const QJsonValue doneValue = json.value(QLatin1String("done_occurrences"));
-  if (doneValue.isArray()) {
-    for (const QJsonValue &value : doneValue.toArray()) {
-      if (!value.isString()) {
-        setError(error, "Occorrenza evasa non valida nell'elenco");
-        return nullptr;
-      }
-      TimePoint tp;
-      if (!events::parseIso8601(value.toString().toStdString(), tp)) {
-        setError(error, "Data di occorrenza evasa non valida: " +
-                            value.toString());
-        return nullptr;
-      }
-      result->setDoneAt(tp, true);
-    }
-  }
-
   return result;
 }
 
@@ -466,11 +429,6 @@ std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json,
     }
   }
 
-  if (json.contains(QLatin1String("done"))) {
-    bool done = false;
-    if (!boolFromJson(json, "done", done, error)) return nullptr;
-    meeting->setDone(done);
-  }
   return meeting;
 }
 
@@ -489,22 +447,6 @@ std::unique_ptr<events::Anniversary> anniversaryFromJson(
   auto anniversary = std::make_unique<events::Anniversary>(
       title.toStdString(), date, end);
 
-  const QJsonValue doneValue = json.value(QLatin1String("done_occurrences"));
-  if (doneValue.isArray()) {
-    for (const QJsonValue &value : doneValue.toArray()) {
-      if (!value.isString()) {
-        setError(error, "Occorrenza evasa non valida nell'elenco");
-        return nullptr;
-      }
-      TimePoint tp;
-      if (!events::parseIso8601(value.toString().toStdString(), tp)) {
-        setError(error, "Data di occorrenza evasa non valida: " +
-                            value.toString());
-        return nullptr;
-      }
-      anniversary->setDoneAt(tp, true);
-    }
-  }
   return anniversary;
 }
 

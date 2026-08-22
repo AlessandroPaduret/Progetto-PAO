@@ -26,7 +26,6 @@ class ActivityVisitor;
 class Activity {
 private:
     String m_title;  ///< Titolo dell'attivita'
-    bool m_done = false;  ///< Stato di completamento (attivita' a occorrenza singola)
 
 protected:
     virtual Activity* clone_impl() const = 0;  ///< Implementazione della clonazione polimorfa
@@ -40,24 +39,6 @@ public:
 
     /** @brief Imposta il titolo dell'attivita' */
     void setTitle(const String& title);
-
-    // --- Stato di completamento (meccanica "agenda con stati") ----------------
-
-    /** @return true se l'attivita' (intera) e' stata evasa */
-    bool isDone() const;
-
-    /** @brief Segna l'attivita' (intera) come evasa/non evasa */
-    void setDone(bool done = true);
-
-    /** @return true se l'OCCORRENZA all'istante indicato e' evasa.
-     *  Default: restituisce lo stato dell'attivita' intera; le attivita'
-     *  ricorrenti (Serie, Anniversario) lo sovrascrivono con lo stato
-     *  per-occorrenza. */
-    virtual bool isDoneAt(TimePoint occurrenceStart) const;
-
-    /** @brief Segna l'OCCORRENZA all'istante indicato come evasa/non evasa.
-     *  Default: aggiorna lo stato dell'attivita' intera. */
-    virtual void setDoneAt(TimePoint occurrenceStart, bool done);
 
     /** @return L'istante temporale di riferimento dell'attivita'
      *          (inizio per gli eventi, scadenza per le Deadline, ecc.) */

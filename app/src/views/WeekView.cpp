@@ -132,7 +132,9 @@ void WeekView::ensureRects() {
         const int w = (lastDay - firstDay + 1) * dayWidth() - 4;
         const int y = kHeaderHeight + 2;
         m_rects[i] = QRect(x, y, w, kAllDayHeight - 4);
-        m_checkRects[i] = checkRectOf(m_rects[i]);
+        if (isTask(occ.source)) {
+            m_checkRects[i] = checkRectOf(m_rects[i]);
+        }
     }
 
     // --- Griglia oraria: layout a colonne per giorno ------------------------
@@ -215,7 +217,9 @@ void WeekView::ensureRects() {
                               column[t - k] * colWidth + 2;
                 const int y = gridTop() + lo * hourHeight() / 60 + 2;
                 m_rects[idx] = QRect(x, y, colWidth - 4, height);
-                m_checkRects[idx] = checkRectOf(m_rects[idx]);
+                if (isTask(occ.source)) {
+                    m_checkRects[idx] = checkRectOf(m_rects[idx]);
+                }
             }
             k = j;
         }
@@ -363,7 +367,8 @@ void WeekView::paintEvent(QPaintEvent*) {
         }
         const events::Occurrence& occurrence = m_occurrences[i];
         const QColor color = activityColor(occurrence.source);
-        const bool done = occurrence.source->isDoneAt(occurrence.start);
+        const bool done = isTaskDone(occurrence.source);
+        const bool hasCheck = m_checkRects[i].isValid();
 
         // Evaso: blocco attenuato
         QColor fill = color.lighter(done ? 180 : 150);
@@ -375,14 +380,16 @@ void WeekView::paintEvent(QPaintEvent*) {
         painter.setBrush(fill);
         painter.drawRect(rect);
 
-        // Spunta (checkbox) in alto a sinistra
-        const QRect check = m_checkRects[i];
-        painter.setPen(QColor("#5f6368"));
-        painter.setBrush(done ? QColor("#1a73e8") : Qt::white);
-        painter.drawRect(check);
-        if (done) {
-            painter.setPen(Qt::white);
-            painter.drawText(check, Qt::AlignCenter, QStringLiteral("\u2713"));
+        // Spunta (checkbox) in alto a sinistra (solo per i Compiti)
+        if (hasCheck) {
+            const QRect check = m_checkRects[i];
+            painter.setPen(QColor("#5f6368"));
+            painter.setBrush(done ? QColor("#1a73e8") : Qt::white);
+            painter.drawRect(check);
+            if (done) {
+                painter.setPen(Qt::white);
+                painter.drawText(check, Qt::AlignCenter, QStringLiteral("\u2713"));
+            }
         }
 
         QFont eventFont = painter.font();

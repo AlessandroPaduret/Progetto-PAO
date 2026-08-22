@@ -70,7 +70,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_searchBox->setFont(biggerFont);
     m_typeFilter->setFont(biggerFont);
 
-    // "Solo da fare": nasconde le attivita' evase (meccanica agenda con stati)
+    // "Solo da fare": nasconde le attivita' evase (solo i Compiti hanno stato)
     m_pendingOnly = new QCheckBox(tr("Solo da fare"), this);
     m_pendingOnly->setFont(biggerFont);
 
@@ -242,12 +242,13 @@ void ActivityListPage::reloadTable() {
             activities.end());
     }
 
-    // "Solo da fare": nasconde le attivita' gia' evase
+    // "Solo da fare": nasconde le attivita' gia' evase (solo i Compiti hanno
+    // uno stato di completamento)
     if (m_pendingOnly->isChecked()) {
         activities.erase(
             std::remove_if(activities.begin(), activities.end(),
                            [](const events::Activity* activity) {
-                               return activity->isDone();
+                               return isTaskDone(activity);
                            }),
             activities.end());
     }

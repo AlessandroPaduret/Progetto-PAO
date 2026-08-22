@@ -24,7 +24,6 @@ class Anniversary : public Activity {
 private:
     TimePoint m_date;                 ///< Data base (es. la data di nascita)
     TimePoint m_end;                  ///< Fine della ricorrenza (max = senza fine)
-    std::unordered_set<TimePoint, TimePointHasher> m_doneOccurrences;  ///< Ricorrenze evase
 
 protected:
     Anniversary* clone_impl() const override;
@@ -52,18 +51,6 @@ public:
 
     /** @brief Imposta la fine della ricorrenza */
     void setEnd(TimePoint end);
-
-    // --- Stato per-occorrenza ----------------------------------------------
-
-    /** @return Le ricorrenze annuali gia' evase */
-    const std::unordered_set<TimePoint, TimePointHasher>&
-    getDoneOccurrences() const;
-
-    /** @return true se la ricorrenza all'istante indicato e' evasa */
-    bool isDoneAt(TimePoint occurrenceStart) const override;
-
-    /** @brief Segna la ricorrenza all'istante indicato come evasa/non evasa */
-    void setDoneAt(TimePoint occurrenceStart, bool done) override;
 
     /// Implementazione dei metodi virtuali di Activity
 
