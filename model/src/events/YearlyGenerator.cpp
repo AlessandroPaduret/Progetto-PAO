@@ -84,11 +84,6 @@ std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint 
     return dates;
 }
 
-bool YearlyGenerator::occursInRange(TimePoint from, TimePoint to) const {
-    // Sfruttiamo generateDates: se il vettore non è vuoto, allora esiste
-    return !generateDates(from, to).empty();
-}
-
 String YearlyGenerator::describe() const {
     std::ostringstream oss;
     auto start_ymd = year_month_day{floor<days>(m_start)};

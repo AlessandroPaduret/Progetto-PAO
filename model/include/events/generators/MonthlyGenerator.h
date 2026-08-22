@@ -47,13 +47,13 @@ public:
     void setMonths(int months);
 
     /** @return La fine della ricorrenza (TimePoint::max() = senza fine) */
-    TimePoint getEnd() const override;
+    TimePoint getEnd() const;
 
     /** @brief Imposta la data/ora della prima occorrenza */
-    void setStart(TimePoint newStart) override;
+    void setStart(TimePoint newStart);
 
     /** @brief Imposta la fine della ricorrenza */
-    void setEnd(TimePoint newEnd) override;
+    void setEnd(TimePoint newEnd);
 
     /** @brief Imposta il numero massimo di occorrenze (0 = illimitate) */
     void setMaxOccurrences(std::size_t n);
@@ -66,8 +66,6 @@ public:
     /** @brief Genera le date mensili in [from, to] (inclusivo) */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
-    /** @return true se esistono occorrenze in [from, to] */
-    bool occursInRange(TimePoint from, TimePoint to) const override;
 
     /** @return Descrizione testuale (solo visualizzazione) */
     String describe() const override;

@@ -15,20 +15,6 @@ public:
     /** @brief Distruttore virtuale */
     virtual ~NullGenerator() = default;
 
-    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const NullGenerator&) */
-    void accept(DateGeneratorVisitor& visitor) const override {
-        visitor.visit(*this);
-    }
-
-    /** @brief Il generatore nullo non genera nulla: impostare la fine e' un no-op */
-    void setEnd(TimePoint) override {}
-
-    /** @brief No-op: il generatore nullo non genera nulla */
-    void setStart(TimePoint) override {}
-
-    /** @brief Il generatore nullo non ha fine */
-    TimePoint getEnd() const override { return TimePoint::max(); }
-
     /** @brief Genera le date comprese nell'intervallo [from, to] 
      *  @param from Data di inizio dell'intervallo
      *  @param to Data di fine dell'intervallo
@@ -37,21 +23,17 @@ public:
     std::vector<TimePoint> generateDates(TimePoint, TimePoint) const override {
         return {};
     }
-
-    /** @brief Verifica se esistono date comprese nell'intervallo [from, to]
-     *  @param from Data di inizio dell'intervallo
-     *  @param to Data di fine dell'intervallo
-     *  @return true se esistono date comprese nell'intervallo, false altrimenti
-    */
-    bool occursInRange(TimePoint, TimePoint) const override {
-        return false;
-    }
     
     /** @brief Restituisce una descrizione del generatore di date
      *  @return Una stringa che descrive il generatore di date
     */
     String describe() const override {
         return "[NullGenerator]";
+    }
+
+    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const NullGenerator&) */
+    void accept(DateGeneratorVisitor& visitor) const override {
+        visitor.visit(*this);
     }
 };
 

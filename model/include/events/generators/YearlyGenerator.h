@@ -6,7 +6,6 @@
 
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
-#include "events/core/DateGeneratorVisitor.h"
 
 namespace events {
 
@@ -33,12 +32,12 @@ public:
     /** @brief Ritorna la data di fine dell'intervallo
     *  @return La data di fine dell'intervallo
     */
-    TimePoint getEnd() const override;
+    TimePoint getEnd() const;
 
     /** @brief Imposta la data di inizio dell'intervallo
     *  @param newStart La nuova data di inizio dell'intervallo
     */
-    void setStart(TimePoint newStart) override;
+    void setStart(TimePoint newStart);
 
     /** @brief Imposta l'intervallo di tempo tra le date generate
     *  @param newInterval Il nuovo intervallo di tempo tra le date generate
@@ -48,7 +47,7 @@ public:
     /** @brief Imposta la data di fine dell'intervallo
      * @param newEnd La nuova data di fine dell'intervallo
      */
-    void setEnd(TimePoint newEnd) override;
+    void setEnd(TimePoint newEnd);
 
     /** @brief Imposta il numero massimo di occorrenze generate
      *  (0 = nessun limite). @param n Numero massimo di occorrenze */
@@ -66,13 +65,6 @@ public:
     */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
     
-    /** @brief Verifica se esistono date generate comprese nell'intervallo [from, to]
-     *  @param from Data di inizio dell'intervallo
-     *  @param to Data di fine dell'intervallo
-     *  @return true se esistono date generate comprese nell'intervallo, false altrimenti
-    */
-    bool occursInRange(TimePoint from, TimePoint to) const override;
-
     /** @brief Restituisce una descrizione del generatore di date
     *  @return Una stringa che descrive il generatore di date
     */

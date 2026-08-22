@@ -75,10 +75,6 @@ FixedIntervalGenerator::generateDates(const TimePoint from,
     return dates;
 }
 
-bool FixedIntervalGenerator::occursInRange(const TimePoint from,
-                                           const TimePoint to) const {
-  return to > m_start && from < m_end;
-}
 
 String FixedIntervalGenerator::describe() const {
     std::ostringstream oss;

@@ -68,11 +68,6 @@ std::vector<TimePoint> MonthlyGenerator::generateDates(
   return dates;
 }
 
-bool MonthlyGenerator::occursInRange(const TimePoint from,
-                                     const TimePoint to) const {
-  return !generateDates(from, to).empty();
-}
-
 String MonthlyGenerator::describe() const {
   std::ostringstream oss;
   oss << "[MonthlyGenerator] every " << m_months << " month(s) starting at "
