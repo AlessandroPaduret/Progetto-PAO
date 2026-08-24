@@ -267,7 +267,7 @@ std::unique_ptr<events::Activity> eventFromJson(const QJsonObject &json,
   if (!readRecurrence(json, start, generator, exceptions, error)) return nullptr;
 
   auto result = std::make_unique<events::Activity>(
-      title.toStdString(), start, duration, generator);
+      title.toStdString(), duration, generator);
   for (const TimePoint tp : exceptions) {
     result->addException(tp);
   }

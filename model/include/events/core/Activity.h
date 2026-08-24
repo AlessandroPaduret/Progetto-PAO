@@ -41,13 +41,11 @@ public:
     /**
      * @brief Costruttore.
      * @param title Titolo dell'attivita'
-     * @param start Istante di riferimento (default: ora attuale)
      * @param duration Durata (default: zero)
-     * @param generator Regola di ricorrenza (default: nullptr = SingleGenerator(start))
+     * @param generator Regola di ricorrenza (default: nullptr = SingleGenerator(now))
      * @throws std::invalid_argument se la durata e' negativa
      */
     Activity(String title = "",
-             TimePoint start = std::chrono::time_point_cast<std::chrono::seconds>(Clock::now()),
              Duration duration = Duration::zero(),
              std::shared_ptr<DateGenerator> generator = nullptr);
 
@@ -59,7 +57,7 @@ public:
     /** @brief Imposta il titolo dell'attivita' */
     void setTitle(const String& title);
 
-    /** @return L'istante di riferimento (inizio) dell'attivita' */
+    /** @return L'istante di riferimento (inizio) dell'attivita' = getStart() del generatore */
     TimePoint getStart() const;
 
     /** @return La durata dell'occorrenza */
@@ -68,10 +66,10 @@ public:
     /** @brief Imposta la durata @throws std::invalid_argument se negativa */
     void setDuration(Duration duration);
 
-    /** @return Il punto temporale di fine (inizio + durata) */
+    /** @return La fine della ricorrenza (= end del generatore; TimePoint::max() = senza fine) */
     TimePoint getEnd() const;
 
-    /** @brief Imposta la fine, modificando la durata */
+    /** @brief Imposta la fine della ricorrenza, troncando il generatore */
     void setEnd(TimePoint end);
 
     /** @return La regola di ricorrenza (condivisa) */
@@ -89,17 +87,8 @@ public:
      */
     bool addException(TimePoint tp);
 
-    /** @brief Elimina l'eccezione associata a una specifica occorrenza */
-    void deleteExceptions(TimePoint tp);
-
     /** @brief Tronca la ricorrenza: nessuna occorrenza a partire da tp (esclusa) */
     void truncateBefore(TimePoint tp);
-
-    /** @return true se l'attivita' usa un generatore non singolo/nullo */
-    bool isRecurrent() const;
-
-    /** @brief Restituisce le occorrenze in [from, to] come cloni indipendenti */
-    std::vector<std::unique_ptr<Activity>> getSchedulable(TimePoint from, TimePoint to) const;
 
     /** @brief Espande le occorrenze in [from, to] (inclusivo) escludendo le eccezioni */
     virtual std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const;

@@ -40,6 +40,9 @@ public:
     /** @return L'unica data generata */
     TimePoint getStart() const override;
 
+    /** @return L'istante della fine (== l'unica data generata) */
+    TimePoint getEnd() const override;
+
     /** @brief Genera l'unica data se e' compresa in [from, to] (inclusivo) */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 

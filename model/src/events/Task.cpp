@@ -7,12 +7,15 @@
 #include "events/core/CommonTypes.h"
 #include "events/core/Format.h"
 #include "events/domain/Task.h"
+#include "events/generators/SingleGenerator.h"
 
 namespace events {
 
 Task::Task(const String &title, const TimePoint due, const Priority priority,
            std::shared_ptr<DateGenerator> generator)
-    : Activity(title, due, Duration::zero(), std::move(generator)),
+    : Activity(title, Duration::zero(),
+               generator ? std::move(generator)
+                         : std::make_shared<SingleGenerator>(due)),
       m_priority(priority) {}
 
 Task *Task::clone_impl() const { return new Task(*this); }

@@ -46,7 +46,7 @@ public:
     int getMonths() const;
 
     /** @return La fine della ricorrenza (TimePoint::max() = senza fine) */
-    TimePoint getEnd() const;
+    TimePoint getEnd() const override;
 
     /** @return Il numero massimo di occorrenze (0 = illimitate) */
     std::size_t getMaxOccurrences() const;

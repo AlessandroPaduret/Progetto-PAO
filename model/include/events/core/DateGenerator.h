@@ -27,6 +27,9 @@ public:
     /** @return L'istante della prima data generata (read-only) */
     virtual TimePoint getStart() const = 0;
 
+    /** @return L'istante di fine della ricorrenza (TimePoint::max() = senza fine) */
+    virtual TimePoint getEnd() const = 0;
+
     /** @brief Genera le date comprese nell'intervallo [from, to] 
      *  @param from Data di inizio dell'intervallo
      *  @param to Data di fine dell'intervallo

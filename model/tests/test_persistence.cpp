@@ -53,7 +53,8 @@ TEST_CASE("Persistenza: serie settimanale (fixed) round-trip", "[json][recurrent
     REQUIRE(back != nullptr);
     REQUIRE(back->getTitle() == "Meeting");
     REQUIRE(back->getExceptions().size() == 1);
-    REQUIRE(back->isRecurrent());
+    // la ricorrenza si deduce dal generatore (fixed), non da un flag
+    REQUIRE(dynamic_cast<const events::FixedIntervalGenerator*>(back->getGenerator().get()) != nullptr);
 
     auto a = event->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
     auto b = back->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
@@ -169,7 +170,7 @@ TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][fi
 TEST_CASE("Persistenza: serie mensile (con limite occorrenze)", "[json][recurrent][monthly]") {
     TimePoint start = make_date(2026, 1, 10) + 9h;
     auto gen = std::make_shared<events::MonthlyGenerator>(start, 2, TimePoint::max(), 5);
-    Activity event("Pagamento", start, 1h, gen);
+    Activity event("Pagamento", 1h, gen);
 
     QJsonObject json = persistence::activityToJson(event);
     REQUIRE(json.value("generator").toObject().value("type").toString() == "monthly");
@@ -192,7 +193,7 @@ TEST_CASE("Persistenza: serie mensile (con limite occorrenze)", "[json][recurren
 TEST_CASE("Persistenza: serie settimanale con limite occorrenze", "[json][recurrent][cap]") {
     TimePoint start = make_date(2026, 1, 5) + 9h;
     auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7), TimePoint::max(), 3);
-    Activity event("Corso", start, 1h, gen);
+    Activity event("Corso", 1h, gen);
 
     QJsonObject json = persistence::activityToJson(event);
     REQUIRE(json.value("generator").toObject().value("max_occurrences").toInteger() == 3);
@@ -208,7 +209,7 @@ TEST_CASE("Persistenza: serie settimanale con limite occorrenze", "[json][recurr
 TEST_CASE("Persistenza: serie ricorrente di un giorno intero (00:00, 24h)", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 5);
     auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7));
-    Activity series("Turno", start, std::chrono::seconds(86400), gen);
+    Activity series("Turno", std::chrono::seconds(86400), gen);
 
     QJsonObject json = persistence::activityToJson(series);
     REQUIRE(json.value("type").toString() == "event");

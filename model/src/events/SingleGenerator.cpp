@@ -13,6 +13,8 @@ TimePoint SingleGenerator::getPoint() const { return m_point; }
 
 TimePoint SingleGenerator::getStart() const { return m_point; }
 
+TimePoint SingleGenerator::getEnd() const { return m_point; }
+
 std::vector<TimePoint> SingleGenerator::generateDates(TimePoint from,
                                                       TimePoint to) const {
   // Stessa semantica del resto del modello: inizio in [from, to] inclusivo

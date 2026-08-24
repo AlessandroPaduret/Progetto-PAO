@@ -33,7 +33,7 @@ ActivityBuilder &ActivityBuilder::addException(TimePoint tp) {
 }
 
 Activity ActivityBuilder::build() const {
-  Activity activity(m_title, m_start, m_duration, resolveGenerator());
+  Activity activity(m_title, m_duration, resolveGenerator());
   for (const TimePoint tp : m_exceptions) {
     activity.addException(tp);
   }

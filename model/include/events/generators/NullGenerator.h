@@ -21,6 +21,9 @@ public:
     /** @return Un istante indefinito (nessuna occorrenza prodotta) */
     TimePoint getStart() const override { return TimePoint{}; }
 
+    /** @return La fine della ricorrenza (senza fine: non genera nulla) */
+    TimePoint getEnd() const override { return TimePoint::max(); }
+
     /** @brief Non genera mai alcuna data (null object) */
     std::vector<TimePoint> generateDates(TimePoint, TimePoint) const override {
         return {};

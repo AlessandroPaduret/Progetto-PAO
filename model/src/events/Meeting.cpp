@@ -10,13 +10,16 @@
 #include "events/core/DateGenerator.h"
 #include "events/core/Format.h"
 #include "events/domain/Meeting.h"
+#include "events/generators/SingleGenerator.h"
 
 namespace events {
 
 Meeting::Meeting(const String &title, const TimePoint start,
                  const Duration duration, const String &location,
                  std::shared_ptr<DateGenerator> generator)
-    : Activity(title, start, duration, std::move(generator)),
+    : Activity(title, duration,
+               generator ? std::move(generator)
+                         : std::make_shared<SingleGenerator>(start)),
       m_location(location) {}
 
 Meeting *Meeting::clone_impl() const { return new Meeting(*this); }

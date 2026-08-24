@@ -73,11 +73,12 @@ TEST_CASE("Event valida la durata", "[Activity][validation]") {
     TimePoint start = make_date(2026, 1, 1);
 
     SECTION("Il costruttore rifiuta durate negative") {
-        REQUIRE_THROWS_AS(Activity("Sbagliato", start, -1h), std::invalid_argument);
+        REQUIRE_THROWS_AS(Activity("Sbagliato", -1h, std::make_shared<SingleGenerator>(start)),
+                          std::invalid_argument);
     }
 
     SECTION("setDuration rifiuta durate negative") {
-        Activity e("Ok", start, 1h);
+        Activity e("Ok", 1h, std::make_shared<SingleGenerator>(start));
         REQUIRE_THROWS_AS(e.setDuration(-1s), std::invalid_argument);
         REQUIRE(e.getDuration() == 1h);
     }
@@ -147,7 +148,7 @@ TEST_CASE("addException accetta solo date generabili", "[exception][isIn]") {
     TimePoint start = make_date(2026, 1, 1);
 
     SECTION("evento singolo: solo l'unica occorrenza") {
-        Activity event("X", start, 1h);
+        Activity event("X", 1h, std::make_shared<SingleGenerator>(start));
         REQUIRE(event.addException(start));             // occorrenza reale
         REQUIRE_FALSE(event.addException(start + 1h));  // non generabile
         REQUIRE(event.getExceptions().size() == 1);
@@ -217,7 +218,7 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
     TimePoint to = start + 4_weeks;
 
     SECTION("Evento singolo: una sola occorrenza nel range") {
-        Activity e("Dentista", start + 1_weeks, 1h);
+        Activity e("Dentista", 1h, std::make_shared<SingleGenerator>(start + 1_weeks));
         auto occ = e.occurrencesIn(start, to);
         REQUIRE(occ.size() == 1);
         REQUIRE(occ[0].start == start + 1_weeks);
@@ -253,7 +254,8 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
 
     SECTION("Evento di 24h a mezzanotte: copre l'intero giorno") {
         // Un evento "tutto il giorno" e' una Activity dalle 00:00 con durata 24h
-        Activity allday("Mostra", make_date(2026, 1, 10), std::chrono::seconds(86400));
+        Activity allday("Mostra", std::chrono::seconds(86400),
+                        std::make_shared<SingleGenerator>(make_date(2026, 1, 10)));
         auto occ = allday.occurrencesIn(make_date(2026, 1, 10), make_date(2026, 1, 12));
         REQUIRE(occ.size() == 1);
         REQUIRE(occ[0].start == make_date(2026, 1, 10));
@@ -539,7 +541,7 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
     TimePoint target = make_date(2026, 2, 9) + 3h;
 
     SECTION("Evento singolo: cambia l'inizio, la durata resta") {
-        Activity event("X", start, 1h);
+        Activity event("X", 1h, std::make_shared<SingleGenerator>(start));
         event.moveTo(target);
         REQUIRE(event.getStart() == target);
         REQUIRE(event.getDuration() == 1h);
@@ -551,7 +553,7 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         const TimePoint earlier = start - 1_weeks + 9h;
         event->moveTo(earlier);
         REQUIRE(event->getStart() == earlier);
-        REQUIRE(event->getSchedulable(earlier, start + 3_weeks).size() == 4);
+        REQUIRE(event->occurrencesIn(earlier, start + 3_weeks).size() == 4);
     }
 
     SECTION("Task: cambia la scadenza") {
@@ -571,10 +573,11 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
     }
 
     SECTION("Evento di 24h: moveTo sposta l'inizio, la durata resta") {
-        Activity allday("Giornata", start, std::chrono::seconds(86400));
+        Activity allday("Giornata", std::chrono::seconds(86400),
+                        std::make_shared<SingleGenerator>(start));
         allday.moveTo(target);
         REQUIRE(allday.getStart() == target);
         REQUIRE(allday.getDuration() == std::chrono::seconds(86400));
-        REQUIRE(allday.getEnd() == target + std::chrono::seconds(86400));
+        REQUIRE(allday.getEnd() == target);  // getEnd() = fine del generatore
     }
 }

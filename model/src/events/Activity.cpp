@@ -8,21 +8,23 @@
 #include "events/core/ActivityVisitor.h"
 #include "events/core/Format.h"
 #include "events/generators/MoveGeneratorVisitor.h"
-#include "events/generators/NullGenerator.h"
 #include "events/generators/SingleGenerator.h"
 
 namespace events {
 
-Activity::Activity(String title, TimePoint start, Duration duration,
+Activity::Activity(String title, Duration duration,
                    std::shared_ptr<DateGenerator> generator)
     : m_title(std::move(title)),
       m_duration(duration),
-      m_generator(generator ? std::move(generator) : std::make_shared<SingleGenerator>(start)) {
+      m_generator(generator ? std::move(generator)
+                            : std::make_shared<SingleGenerator>(
+                                  std::chrono::time_point_cast<std::chrono::seconds>(
+                                      Clock::now()))) {
   if (duration < Duration::zero()) {
     throw std::invalid_argument("La durata non puo' essere negativa.");
   }
-  // L'istante di riferimento vive nel generatore (immutabile): se ne viene
-  // fornito uno esplicito, il suo inizio fa fede su `start`.
+  // L'istante di riferimento vive nel generatore (immutabile): la Activity
+  // non ha un proprio inizio; il fallback e' un SingleGenerator(now).
 }
 
 Activity *Activity::clone_impl() const { return new Activity(*this); }
@@ -42,9 +44,14 @@ void Activity::setDuration(Duration duration) {
   m_duration = duration;
 }
 
-TimePoint Activity::getEnd() const { return getStart() + m_duration; }
+TimePoint Activity::getEnd() const { return m_generator->getEnd(); }
 
-void Activity::setEnd(TimePoint end) { setDuration(end - getStart()); }
+void Activity::setEnd(TimePoint end) {
+  // La fine della ricorrenza vive nel generatore: la si imposta troncandolo.
+  MoveGeneratorVisitor visitor(std::nullopt, end);
+  m_generator->accept(visitor);
+  m_generator = visitor.result;
+}
 
 const std::shared_ptr<DateGenerator> &Activity::getGenerator() const {
   return m_generator;
@@ -64,18 +71,11 @@ bool Activity::addException(TimePoint tp) {
   return m_exceptions.insert(tp).second;
 }
 
-void Activity::deleteExceptions(TimePoint tp) { m_exceptions.erase(tp); }
-
 void Activity::truncateBefore(TimePoint tp) {
   // Ricostruisce il generatore con la nuova fine (tp escluso).
   MoveGeneratorVisitor visitor(std::nullopt, tp - Duration(1));
   m_generator->accept(visitor);
   m_generator = visitor.result;
-}
-
-bool Activity::isRecurrent() const {
-  return !(std::dynamic_pointer_cast<SingleGenerator>(m_generator) ||
-           std::dynamic_pointer_cast<NullGenerator>(m_generator));
 }
 
 std::vector<TimePoint> Activity::occurrenceDates(const TimePoint from,
@@ -88,18 +88,6 @@ std::vector<TimePoint> Activity::occurrenceDates(const TimePoint from,
   }
   return dates;
 }
-
-std::vector<std::unique_ptr<Activity>>
-Activity::getSchedulable(const TimePoint from, const TimePoint to) const {
-  // API legacy (usata dal REST server): restituisce una Activity singola
-  // per ogni occorrenza della serie nell'intervallo.
-  std::vector<std::unique_ptr<Activity>> result;
-  for (const TimePoint tp : occurrenceDates(from, to)) {
-    result.push_back(std::make_unique<Activity>(m_title, tp, m_duration));
-  }
-  return result;
-}
-
 
 std::vector<Occurrence> Activity::occurrencesIn(const TimePoint from,
                                                 const TimePoint to) const {

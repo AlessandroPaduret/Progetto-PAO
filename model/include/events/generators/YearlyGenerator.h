@@ -37,7 +37,7 @@ public:
     /** @brief Ritorna la data di fine dell'intervallo
     *  @return La data di fine dell'intervallo
     */
-    TimePoint getEnd() const;
+    TimePoint getEnd() const override;
 
     /** @return Il numero massimo di occorrenze (0 = illimitate) */
     std::size_t getMaxOccurrences() const;

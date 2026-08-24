@@ -4,6 +4,7 @@
 #include "events/core/CommonTypes.h"
 #include "events/domain/ActivityFactory.h"
 #include "events/generators/FixedIntervalGenerator.h"
+#include "events/generators/SingleGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 
 namespace events {
@@ -11,20 +12,21 @@ namespace events {
 std::unique_ptr<Activity> ActivityFactory::createSimpleEvent(const String &title,
                                                              TimePoint start,
                                                              Duration duration) {
-  return std::make_unique<Activity>(title, start, duration);
+  return std::make_unique<Activity>(
+      title, duration, std::make_shared<SingleGenerator>(start));
 }
 
 std::unique_ptr<Activity> ActivityFactory::createRecurrentEvent(
     const String &title, TimePoint start, Duration duration, Duration interval) {
   auto gen = std::make_shared<FixedIntervalGenerator>(start, interval);
-  return std::make_unique<Activity>(title, start, duration, gen);
+  return std::make_unique<Activity>(title, duration, gen);
 }
 
 std::unique_ptr<Activity> ActivityFactory::createSimpleWeekly(
     const String &title, TimePoint start, Duration duration, TimePoint end) {
   auto gen = std::make_shared<FixedIntervalGenerator>(
       start, std::chrono::hours(24 * 7), end);
-  return std::make_unique<Activity>(title, start, duration, gen);
+  return std::make_unique<Activity>(title, duration, gen);
 }
 
 std::unique_ptr<Meeting> ActivityFactory::createMeeting(
@@ -45,7 +47,7 @@ std::unique_ptr<Activity> ActivityFactory::createAnniversary(
   // Activity con YearlyGenerator (gestione anni bisestili: 29/2 -> 28/2).
   auto gen = std::make_shared<YearlyGenerator>(date);
   return std::make_unique<Activity>(
-      title, date, std::chrono::hours(24) - std::chrono::seconds(1), gen);
+      title, std::chrono::hours(24) - std::chrono::seconds(1), gen);
 }
 
 } // namespace events
