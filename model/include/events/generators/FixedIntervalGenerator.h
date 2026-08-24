@@ -1,6 +1,7 @@
 #ifndef FIXED_INTERVAL_GENERATOR_H
 #define FIXED_INTERVAL_GENERATOR_H
 
+#include <cstddef>
 #include <vector>
 #include <chrono>
 
@@ -10,72 +11,57 @@
 
 namespace events {
 
+class MoveGeneratorVisitor;
+
+/**
+ * @class FixedIntervalGenerator
+ * @brief Generatore a intervallo fisso in secondi (giorni/settimane).
+ *
+ * IMMUTABILE: tutta la configurazione entra dal costruttore (incluso
+ * `maxOccurrences`); sono esposti solo accessor read-only. Per spostare o
+ * troncare la serie usare MoveGeneratorVisitor (che ricostruisce un nuovo
+ * generatore).
+ */
 class FixedIntervalGenerator : public DateGenerator {
 private:
     TimePoint m_start;
     Duration m_interval;
     TimePoint m_end;
-    std::size_t m_maxOccurrences = 0;  ///< 0 = illimitate
+    std::size_t m_maxOccurrences;  ///< 0 = illimitate
+
 public:
-
-    /** @brief Costruttore */
-    FixedIntervalGenerator(TimePoint start, Duration interval, TimePoint end = TimePoint::max());
-
-    /** @brief Ritorna la data di inizio dell'intervallo
-    *  @return La data di inizio dell'intervallo
-    */
-    TimePoint getStart() const;
-
-    /** @brief Ritorna l'intervallo di tempo tra le date generate
-    *  @return L'intervallo di tempo tra le date generate
-    */    
-   Duration getInterval() const;
-
-    /** @brief Ritorna la data di fine dell'intervallo
-    *  @return La data di fine dell'intervallo
-    */
-    TimePoint getEnd() const;
-
-    /** @brief Imposta la data di inizio dell'intervallo
-    *  @param newStart La nuova data di inizio dell'intervallo
-    */
-    void setStart(TimePoint newStart);
-
-    /** @brief Imposta l'intervallo di tempo tra le date generate
-    *  @param newInterval Il nuovo intervallo di tempo tra le date generate
-    */        
-    void setInterval(Duration newInterval);
-
-    /** @brief Imposta la data di fine dell'intervallo
-     * @param newEnd La nuova data di fine dell'intervallo
+    /** @brief Costruttore (tutta la configurazione e' iniettabile da qui).
+     *  @param start Prima occorrenza
+     *  @param interval Passo tra le occorrenze (> 0)
+     *  @param end Fine della ricorrenza (default: senza fine)
+     *  @param maxOccurrences Limite di occorrenze (0 = illimitate)
      */
-    void setEnd(TimePoint newEnd);
+    FixedIntervalGenerator(TimePoint start, Duration interval,
+                           TimePoint end = TimePoint::max(),
+                           std::size_t maxOccurrences = 0);
 
-    /** @brief Imposta il numero massimo di occorrenze generate
-     *  (0 = nessun limite). @param n Numero massimo di occorrenze */
-    void setMaxOccurrences(std::size_t n);
+    /** @return La data di inizio dell'intervallo */
+    TimePoint getStart() const override;
+
+    /** @return L'intervallo di tempo tra le date generate */
+    Duration getInterval() const;
+
+    /** @return La data di fine dell'intervallo */
+    TimePoint getEnd() const;
 
     /** @return Il numero massimo di occorrenze (0 = illimitate) */
     std::size_t getMaxOccurrences() const;
 
     /// Implementazione dei metodi virtuali di DateGenerator
 
-    /** @brief Genera le date comprese nell'intervallo [from, to] 
-     *  @param from Data di inizio dell'intervallo
-     *  @param to Data di fine dell'intervallo
-     *  @return Un vettore di TimePoint che rappresentano le date generate
-    */
+    /** @brief Genera le date comprese nell'intervallo [from, to] (inclusivo) */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
-    
 
-    /** @brief Restituisce una descrizione del generatore di date
-    *  @return Una stringa che descrive il generatore di date
-    */    
-   String describe() const override;
+    /** @return Descrizione testuale del generatore (solo visualizzazione) */
+    String describe() const override;
 
     /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const FixedIntervalGenerator&) */
-   void accept(DateGeneratorVisitor& visitor) const override;
-
+    void accept(DateGeneratorVisitor& visitor) const override;
 };
 
 } // namespace events

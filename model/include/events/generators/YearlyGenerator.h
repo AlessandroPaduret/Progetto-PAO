@@ -14,15 +14,20 @@ class YearlyGenerator : public DateGenerator {
 private:
     TimePoint m_start;
     TimePoint m_end;
-    std::size_t m_maxOccurrences = 0;  ///< 0 = illimitate
+    std::size_t m_maxOccurrences;  ///< 0 = illimitate
 public:
-    /** @brief Costruttore */
-    YearlyGenerator(TimePoint start, TimePoint end = TimePoint::max());
+    /** @brief Costruttore (immutabile: configurazione solo da qui).
+     *  @param start Prima occorrenza (giorno/mese definiscono la ricorrenza)
+     *  @param end Fine della ricorrenza (default: senza fine)
+     *  @param maxOccurrences Limite di occorrenze (0 = illimitate)
+     */
+    YearlyGenerator(TimePoint start, TimePoint end = TimePoint::max(),
+                    std::size_t maxOccurrences = 0);
 
     /** @brief Ritorna la data di inizio dell'intervallo
     *  @return La data di inizio dell'intervallo
     */
-    TimePoint getStart() const;
+    TimePoint getStart() const override;
 
     /** @brief Ritorna l'intervallo di tempo tra le date generate
     *  @return L'intervallo di tempo tra le date generate
@@ -33,25 +38,6 @@ public:
     *  @return La data di fine dell'intervallo
     */
     TimePoint getEnd() const;
-
-    /** @brief Imposta la data di inizio dell'intervallo
-    *  @param newStart La nuova data di inizio dell'intervallo
-    */
-    void setStart(TimePoint newStart);
-
-    /** @brief Imposta l'intervallo di tempo tra le date generate
-    *  @param newInterval Il nuovo intervallo di tempo tra le date generate
-    */        
-    void setInterval(Duration newInterval);
-
-    /** @brief Imposta la data di fine dell'intervallo
-     * @param newEnd La nuova data di fine dell'intervallo
-     */
-    void setEnd(TimePoint newEnd);
-
-    /** @brief Imposta il numero massimo di occorrenze generate
-     *  (0 = nessun limite). @param n Numero massimo di occorrenze */
-    void setMaxOccurrences(std::size_t n);
 
     /** @return Il numero massimo di occorrenze (0 = illimitate) */
     std::size_t getMaxOccurrences() const;

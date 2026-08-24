@@ -26,37 +26,27 @@ private:
     TimePoint m_start;
     int m_months;                 ///< Passo in mesi (>= 1)
     TimePoint m_end;
-    std::size_t m_maxOccurrences = 0;  ///< 0 = illimitate
+    std::size_t m_maxOccurrences;  ///< 0 = illimitate
 
 public:
-    /** @brief Costruttore.
+    /** @brief Costruttore (immutabile: configurazione solo da qui).
      *  @param start Data/ora della prima occorrenza
      *  @param months Passo in mesi (default: 1)
      *  @param end Fine della ricorrenza (default: senza fine)
+     *  @param maxOccurrences Limite di occorrenze (0 = illimitate)
      */
     MonthlyGenerator(TimePoint start, int months = 1,
-                     TimePoint end = TimePoint::max());
+                     TimePoint end = TimePoint::max(),
+                     std::size_t maxOccurrences = 0);
 
     /** @return La data/ora della prima occorrenza */
-    TimePoint getStart() const;
+    TimePoint getStart() const override;
 
     /** @return Il passo in mesi */
     int getMonths() const;
 
-    /** @brief Imposta il passo in mesi (>= 1) */
-    void setMonths(int months);
-
     /** @return La fine della ricorrenza (TimePoint::max() = senza fine) */
     TimePoint getEnd() const;
-
-    /** @brief Imposta la data/ora della prima occorrenza */
-    void setStart(TimePoint newStart);
-
-    /** @brief Imposta la fine della ricorrenza */
-    void setEnd(TimePoint newEnd);
-
-    /** @brief Imposta il numero massimo di occorrenze (0 = illimitate) */
-    void setMaxOccurrences(std::size_t n);
 
     /** @return Il numero massimo di occorrenze (0 = illimitate) */
     std::size_t getMaxOccurrences() const;

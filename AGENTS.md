@@ -4,6 +4,23 @@ C++20 library for calendar/personal activities (domain model). Namespace `events
 
 > **Delivery target (PAO course spec 2025/26):** the app to be delivered must compile in the professor's container (`unipd-oop/qt-env:2025`, Ubuntu 24.04 + g++ 13.3 + cmake 3.28 + **Qt 6.4.2 + qmake 3.1**, NO Catch2/nlohmann/libpqxx) and run **standalone** with local JSON file persistence. The REST server + PostgreSQL stack is an optional extra, off the evaluation critical path. Roadmap: Fase 0 (env check) + Fase 1 (Activity hierarchy) + Fase 2 (JSON persistence via Visitor) + Fase 3 (standalone Qt single-window app) + Fase 4 (delivery: `Attivita.pro` qmake, `examples/attivita_esempio.json`, `pack_delivery.sh` zip script, verified build-from-zip in the prof container) + Fase 5 (PDF report: `relazione/relazione.tex`, compiles 4pp) DONE. Remaining for the student: UML figure (`relazione/figura/`), name/matricola, actual hours in the report table.
 
+## Refactoring in corso (branch `refactor`) — paletti + TODO
+
+> Stato intermedio: il modello è stato ridisegnato; `app/`, `server/` e `db/` NON sono stati aggiornati e quindi non compilano. Scopo del refactor: SOLO `model/` + `model/persistence/`.
+
+- [x] **`Activity` concreta (unica)** — assorbe le vecchie `Event`/`RecurrentEvent`/`Anniversary`:
+  - evento singolo = `Activity` con `SingleGenerator`; serie = `Activity` con `FixedIntervalGenerator`/`MonthlyGenerator`/`YearlyGenerator`; anniversario = `Activity` con `YearlyGenerator` + durata all-day.
+  - `Task` e `Meeting` sono **sottoclassi** di `Activity` (aggiungono priorità/stato e luogo/partecipanti). Le **eccezioni vivono su `Activity`** (`addException`/`deleteExceptions`/`truncateBefore`).
+  - Tipo per persistenza/GUI = tipo dinamico (`Activity`=event, `Task`, `Meeting`); la **ricorrenza si deduce dal generatore**.
+- [x] **Builder**: `ActivityBuilder` (con `addGenerator`; **fallback = `SingleGenerator(start)`** se non si aggiunge nulla), `TaskBuilder` (`withPriority`), `MeetingBuilder` (`withLocation`/`addAttendee`). `ActivityFactory` resta (aggiornata) per compatibilità.
+- [x] **Generator immutabili** — niente setter pubblici; la configurazione entra dal costruttore (incluso `maxOccurrences` come parametro). Sono ammessi solo accessor read-only:
+  - `DateGenerator` (interfaccia): `generateDates`, `getStart()` (sola lettura), `describe`, `accept`.
+  - `SingleGenerator`: unico accessor dedicato `getPoint()` (+ `getStart()` per l'interfaccia).
+  - `FixedIntervalGenerator`/`MonthlyGenerator`/`YearlyGenerator`: getter read-only (`getStart`/`getInterval`/`getMonths`/`getEnd`/`getMaxOccurrences`).
+- [x] **Spostare/troncare un generatore = `MoveGeneratorVisitor`** (`events/generators/MoveGeneratorVisitor.h/.cpp`, sotto-classe di `DateGeneratorVisitor`): poiché i generatori sono immutabili, il visitor **ricostruisce** un nuovo generatore con `newStart` (clamp: `end < newStart` → `end = newStart`) o `newEnd` (troncamento), conservando `maxOccurrences`. `Activity::moveTo`/`setStart`/`truncateBefore` lo usano.
+- [x] **`Activity` NON ha `m_start`**: l'istante di riferimento viene dal generatore (`getStart()`); `getEnd()` = `getStart() + duration`.
+- [ ] `app/`, `server/`, `db/`, `Attivita.pro`, `examples/*.json` — da aggiornare in un secondo momento (fuori scope attuale).
+
 ## Build & test
 
 CMake is the primary build. Run from `model/` (the `model/Dockerfile` installs all deps, incl. Catch2):

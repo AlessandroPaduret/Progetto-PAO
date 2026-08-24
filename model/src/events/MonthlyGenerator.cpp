@@ -8,26 +8,16 @@
 
 namespace events {
 
-MonthlyGenerator::MonthlyGenerator(TimePoint start, int months, TimePoint end)
-    : m_start(start), m_months(months > 0 ? months : 1), m_end(end) {}
+MonthlyGenerator::MonthlyGenerator(TimePoint start, int months, TimePoint end,
+                                   std::size_t maxOccurrences)
+    : m_start(start), m_months(months > 0 ? months : 1), m_end(end),
+      m_maxOccurrences(maxOccurrences) {}
 
 TimePoint MonthlyGenerator::getStart() const { return m_start; }
 
 int MonthlyGenerator::getMonths() const { return m_months; }
 
-void MonthlyGenerator::setMonths(int months) {
-  m_months = months > 0 ? months : 1;
-}
-
 TimePoint MonthlyGenerator::getEnd() const { return m_end; }
-
-void MonthlyGenerator::setStart(TimePoint newStart) { m_start = newStart; }
-
-void MonthlyGenerator::setEnd(TimePoint newEnd) { m_end = newEnd; }
-
-void MonthlyGenerator::setMaxOccurrences(std::size_t n) {
-  m_maxOccurrences = n;
-}
 
 std::size_t MonthlyGenerator::getMaxOccurrences() const {
   return m_maxOccurrences;

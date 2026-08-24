@@ -36,14 +36,14 @@ if(BUILD_TESTING)
 
     if(Catch2_FOUND)
         add_executable(events_tests tests/test.cpp)
-        target_link_libraries(events_tests PRIVATE events Catch2::Catch2)
+        target_link_libraries(events_tests PRIVATE events Catch2::Catch2WithMain)
 
         include(Catch)
         catch_discover_tests(events_tests)
 
         if(TARGET events_persistence)
             add_executable(persistence_tests tests/test_persistence.cpp)
-            target_link_libraries(persistence_tests PRIVATE events_persistence Catch2::Catch2)
+            target_link_libraries(persistence_tests PRIVATE events_persistence Catch2::Catch2WithMain)
             catch_discover_tests(persistence_tests)
         endif()
     else()

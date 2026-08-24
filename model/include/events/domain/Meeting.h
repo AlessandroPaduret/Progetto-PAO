@@ -3,31 +3,26 @@
 
 #include <chrono>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "events/core/Activity.h"
 #include "events/core/CommonTypes.h"
+#include "events/core/DateGenerator.h"
 #include "events/core/Occurrence.h"
 
 namespace events {
 
 /**
  * @class Meeting
- * @brief Riunione/appuntamento con luogo e partecipanti: un intervallo
- *        temporale come un Evento, piu' il posto (fisico o link) e l'elenco
- *        delle persone coinvolte.
+ * @brief Riunione: sotto-classe di Activity con luogo e partecipanti.
  *
- * Rispetto a Event aggiunge dati e interazioni proprie: addAttendee /
- * removeAttendee / getAttendees e getLocation. La spunta (evasa) e' ereditata
- * dalla radice.
+ * Eredita da Activity l'intervallo temporale (inizio + durata) e la
+ * regola di ricorrenza (per default un evento singolo).
  */
 class Meeting : public Activity {
 private:
-    TimePoint m_start;              ///< Data e ora di inizio
-    Duration m_duration;            ///< Durata della riunione
-    String m_location;              ///< Luogo (o link) della riunione
-    std::vector<String> m_attendees;  ///< Partecipanti
+    String m_location;                    ///< Luogo o link
+    std::vector<String> m_attendees;      ///< Partecipanti (senza duplicati)
 
 protected:
     Meeting* clone_impl() const override;
@@ -37,62 +32,40 @@ public:
      *  @param title Titolo della riunione
      *  @param start Inizio (default: ora attuale)
      *  @param duration Durata (default: zero)
-     *  @param location Luogo/link (default: vuoto)
-     *  @throws std::invalid_argument se duration e' negativa
+     *  @param location Luogo o link (default: vuoto)
+     *  @param generator Regola di ricorrenza (default: nullptr = SingleGenerator(start))
+     *  @throws std::invalid_argument se la durata e' negativa
      */
-    explicit Meeting(const String& title = "",
-                     const TimePoint start =
-                         std::chrono::time_point_cast<std::chrono::seconds>(
-                             Clock::now()),
-                     const Duration duration = Duration::zero(),
-                     const String& location = "");
+    Meeting(const String& title = "",
+            const TimePoint start = std::chrono::time_point_cast<std::chrono::seconds>(
+                Clock::now()),
+            const Duration duration = Duration::zero(),
+            const String& location = "",
+            std::shared_ptr<DateGenerator> generator = nullptr);
 
-    /** @return Il punto temporale di inizio */
-    TimePoint getStart() const override;
-
-    /** @return La durata della riunione */
-    Duration getDuration() const;
-
-    /** @return Il punto temporale di fine */
-    TimePoint getEnd() const;
-
-    /** @brief Imposta l'orario di inizio */
-    void setStart(TimePoint start);
-
-    /** @brief Imposta la durata @throws std::invalid_argument se negativa */
-    void setDuration(Duration duration);
-
-    /** @return Il luogo (o link) della riunione */
+    /** @return Il luogo o link della riunione */
     String getLocation() const;
 
-    /** @brief Imposta il luogo (o link) della riunione */
+    /** @brief Imposta il luogo o link della riunione */
     void setLocation(const String& location);
 
     /** @return Il numero di partecipanti */
     size_t attendeeCount() const;
 
-    /** @return L'elenco dei partecipanti */
+    /** @return L'elenco dei partecipanti (riferimento read-only) */
     const std::vector<String>& getAttendees() const;
 
-    /** @brief Aggiunge un partecipante (se non gia' presente)
-     *  @param attendee Nome del partecipante
-     *  @return true se aggiunto, false se gia' presente
+    /** @brief Aggiunge un partecipante (i duplicati sono rifiutati)
+     *  @return true se il partecipante e' stato aggiunto
      */
     bool addAttendee(const String& attendee);
 
     /** @brief Rimuove un partecipante
-     *  @param attendee Nome del partecipante
-     *  @return true se rimosso, false se non presente
+     *  @return true se il partecipante era presente ed e' stato rimosso
      */
     bool removeAttendee(const String& attendee);
 
     /// Implementazione dei metodi virtuali di Activity
-
-    /** @return La singola occorrenza se l'inizio e' in [from, to] */
-    std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const override;
-
-    /** @brief Sposta la riunione al nuovo inizio (durata invariata). */
-    void moveTo(TimePoint newStart) override;
 
     /** @return Descrizione testuale della riunione (solo visualizzazione) */
     String describe() const override;

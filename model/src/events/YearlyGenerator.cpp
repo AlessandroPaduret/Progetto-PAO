@@ -5,14 +5,16 @@
 #include <sstream>
 
 #include "events/core/CommonTypes.h"
+#include "events/core/DateGeneratorVisitor.h"
 #include "events/generators/YearlyGenerator.h"
 
 using namespace std::chrono;
 
 namespace events {
 
-YearlyGenerator::YearlyGenerator(TimePoint start, TimePoint end)
-    : m_start(start), m_end(end) {}
+YearlyGenerator::YearlyGenerator(TimePoint start, TimePoint end,
+                                 std::size_t maxOccurrences)
+    : m_start(start), m_end(end), m_maxOccurrences(maxOccurrences) {}
 
 TimePoint YearlyGenerator::getStart() const { return m_start; }
 TimePoint YearlyGenerator::getEnd() const { return m_end; }
@@ -23,20 +25,8 @@ Duration YearlyGenerator::getInterval() const {
     return duration_cast<Duration>(days{365}); 
 }
 
-void YearlyGenerator::setStart(TimePoint newStart) { m_start = newStart; }
-void YearlyGenerator::setEnd(TimePoint newEnd) { m_end = newEnd; }
-
-void YearlyGenerator::setMaxOccurrences(std::size_t n) {
-  m_maxOccurrences = n;
-}
-
 std::size_t YearlyGenerator::getMaxOccurrences() const {
   return m_maxOccurrences;
-}
-
-// Metodo vuoto o che lancia eccezione se YearlyGenerator non permette intervalli custom
-void YearlyGenerator::setInterval(Duration) {
-    // La ricorrenza annuale è logicamente fissa a 1 anno calendariale
 }
 
 std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint to) const {
