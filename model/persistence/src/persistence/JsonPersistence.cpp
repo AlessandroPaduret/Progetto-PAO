@@ -412,7 +412,7 @@ std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json,
   if (!readRecurrence(json, start, generator, exceptions, error)) return nullptr;
 
   auto meeting = std::make_unique<events::Meeting>(
-      title.toStdString(), start, duration, location.toStdString(), generator);
+      title.toStdString(), duration, location.toStdString(), generator);
   for (const TimePoint tp : exceptions) {
     meeting->addException(tp);
   }

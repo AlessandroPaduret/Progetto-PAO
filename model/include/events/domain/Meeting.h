@@ -30,15 +30,12 @@ protected:
 public:
     /** @brief Costruttore.
      *  @param title Titolo della riunione
-     *  @param start Inizio (default: ora attuale)
      *  @param duration Durata (default: zero)
      *  @param location Luogo o link (default: vuoto)
-     *  @param generator Regola di ricorrenza (default: nullptr = SingleGenerator(start))
+     *  @param generator Regola di ricorrenza (default: nullptr = SingleGenerator(now))
      *  @throws std::invalid_argument se la durata e' negativa
      */
     Meeting(const String& title = "",
-            const TimePoint start = std::chrono::time_point_cast<std::chrono::seconds>(
-                Clock::now()),
             const Duration duration = Duration::zero(),
             const String& location = "",
             std::shared_ptr<DateGenerator> generator = nullptr);

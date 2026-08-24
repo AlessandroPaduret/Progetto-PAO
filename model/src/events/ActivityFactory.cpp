@@ -32,7 +32,8 @@ std::unique_ptr<Activity> ActivityFactory::createSimpleWeekly(
 std::unique_ptr<Meeting> ActivityFactory::createMeeting(
     const String &title, TimePoint start, Duration duration,
     const String &location) {
-  return std::make_unique<Meeting>(title, start, duration, location);
+  return std::make_unique<Meeting>(title, duration, location,
+                                   std::make_shared<SingleGenerator>(start));
 }
 
 std::unique_ptr<Task> ActivityFactory::createTask(const String &title,

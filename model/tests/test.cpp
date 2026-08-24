@@ -236,7 +236,8 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
     }
 
     SECTION("Meeting: occorrenza singola con durata") {
-        Meeting m("Riunione", start + 2_weeks, 90min, "Aula 3");
+        Meeting m("Riunione", 90min, "Aula 3",
+                  std::make_shared<SingleGenerator>(start + 2_weeks));
         auto occ = m.occurrencesIn(start, to);
         REQUIRE(occ.size() == 1);
         REQUIRE(occ[0].duration == 90min);
@@ -276,7 +277,8 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
 }
 
 TEST_CASE("Meeting: partecipanti e luogo", "[meeting]") {
-    Meeting m("Riunione", make_date(2026, 3, 1) + 10h, 1h, "Aula Magna");
+    Meeting m("Riunione", 1h, "Aula Magna",
+              std::make_shared<SingleGenerator>(make_date(2026, 3, 1) + 10h));
 
     SECTION("addAttendee/removeAttendee/attendeeCount") {
         REQUIRE(m.addAttendee("Mario"));
@@ -563,7 +565,8 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
     }
 
     SECTION("Meeting: cambia l'inizio, durata e luogo restano") {
-        Meeting meeting("Riunione", start, 1h, "Aula");
+        Meeting meeting("Riunione", 1h, "Aula",
+                        std::make_shared<SingleGenerator>(start));
         meeting.addAttendee("Mario");
         meeting.moveTo(target);
         REQUIRE(meeting.getStart() == target);

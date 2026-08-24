@@ -14,12 +14,14 @@
 
 namespace events {
 
-Meeting::Meeting(const String &title, const TimePoint start,
-                 const Duration duration, const String &location,
+Meeting::Meeting(const String &title, const Duration duration,
+                 const String &location,
                  std::shared_ptr<DateGenerator> generator)
     : Activity(title, duration,
                generator ? std::move(generator)
-                         : std::make_shared<SingleGenerator>(start)),
+                         : std::make_shared<SingleGenerator>(
+                               std::chrono::time_point_cast<std::chrono::seconds>(
+                                   Clock::now()))),
       m_location(location) {}
 
 Meeting *Meeting::clone_impl() const { return new Meeting(*this); }

@@ -76,7 +76,7 @@ MeetingBuilder &MeetingBuilder::addAttendee(const String &attendee) {
 }
 
 Meeting MeetingBuilder::build() const {
-  Meeting meeting(m_title, m_start, m_duration, m_location, resolveGenerator());
+  Meeting meeting(m_title, m_duration, m_location, resolveGenerator());
   for (const String &attendee : m_attendees) {
     meeting.addAttendee(attendee);
   }
