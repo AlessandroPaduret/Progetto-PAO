@@ -22,6 +22,8 @@ std::vector<TimePoint> SingleGenerator::generateDates(TimePoint from,
   return {};
 }
 
+bool SingleGenerator::isIn(TimePoint tp) const { return tp == m_point; }
+
 String SingleGenerator::describe() const {
   std::ostringstream oss;
   oss << "[SingleGenerator] at " << formatDateTime(m_point);

@@ -57,6 +57,9 @@ public:
     /** @brief Genera le date comprese nell'intervallo [from, to] (inclusivo) */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
+    /** @return true se `tp` e' una data generata dalla serie */
+    bool isIn(TimePoint tp) const override;
+
     /** @return Descrizione testuale del generatore (solo visualizzazione) */
     String describe() const override;
 

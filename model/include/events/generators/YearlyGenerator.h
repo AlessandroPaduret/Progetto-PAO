@@ -50,6 +50,9 @@ public:
      *  @return Un vettore di TimePoint che rappresentano le date generate
     */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
+
+    /** @return true se `tp` e' una data generata dalla ricorrenza annuale */
+    bool isIn(TimePoint tp) const override;
     
     /** @brief Restituisce una descrizione del generatore di date
     *  @return Una stringa che descrive il generatore di date

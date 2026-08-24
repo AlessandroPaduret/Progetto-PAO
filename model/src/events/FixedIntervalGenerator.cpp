@@ -63,6 +63,22 @@ FixedIntervalGenerator::generateDates(const TimePoint from,
     return dates;
 }
 
+bool FixedIntervalGenerator::isIn(TimePoint tp) const {
+  if (tp < m_start || tp > m_end) {
+    return false;
+  }
+  const Duration offset = tp - m_start;
+  if (offset < Duration::zero() || offset % m_interval != Duration::zero()) {
+    return false;
+  }
+  if (m_maxOccurrences > 0) {
+    const std::size_t index = static_cast<std::size_t>(offset / m_interval);
+    if (index >= m_maxOccurrences) {
+      return false;
+    }
+  }
+  return true;
+}
 
 String FixedIntervalGenerator::describe() const {
     std::ostringstream oss;

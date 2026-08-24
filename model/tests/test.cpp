@@ -83,6 +83,135 @@ TEST_CASE("Event valida la durata", "[Activity][validation]") {
     }
 }
 
+TEST_CASE("DateGenerator::isIn riconosce le date generabili", "[isIn]") {
+    TimePoint start = make_date(2026, 1, 1);
+
+    SECTION("SingleGenerator") {
+        SingleGenerator gen(start);
+        REQUIRE(gen.isIn(start));
+        REQUIRE_FALSE(gen.isIn(start + 1h));
+    }
+
+    SECTION("FixedIntervalGenerator") {
+        FixedIntervalGenerator gen(start, Days(7), start + 3_weeks);
+        REQUIRE(gen.isIn(start));
+        REQUIRE(gen.isIn(start + 2_weeks));
+        REQUIRE_FALSE(gen.isIn(start + 1h));       // non allineato
+        REQUIRE_FALSE(gen.isIn(start + 4_weeks));  // oltre la fine
+        REQUIRE_FALSE(gen.isIn(start - 1_weeks));  // prima dell'inizio
+    }
+
+    SECTION("FixedIntervalGenerator con limite occorrenze") {
+        FixedIntervalGenerator gen(start, Days(7), TimePoint::max(), 3);
+        REQUIRE(gen.isIn(start));
+        REQUIRE(gen.isIn(start + 2_weeks));
+        REQUIRE_FALSE(gen.isIn(start + 3_weeks));  // oltre maxOccurrences
+    }
+
+    SECTION("MonthlyGenerator") {
+        MonthlyGenerator gen(make_date(2026, 1, 15));
+        REQUIRE(gen.isIn(make_date(2026, 1, 15)));
+        REQUIRE(gen.isIn(make_date(2026, 3, 15)));
+        REQUIRE_FALSE(gen.isIn(make_date(2026, 2, 15) + 1h)); // ora diversa
+        REQUIRE_FALSE(gen.isIn(make_date(2026, 2, 20)));      // giorno diverso
+    }
+
+    SECTION("MonthlyGenerator con clamping del giorno") {
+        MonthlyGenerator gen(make_date(2026, 1, 31));
+        REQUIRE(gen.isIn(make_date(2026, 1, 31)));
+        REQUIRE(gen.isIn(make_date(2026, 2, 28)));  // 31/1 -> 28/2
+        REQUIRE_FALSE(gen.isIn(make_date(2026, 2, 31)));
+    }
+
+    SECTION("YearlyGenerator") {
+        YearlyGenerator gen(make_date(2026, 3, 10));
+        REQUIRE(gen.isIn(make_date(2026, 3, 10)));
+        REQUIRE(gen.isIn(make_date(2027, 3, 10)));
+        REQUIRE_FALSE(gen.isIn(make_date(2027, 3, 11)));
+    }
+
+    SECTION("YearlyGenerator leap-aware (29/2 -> 28/2)") {
+        YearlyGenerator gen(make_date(2028, 2, 29));
+        REQUIRE(gen.isIn(make_date(2028, 2, 29)));
+        REQUIRE(gen.isIn(make_date(2029, 2, 28)));  // anno non bisestile
+        REQUIRE_FALSE(gen.isIn(make_date(2029, 2, 29)));
+    }
+
+    SECTION("NullGenerator") {
+        NullGenerator gen;
+        REQUIRE_FALSE(gen.isIn(start));
+    }
+}
+
+TEST_CASE("addException accetta solo date generabili", "[exception][isIn]") {
+    TimePoint start = make_date(2026, 1, 1);
+
+    SECTION("evento singolo: solo l'unica occorrenza") {
+        Activity event("X", start, 1h);
+        REQUIRE(event.addException(start));             // occorrenza reale
+        REQUIRE_FALSE(event.addException(start + 1h));  // non generabile
+        REQUIRE(event.getExceptions().size() == 1);
+    }
+
+    SECTION("serie: rifiuta date fuori dalla ricorrenza") {
+        Activity event = ActivityBuilder("Settimanale", start)
+                             .addGenerator(std::make_shared<FixedIntervalGenerator>(
+                                 start, Days(7), start + 3_weeks))
+                             .build();
+        REQUIRE(event.addException(start + 1_weeks));           // occorrenza reale
+        REQUIRE_FALSE(event.addException(start + 1h));          // non allineata
+        REQUIRE_FALSE(event.addException(start + 4_weeks));     // oltre la fine
+        REQUIRE(event.getExceptions().size() == 1);
+    }
+}
+
+TEST_CASE("Task: stato di completamento per occorrenza", "[task][done]") {
+    TimePoint start = make_date(2026, 1, 1);
+
+    SECTION("task singolo: isDone()/setDone() sull'unica occorrenza") {
+        Task task("Consegna", start, Priority::High);
+        REQUIRE_FALSE(task.isDone());
+        REQUIRE_FALSE(task.isDone(start));
+        REQUIRE(task.setDone());
+        REQUIRE(task.isDone());
+        REQUIRE(task.isDone(start));
+        task.setDone(start, false);
+        REQUIRE_FALSE(task.isDone());
+        REQUIRE_FALSE(task.isDone(start));
+    }
+
+    SECTION("task ricorrente: occorrenze indipendenti") {
+        Task task("Ripasso", start, Priority::Medium,
+                  std::make_shared<FixedIntervalGenerator>(start, Days(7),
+                                                           start + 3_weeks));
+        const TimePoint second = start + 1_weeks;
+        const TimePoint third = start + 2_weeks;
+
+        task.setDone(second);
+        REQUIRE_FALSE(task.isDone(start));
+        REQUIRE(task.isDone(second));
+        REQUIRE_FALSE(task.isDone(third));
+
+        task.setDone(third, true);
+        REQUIRE(task.isDone(second));
+        REQUIRE(task.isDone(third));
+
+        task.setDone(second, false);
+        REQUIRE_FALSE(task.isDone(second));
+        REQUIRE(task.isDone(third));
+        REQUIRE(task.getDoneOccurrences().size() == 1);
+    }
+
+    SECTION("isOverdue per occorrenza") {
+        Task task("Scadenza", start, Priority::High);
+        REQUIRE(task.isOverdue(start, start + 1h));
+        REQUIRE_FALSE(task.isOverdue(start, start));
+        task.setDone(start);
+        REQUIRE_FALSE(task.isOverdue(start, start + 1h));  // evasa non scade
+        REQUIRE(task.timeRemaining(start, start - 1h) == 1h);
+    }
+}
+
 /*
 
 TEST_CASE("Stato di completamento (solo su Task)", "[state]") {

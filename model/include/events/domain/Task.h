@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include "events/core/Activity.h"
@@ -19,16 +20,17 @@ enum class Priority { Low, Medium, High };
  * @class Task
  * @brief Compito da svolgere: sotto-classe di Activity con scadenza
  *        (istante o giorno limite), una priorita' e uno stato di
- *        completamento (evaso/non evaso).
+ *        completamento PER OCCORRENZA (evaso/non evaso).
  *
- * Compare nella timeline come punto sulla data di scadenza; la spunta e'
- * l'interazione principale (meccanica "agenda con stati"). La scadenza e'
- * l'istante di riferimento ereditato (getStart() == getDue()).
+ * Un compito e' spuntabile; la spunta riguarda una singola occorrenza
+ * (identificata dal suo istante), non l'intero compito: le occorrenze evase
+ * sono tenute in un insieme di TimePoint (m_doneOccurrences). La scadenza
+ * e' l'istante di riferimento ereditato (getStart() == getDue()).
  */
 class Task : public Activity {
 private:
     Priority m_priority;  ///< Priorita' del compito
-    bool m_done = false;  ///< Stato di completamento (evaso/non evaso)
+    std::unordered_set<TimePoint, TimePointHasher> m_doneOccurrences;  ///< Occorrenze evase
 
 protected:
     Task* clone_impl() const override;
@@ -58,26 +60,38 @@ public:
     /** @brief Imposta la priorita' del compito */
     void setPriority(Priority priority);
 
-    /** @return true se il compito e' stato evaso */
+    /** @return true se l'occorrenza all'istante `tp` e' evasa */
+    bool isDone(TimePoint tp) const;
+
+    /** @brief Segna come evasa/non evasa l'occorrenza all'istante `tp` */
+    void setDone(TimePoint tp, bool done = true);
+
+    /** @return true se l'occorrenza (unica) del compito singolo e' evasa
+     *  (alias: stato dell'occorrenza a getStart()). */
     bool isDone() const;
 
-    /** @brief Segna il compito come evaso/non evaso */
-    void setDone(bool done = true);
+    /** @brief Segna come evasa/non evasa l'occorrenza singola (getStart()).
+     *  @return true se `tp` (o getStart() quando assente) e' una data
+     *          generabile ed e' stata aggiornata */
+    bool setDone(bool done = true);
 
     /** @return true se un compito e' sempre spuntabile (unico tipo con stato) */
     bool isCheckable() const;
 
-    /** @return true se il compito e' stato spuntato (alias di isDone) */
-    bool isChecked() const;
+    /** @return true se l'occorrenza `tp` e' spuntata (alias di isDone(tp)) */
+    bool isChecked(TimePoint tp) const;
 
-    /** @brief Spunta/sblocca il compito (alias di setDone) */
-    void setChecked(bool checked = true);
+    /** @brief Spunta/sblocca l'occorrenza `tp` (alias di setDone(tp)) */
+    void setChecked(TimePoint tp, bool checked = true);
 
-    /** @return true se non e' evaso e l'istante indicato e' successivo alla scadenza */
-    bool isOverdue(TimePoint now) const;
+    /** @return L'insieme delle occorrenze evase (read-only) */
+    const std::unordered_set<TimePoint, TimePointHasher>& getDoneOccurrences() const;
 
-    /** @return Tempo mancante alla scadenza rispetto a now (negativo se scaduto) */
-    Duration timeRemaining(TimePoint now) const;
+    /** @return true se l'occorrenza `tp` non e' evasa e `now` e' successivo a `tp` */
+    bool isOverdue(TimePoint tp, TimePoint now) const;
+
+    /** @return Tempo mancante a `tp` rispetto a now (negativo se scaduto) */
+    Duration timeRemaining(TimePoint tp, TimePoint now) const;
 
     /** @return Etichetta testuale della priorita' (solo per visualizzazione) */
     static String priorityLabel(Priority priority);

@@ -26,6 +26,9 @@ public:
         return {};
     }
 
+    /** @brief Non contiene mai alcuna data (null object) */
+    bool isIn(TimePoint) const override { return false; }
+
     /** @return Una descrizione testuale del generatore */
     String describe() const override { return "[NullGenerator]"; }
 

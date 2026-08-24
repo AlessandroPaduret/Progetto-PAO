@@ -43,6 +43,9 @@ public:
     /** @brief Genera l'unica data se e' compresa in [from, to] (inclusivo) */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
+    /** @return true se `tp` coincide con l'unica data generata */
+    bool isIn(TimePoint tp) const override;
+
     /** @return Una descrizione testuale del generatore */
     String describe() const override;
 

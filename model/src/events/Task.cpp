@@ -1,5 +1,6 @@
 #include <chrono>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include "events/core/ActivityVisitor.h"
@@ -28,21 +29,49 @@ Priority Task::getPriority() const { return m_priority; }
 
 void Task::setPriority(const Priority priority) { m_priority = priority; }
 
-bool Task::isDone() const { return m_done; }
+bool Task::isDone(const TimePoint tp) const {
+  return m_doneOccurrences.find(tp) != m_doneOccurrences.end();
+}
 
-void Task::setDone(const bool done) { m_done = done; }
+void Task::setDone(const TimePoint tp, const bool done) {
+  if (done) {
+    m_doneOccurrences.insert(tp);
+  } else {
+    m_doneOccurrences.erase(tp);
+  }
+}
+
+bool Task::isDone() const { return isDone(getStart()); }
+
+bool Task::setDone(const bool done) {
+  if (!getGenerator()->isIn(getStart())) {
+    return false;
+  }
+  setDone(getStart(), done);
+  return true;
+}
 
 bool Task::isCheckable() const { return true; }
 
-bool Task::isChecked() const { return isDone(); }
+bool Task::isChecked(const TimePoint tp) const { return isDone(tp); }
 
-void Task::setChecked(const bool checked) { setDone(checked); }
-
-bool Task::isOverdue(const TimePoint now) const {
-  return !isDone() && now > getStart();
+void Task::setChecked(const TimePoint tp, const bool checked) {
+  setDone(tp, checked);
 }
 
-Duration Task::timeRemaining(const TimePoint now) const { return getStart() - now; }
+const std::unordered_set<TimePoint, TimePointHasher> &
+Task::getDoneOccurrences() const {
+  return m_doneOccurrences;
+}
+
+bool Task::isOverdue(const TimePoint tp, const TimePoint now) const {
+  return !isDone(tp) && now > tp;
+}
+
+Duration Task::timeRemaining(const TimePoint tp,
+                             const TimePoint now) const {
+  return tp - now;
+}
 
 String Task::priorityLabel(const Priority priority) {
   switch (priority) {

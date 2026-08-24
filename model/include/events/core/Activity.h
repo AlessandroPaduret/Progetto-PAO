@@ -80,8 +80,14 @@ public:
     /** @return L'insieme delle eccezioni (date delle occorrenze escluse) */
     const std::unordered_set<TimePoint, TimePointHasher>& getExceptions() const;
 
-    /** @brief Aggiunge un'eccezione su una specifica occorrenza */
-    void addException(TimePoint tp);
+    /** @brief Aggiunge un'eccezione su una specifica occorrenza.
+     *         L'eccezione e' accettata SOLO se `tp` e' una data generabile
+     *         dal generatore (isIn): niente date arbitrarie fuori dalla serie.
+     *  @param tp L'istante dell'occorrenza da escludere
+     *  @return true se l'eccezione e' stata aggiunta, false se `tp` non e'
+     *          una data generabile
+     */
+    bool addException(TimePoint tp);
 
     /** @brief Elimina l'eccezione associata a una specifica occorrenza */
     void deleteExceptions(TimePoint tp);

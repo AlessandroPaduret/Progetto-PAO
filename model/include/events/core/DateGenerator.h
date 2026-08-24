@@ -33,6 +33,15 @@ public:
      *  @return Un vettore di TimePoint che rappresentano le date generate
     */
     virtual std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const = 0;
+
+    /** @brief Verifica se `tp` e' una data generabile da questo generatore.
+     *         Coerente con generateDates: restituisce true se e solo se
+     *         tp compare tra le occorrenze prodotte (vincoli di fine,
+     *         limite di occorrenze e allineamento inclusi).
+     *  @param tp L'istante da verificare
+     *  @return true se `tp` e' una data generata dal generatore
+     */
+    virtual bool isIn(TimePoint tp) const = 0;
     
     /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(...) del tipo concreto */
     virtual void accept(DateGeneratorVisitor& visitor) const = 0;

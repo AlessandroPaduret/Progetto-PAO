@@ -56,6 +56,9 @@ public:
     /** @brief Genera le date mensili in [from, to] (inclusivo) */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
+    /** @return true se `tp` e' una data generata dalla serie mensile */
+    bool isIn(TimePoint tp) const override;
+
 
     /** @return Descrizione testuale (solo visualizzazione) */
     String describe() const override;

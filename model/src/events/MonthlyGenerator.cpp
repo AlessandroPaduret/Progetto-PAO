@@ -58,6 +58,52 @@ std::vector<TimePoint> MonthlyGenerator::generateDates(
   return dates;
 }
 
+bool MonthlyGenerator::isIn(TimePoint tp) const {
+  if (tp < m_start || tp > m_end) {
+    return false;
+  }
+
+  const std::chrono::sys_days baseDays =
+      std::chrono::floor<std::chrono::days>(m_start);
+  const Duration timeOffset = m_start - baseDays;
+  const std::chrono::year_month_day base =
+      std::chrono::year_month_day{baseDays};
+  const std::chrono::year_month baseYm = base.year() / base.month();
+
+  const std::chrono::sys_days tpDays = std::chrono::floor<std::chrono::days>(tp);
+  if (tp - tpDays != timeOffset) {
+    // l'ora del giorno non corrisponde a quella di m_start
+    return false;
+  }
+  const std::chrono::year_month_day tpYmd{tpDays};
+  const std::chrono::year_month tpYm = tpYmd.year() / tpYmd.month();
+
+  // Numero di passi (di m_months mesi) necessari a raggiungere il mese di tp.
+  const int monthsBetween =
+      static_cast<int>((tpYm.year() - baseYm.year()).count()) * 12 +
+      static_cast<int>(static_cast<unsigned>(tpYm.month())) -
+      static_cast<int>(static_cast<unsigned>(baseYm.month()));
+  if (monthsBetween < 0 || monthsBetween % m_months != 0) {
+    return false;
+  }
+  const std::size_t k = static_cast<std::size_t>(monthsBetween / m_months);
+
+  if (m_maxOccurrences > 0 && k >= m_maxOccurrences) {
+    return false;
+  }
+
+  // Il candidato per quel passo (con clamping del giorno) deve coincidere con tp.
+  const auto shiftedYm = baseYm + std::chrono::months{monthsBetween};
+  std::chrono::year_month_day candidate = shiftedYm / base.day();
+  if (!candidate.ok()) {
+    candidate = std::chrono::year_month_day{shiftedYm / std::chrono::last};
+  }
+  const TimePoint candidateTp =
+      std::chrono::time_point_cast<Duration>(std::chrono::sys_days{candidate}) +
+      timeOffset;
+  return candidateTp == tp;
+}
+
 String MonthlyGenerator::describe() const {
   std::ostringstream oss;
   oss << "[MonthlyGenerator] every " << m_months << " month(s) starting at "

@@ -55,7 +55,14 @@ Activity::getExceptions() const {
   return m_exceptions;
 }
 
-void Activity::addException(TimePoint tp) { m_exceptions.insert(tp); }
+bool Activity::addException(TimePoint tp) {
+  // L'eccezione deve essere una data effettivamente generata dalla serie:
+  // niente occorrenze arbitrarie che non appartengono al generatore.
+  if (!m_generator->isIn(tp)) {
+    return false;
+  }
+  return m_exceptions.insert(tp).second;
+}
 
 void Activity::deleteExceptions(TimePoint tp) { m_exceptions.erase(tp); }
 

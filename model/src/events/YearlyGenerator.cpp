@@ -74,6 +74,37 @@ std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint 
     return dates;
 }
 
+bool YearlyGenerator::isIn(TimePoint tp) const {
+  if (tp < m_start || tp > m_end) {
+    return false;
+  }
+
+  auto start_ds = floor<days>(m_start);
+  year_month_day original = year_month_day{start_ds};
+  auto month = original.month();
+  auto day = original.day();
+
+  auto tp_ds = floor<days>(tp);
+  // l'ora del giorno deve corrispondere a quella di m_start
+  if (tp_ds + (m_start - start_ds) != tp) {
+    return false;
+  }
+
+  year_month_day candidate = year_month_day{tp_ds}.year() / month / day;
+  if (!candidate.ok()) {
+    candidate = year_month_day{tp_ds}.year() / month / 28;
+  }
+
+  const year base_year = original.year();
+  const year tp_year = year_month_day{tp_ds}.year();
+  if (m_maxOccurrences > 0 &&
+      (tp_year - base_year).count() >= static_cast<int>(m_maxOccurrences)) {
+    return false;
+  }
+
+  return sys_days{candidate} == tp_ds;
+}
+
 String YearlyGenerator::describe() const {
     std::ostringstream oss;
     auto start_ymd = year_month_day{floor<days>(m_start)};

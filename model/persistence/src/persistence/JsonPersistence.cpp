@@ -84,18 +84,7 @@ bool stringFromJson(const QJsonObject &json, const char *key, QString &out,
   return true;
 }
 
-bool boolFromJson(const QJsonObject &json, const char *key, bool &out,
-                  QString *error) {
-  const QJsonValue value = json.value(QLatin1String(key));
-  if (!value.isBool()) {
-    setError(error, QString("Campo mancante o non valido: %1")
-                        .arg(QLatin1String(key)));
-    return false;
-  }
-  out = value.toBool();
-  return true;
-}
-
+// ------------- Visitor di serializzazione dei generatori -------------
 // ------------- Visitor di serializzazione dei generatori -------------
 
 class JsonGeneratorVisitor : public events::DateGeneratorVisitor {
@@ -175,7 +164,11 @@ public:
     object.insert(QLatin1String("due"), iso(task.getDue()));
     object.insert(QLatin1String("priority"),
                   priorityKey(task.getPriority()));
-    object.insert(QLatin1String("done"), task.isDone());
+    QJsonArray done;
+    for (const TimePoint tp : task.getDoneOccurrences()) {
+      done.append(iso(tp));
+    }
+    object.insert(QLatin1String("done_occurrences"), done);
     writeRecurrence(task);
   }
 
@@ -384,10 +377,20 @@ std::unique_ptr<events::Task> taskFromJson(const QJsonObject &json,
   for (const TimePoint tp : exceptions) {
     task->addException(tp);
   }
-  if (json.contains(QLatin1String("done"))) {
-    bool done = false;
-    if (!boolFromJson(json, "done", done, error)) return nullptr;
-    task->setDone(done);
+  const QJsonValue doneValue = json.value(QLatin1String("done_occurrences"));
+  if (doneValue.isArray()) {
+    for (const QJsonValue &value : doneValue.toArray()) {
+      if (!value.isString()) {
+        setError(error, "Occorrenza evasa non valida nell'elenco done_occurrences");
+        return nullptr;
+      }
+      TimePoint tp;
+      if (!events::parseIso8601(value.toString().toStdString(), tp)) {
+        setError(error, "Data di occorrenza evasa non valida: " + value.toString());
+        return nullptr;
+      }
+      task->setDone(tp, true);
+    }
   }
   return task;
 }
