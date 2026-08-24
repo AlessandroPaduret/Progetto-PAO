@@ -14,7 +14,6 @@ namespace events {
 class FixedIntervalGenerator;
 class MonthlyGenerator;
 class YearlyGenerator;
-class NullGenerator;
 class SingleGenerator;
 
 /**
@@ -49,7 +48,6 @@ public:
     void visit(const FixedIntervalGenerator& generator) override;
     void visit(const MonthlyGenerator& generator) override;
     void visit(const YearlyGenerator& generator) override;
-    void visit(const NullGenerator& generator) override;
     void visit(const SingleGenerator& generator) override;
 };
 

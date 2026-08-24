@@ -137,11 +137,6 @@ TEST_CASE("DateGenerator::isIn riconosce le date generabili", "[isIn]") {
         REQUIRE(gen.isIn(make_date(2029, 2, 28)));  // anno non bisestile
         REQUIRE_FALSE(gen.isIn(make_date(2029, 2, 29)));
     }
-
-    SECTION("NullGenerator") {
-        NullGenerator gen;
-        REQUIRE_FALSE(gen.isIn(start));
-    }
 }
 
 TEST_CASE("addException accetta solo date generabili", "[exception][isIn]") {

@@ -24,7 +24,6 @@
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
-#include "events/generators/NullGenerator.h"
 #include "events/generators/MoveGeneratorVisitor.h"
 
 #endif  // EVENTS_ALL_H

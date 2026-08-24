@@ -6,7 +6,6 @@ namespace events {
 class FixedIntervalGenerator;
 class MonthlyGenerator;
 class YearlyGenerator;
-class NullGenerator;
 class SingleGenerator;
 
 /**
@@ -22,7 +21,6 @@ public:
     virtual void visit(const FixedIntervalGenerator& generator) = 0;
     virtual void visit(const MonthlyGenerator& generator) = 0;
     virtual void visit(const YearlyGenerator& generator) = 0;
-    virtual void visit(const NullGenerator& generator) = 0;
     virtual void visit(const SingleGenerator& generator) = 0;
 };
 

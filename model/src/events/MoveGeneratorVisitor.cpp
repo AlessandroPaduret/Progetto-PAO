@@ -4,7 +4,6 @@
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/MoveGeneratorVisitor.h"
-#include "events/generators/NullGenerator.h"
 #include "events/generators/SingleGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 
@@ -44,10 +43,6 @@ void MoveGeneratorVisitor::visit(const YearlyGenerator &generator) {
   }
   result = std::make_shared<YearlyGenerator>(start, end,
                                              generator.getMaxOccurrences());
-}
-
-void MoveGeneratorVisitor::visit(const NullGenerator &) {
-  result = std::make_shared<NullGenerator>();
 }
 
 void MoveGeneratorVisitor::visit(const SingleGenerator &generator) {

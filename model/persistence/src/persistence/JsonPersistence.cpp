@@ -15,7 +15,6 @@
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
-#include "events/generators/NullGenerator.h"
 #include "events/generators/SingleGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 
@@ -129,10 +128,6 @@ public:
       object.insert(QLatin1String("max_occurrences"),
                     QJsonValue(qint64(generator.getMaxOccurrences())));
     }
-  }
-
-  void visit(const events::NullGenerator &) override {
-    object.insert(QLatin1String("type"), QLatin1String("null"));
   }
 
   void visit(const events::SingleGenerator &generator) override {
@@ -339,9 +334,6 @@ std::shared_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json
     std::size_t maxOcc = 0;
     if (!readMaxOccurrences(maxOcc)) return nullptr;
     return std::make_shared<events::YearlyGenerator>(start, end, maxOcc);
-  }
-  if (type == QLatin1String("null")) {
-    return std::make_shared<events::NullGenerator>();
   }
   setError(error, "Tipo di generatore sconosciuto: " + type);
   return nullptr;
