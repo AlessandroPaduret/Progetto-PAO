@@ -33,12 +33,6 @@ void Activity::setTitle(const String &title) { m_title = title; }
 
 TimePoint Activity::getStart() const { return m_generator->getStart(); }
 
-void Activity::setStart(TimePoint start) {
-  MoveGeneratorVisitor visitor(start, std::nullopt);
-  m_generator->accept(visitor);
-  m_generator = visitor.result;
-}
-
 Duration Activity::getDuration() const { return m_duration; }
 
 void Activity::setDuration(Duration duration) {

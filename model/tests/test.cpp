@@ -55,8 +55,9 @@ TEST_CASE("ActivityBuilder per un evento settimanale", "[ActivityBuilder][FixedI
     SECTION("truncateBefore esclude le occorrenze successive") {
         event.truncateBefore(start + std::chrono::weeks(2));
         auto instances = event.occurrencesIn(start, start + 4_weeks);
-        REQUIRE(instances.size() == 1);
+        REQUIRE(instances.size() == 2);
         REQUIRE(instances[0].start == start);
+        REQUIRE(instances[1].start == start + std::chrono::weeks(1));
     }
 }
 

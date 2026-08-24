@@ -2,7 +2,6 @@
 #define DATEGENERATOR_H
 
 #include <vector>
-#include <chrono>
 
 #include "events/core/CommonTypes.h"
 
@@ -10,20 +9,23 @@ namespace events {
 
 class DateGeneratorVisitor;
 
+/**
+ * @class DateGenerator
+ * @brief Interfaccia (Strategy) per la generazione delle date di un'attivita'.
+ *
+ * E' un'interfaccia pura SENZA stato: i generatori concreti sono immutabili,
+ * tutta la configurazione (inizio, intervallo, fine, limite di occorrenze)
+ * entra dal costruttore e viene esposta solo tramite accessor read-only.
+ * Per spostare/troncare un generatore si usa MoveGeneratorVisitor, che ne
+ * ricostruisce uno nuovo: non esistono setter pubblici.
+ */
 class DateGenerator {
-private:
-    TimePoint m_start;
 public:
     /** @brief Distruttore virtuale */
     virtual ~DateGenerator() = default;
 
-    /** @brief Imposta la prima data che genera
-     *  @return L'istante della prima data generata */
-    TimePoint getStart() const;
-
-    /** @brief Imposta la prima data che genera
-     *  @return L'istante della prima data generata */
-    void setStart(TimePoint newStart);
+    /** @return L'istante della prima data generata (read-only) */
+    virtual TimePoint getStart() const = 0;
 
     /** @brief Genera le date comprese nell'intervallo [from, to] 
      *  @param from Data di inizio dell'intervallo

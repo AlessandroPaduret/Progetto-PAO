@@ -62,9 +62,6 @@ public:
     /** @return L'istante di riferimento (inizio) dell'attivita' */
     TimePoint getStart() const;
 
-    /** @brief Imposta l'istante di riferimento (inizio) */
-    void setStart(TimePoint start);
-
     /** @return La durata dell'occorrenza */
     Duration getDuration() const;
 
@@ -101,7 +98,9 @@ public:
     /** @brief Espande le occorrenze in [from, to] (inclusivo) escludendo le eccezioni */
     virtual std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const;
 
-    /** @brief Sposta l'attivita' al nuovo istante (serie traslata, eccezioni svuotate). */
+    /** @brief Sposta l'attivita' al nuovo istante (serie traslata, eccezioni svuotate).
+     *         Unica operazione di spostamento: ricostruisce il generatore tramite
+     *         MoveGeneratorVisitor (nessun setter sui generatori immutabili). */
     virtual void moveTo(TimePoint newStart);
 
     /** @return Descrizione testuale dell'attivita' (solo visualizzazione) */
