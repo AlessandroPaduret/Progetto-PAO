@@ -90,8 +90,8 @@ API: all routes except `/api/login` and `/api/register` require `Authorization: 
 
 ## Gotchas
 
-- `FixedIntervalGenerator::generateDates` / `RecurrentEvent::getSchedulable` / `Activity::occurrencesIn` ranges are INCLUSIVE on both ends (`while (current <= to)`). To get N weekly occurrences from a recurrence starting at `start`, query `[start, start + (N-1)*1_weeks]`.
-- `tests/test.cpp` defines its own `main()` via `Catch::Session`, so the CMake target links `Catch2::Catch2` (NOT `Catch2::Catch2WithMain`).
+- `FixedIntervalGenerator::generateDates` / `Activity::occurrencesIn` ranges are INCLUSIVE on both ends (`while (current <= to)`). To get N weekly occurrences from a recurrence starting at `start`, query `[start, start + (N-1)*1_weeks]`.
+- I test del modello (`tests/test.cpp`, `tests/test_persistence.cpp`) NON definiscono un proprio `main()`: il target CMake linka `Catch2::Catch2WithMain`. (Nota: `app/tests/test_controller.cpp` definisce il proprio `main` via `Catch::Session` e linka `Catch2::Catch2`.)
 - Calendar literals like `2026y/2/28` compile under `-std=c++20` without extra flags; `_weeks`/`_years` literals live in `namespace events` (`CommonTypes.h`). There is NO `_days` literal — use `Days(n)`.
 - In `server/`, headers live in `server/src/` which is on the include path: do NOT name one `time.h` (it shadows `<time.h>` included by `<ctime>` → circular include, cryptic compile errors). The ISO-8601 helpers are `iso8601.h`.
 - `cpp-httplib` < 0.19 does not compile with GCC 13.2 (Ubuntu 24.04); the CMake pins v0.20.0. Regex route captures are exposed via `req.matches` (v0.20.0 handlers take `(req, res)` only).
