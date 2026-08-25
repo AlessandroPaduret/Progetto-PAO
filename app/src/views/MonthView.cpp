@@ -287,7 +287,7 @@ void MonthView::mousePressEvent(QMouseEvent* event) {
             QAction* modifyAction = menu.addAction(tr("Modifica"));
             const bool recurrent = isRecurrent(m_occurrences[index].source);
             QAction* modifyInstanceAction =
-                isRecurrent ? menu.addAction(tr("Modifica istanza")) : nullptr;
+                recurrent ? menu.addAction(tr("Modifica istanza")) : nullptr;
             QAction* deleteAction = menu.addAction(tr("Elimina"));
             QAction* chosen = menu.exec(event->globalPosition().toPoint());
             if (chosen == infoAction) {
