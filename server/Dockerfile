@@ -1,4 +1,3 @@
-# Immagine dell'API server REST (server/): cpp-httplib + nlohmann/json + jwt-cpp + libpqxx
 FROM ubuntu:24.04
 
 LABEL maintainer="Marco Zanella <marco.zanella@unipd.it>"
