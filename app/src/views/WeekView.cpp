@@ -10,7 +10,6 @@
 
 #include <algorithm>
 
-#include "events/domain/RecurrentEvent.h"
 #include "views/ViewShared.h"
 
 namespace app {
@@ -437,9 +436,7 @@ void WeekView::mousePressEvent(QMouseEvent* event) {
             QAction* modifyAction = menu.addAction(tr("Modifica"));
             // Per un'attivita' ricorrente: modifica sia la serie sia la singola
             // occorrenza (istanza) selezionata.
-            const bool isRecurrent =
-                dynamic_cast<const events::RecurrentEvent*>(
-                    m_occurrences[index].source) != nullptr;
+            const bool recurrent = isRecurrent(m_occurrences[index].source);
             QAction* modifyInstanceAction =
                 isRecurrent ? menu.addAction(tr("Modifica istanza")) : nullptr;
             QAction* deleteAction = menu.addAction(tr("Elimina"));
@@ -509,9 +506,8 @@ void WeekView::mouseReleaseEvent(QMouseEvent* event) {
             const events::Occurrence& occurrence = m_occurrences[m_dragIndex];
             // Se trascino un'occorrenza successiva alla prima della serie,
             // chiede se spostare la serie o la singola occorrenza.
-            if (const auto* recurrent =
-                    dynamic_cast<const events::RecurrentEvent*>(occurrence.source)) {
-                if (occurrence.start > recurrent->getStart()) {
+            if (isRecurrent(occurrence.source)) {
+                if (occurrence.start > occurrence.source->getStart()) {
                     emit occurrenceDragChoiceRequested(occurrence, *m_dropCell);
                     m_dragIndex = -1;
                     m_dragMoved = false;
@@ -540,9 +536,8 @@ void WeekView::mouseDoubleClickEvent(QMouseEvent* event) {
         m_selected = index;
         update();
         const events::Occurrence& occurrence = m_occurrences[index];
-        if (const auto* recurrent =
-                dynamic_cast<const events::RecurrentEvent*>(occurrence.source)) {
-            if (occurrence.start > recurrent->getStart()) {
+        if (isRecurrent(occurrence.source)) {
+            if (occurrence.start > occurrence.source->getStart()) {
                 emit occurrenceEditChoiceRequested(occurrence);
                 return;
             }

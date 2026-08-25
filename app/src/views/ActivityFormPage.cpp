@@ -25,14 +25,12 @@
 
 #include "CalendarController.h"
 #include "events/domain/ActivityFactory.h"
-#include "events/domain/Anniversary.h"
-#include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
-#include "events/domain/RecurrentEvent.h"
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
+#include "views/ViewShared.h"
 
 namespace app {
 
@@ -89,7 +87,7 @@ QTimeEdit* makeDuration(QWidget* parent) {
 ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* parent)
     : QWidget(parent), m_controller(controller) {
     // La creazione non chiede il tipo: "Evento" e' il pannello "a domande"
-    // che istanzia Event o RecurrentEvent in base alle risposte.
+    // che istanzia un'attivita' singola o una serie in base alle risposte.
     m_typeCombo = new QComboBox(this);
     m_typeCombo->addItem(tr("Evento"));
     m_typeCombo->addItem(tr("Riunione"));
@@ -535,16 +533,16 @@ void ActivityFormPage::startEditActivity(const events::Activity* activity) {
   m_editingOccurrence.reset();
   m_errorLabel->clear();
 
-  if (auto* event = dynamic_cast<const events::Event*>(activity)) {
-    populateEvent(*event);
-  } else if (auto* recurrent = dynamic_cast<const events::RecurrentEvent*>(activity)) {
-    populateRecurrent(*recurrent);
+  // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
+  // generatore. Un anniversario e' un'Activity annuale "tutto il giorno".
+  if (auto* task = dynamic_cast<const events::Task*>(activity)) {
+    populateTask(*task);
   } else if (auto* meeting = dynamic_cast<const events::Meeting*>(activity)) {
     populateMeeting(*meeting);
-  } else if (auto* task = dynamic_cast<const events::Task*>(activity)) {
-    populateTask(*task);
-  } else if (auto* anniversary = dynamic_cast<const events::Anniversary*>(activity)) {
-    populateAnniversary(*anniversary);
+  } else if (isAnniversary(activity)) {
+    populateAnniversary(*activity);
+  } else {
+    populateEventLike(*activity);
   }
   m_typeCombo->setEnabled(false);
   m_doneCheck->setEnabled(true);
@@ -577,35 +575,21 @@ void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence)
   emitPreview();
 }
 
-void ActivityFormPage::populateEvent(const events::Event& event) {
-  m_titleE->setText(QString::fromStdString(event.getTitle()));
-  const QDateTime start = toLocal(event.getStart());
+void ActivityFormPage::populateEventLike(const events::Activity& activity) {
+  m_titleE->setText(QString::fromStdString(activity.getTitle()));
+  const QDateTime start = toLocal(activity.getStart());
   m_startDateE->setDate(start.date());
   m_startTimeE->setTime(start.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
-      static_cast<int>(event.getDuration().count())));
-  m_allDayCheck->setChecked(false);
-  m_repeatCheck->setChecked(false);
-  m_repeatBox->setVisible(false);
-  m_typeCombo->setCurrentIndex(kEventPanel);
-  m_forms->setCurrentIndex(kEventPanel);
-}
-
-void ActivityFormPage::populateRecurrent(const events::RecurrentEvent& event) {
-  const events::Event& templ = event.getTemplateEvent();
-  m_titleE->setText(QString::fromStdString(event.getTitle()));
-  const QDateTime start = toLocal(templ.getStart());
-  m_startDateE->setDate(start.date());
-  m_startTimeE->setTime(start.time());
-  m_durationE->setTime(QTime(0, 0).addSecs(
-      static_cast<int>(templ.getDuration().count())));
-  // "Tutto il giorno" se il template parte a mezzanotte e dura 24h
+      static_cast<int>(activity.getDuration().count())));
+  // "Tutto il giorno" se parte a mezzanotte e copre un giorno intero
   // (l'ora e la durata spariscono, ma la ricorrenza resta configurabile)
   const bool allDay =
-      start.time() == QTime(0, 0) && templ.getDuration().count() == 86400;
+      start.time() == QTime(0, 0) && activity.getDuration().count() >= 86399;
   m_allDayCheck->setChecked(allDay);
-  m_repeatCheck->setChecked(true);
-  m_repeatBox->setVisible(true);
+  const bool recurrent = isRecurrent(&activity);
+  m_repeatCheck->setChecked(recurrent);
+  m_repeatBox->setVisible(recurrent);
 
   for (auto* button : m_dayButtons) {
     button->setChecked(false);
@@ -615,7 +599,7 @@ void ActivityFormPage::populateRecurrent(const events::RecurrentEvent& event) {
   // Legge la regola dal generatore
   std::size_t maxOcc = 0;
   events::TimePoint end = events::TimePoint::max();
-  const events::DateGenerator* gen = event.getGenerator().get();
+  const events::DateGenerator* gen = activity.getGenerator().get();
   if (const auto* fixed =
           dynamic_cast<const events::FixedIntervalGenerator*>(gen)) {
     maxOcc = fixed->getMaxOccurrences();
@@ -692,10 +676,9 @@ void ActivityFormPage::populateTask(const events::Task& task) {
   m_forms->setCurrentIndex(kTaskPanel);
 }
 
-void ActivityFormPage::populateAnniversary(const events::Anniversary& anniversary) {
-  m_titleAn->setText(QString::fromStdString(anniversary.getTitle()));
-  m_dateAn->setDate(QDateTime::fromSecsSinceEpoch(
-      anniversary.getStart().time_since_epoch().count()).date());
+void ActivityFormPage::populateAnniversary(const events::Activity& activity) {
+  m_titleAn->setText(QString::fromStdString(activity.getTitle()));
+  m_dateAn->setDate(toLocal(activity.getStart()).date());
   m_typeCombo->setCurrentIndex(kAnniversaryPanel);
   m_forms->setCurrentIndex(kAnniversaryPanel);
 }
@@ -766,22 +749,19 @@ ActivityFormPage::buildEventActivities() const {
     maxOcc = static_cast<std::size_t>(m_countSpin->value());
   }
 
-  auto pushRecurrent = [&](std::shared_ptr<events::DateGenerator> generator,
-                           events::TimePoint anchor) {
-    result.push_back(std::make_unique<events::RecurrentEvent>(
-        std::move(generator),
-        events::Event(title.toStdString(), anchor, duration)));
+  auto pushRecurrent = [&](std::shared_ptr<events::DateGenerator> generator) {
+    result.push_back(std::make_unique<events::Activity>(
+        title.toStdString(), duration, std::move(generator)));
   };
 
   const int unit = m_unitCombo->currentIndex();
   const int every = m_everySpin->value();
   if (unit == kUnitDays) {
     auto gen = std::make_shared<events::FixedIntervalGenerator>(
-        start, events::Days(every), end);
-    gen->setMaxOccurrences(maxOcc);
-    pushRecurrent(gen, start);
+        start, events::Days(every), end, maxOcc);
+    pushRecurrent(gen);
   } else if (unit == kUnitWeeks) {
-    // Uno o piu' eventi ricorrenti, uno per giorno della settimana scelto.
+    // Una o piu' serie ricorrenti, una per giorno della settimana scelto.
     // Il limite "dopo N occorrenze" vale sul CALENDARIO COMBINATO, non per
     // singola serie: es. lun+mar+mer con N=5 -> sett1 lun/mar/mer + sett2
     // lun/mar = 5 eventi totali. La fine e' quindi la data della N-esima
@@ -825,18 +805,16 @@ ActivityFormPage::buildEventActivities() const {
       const events::TimePoint anchor =
           toTimePoint(QDateTime(startDate.addDays(offset), time));
       auto gen = std::make_shared<events::FixedIntervalGenerator>(
-          anchor, events::Days(7 * every), effectiveEnd);
-      gen->setMaxOccurrences(effectiveMax);
-      pushRecurrent(gen, anchor);
+          anchor, events::Days(7 * every), effectiveEnd, effectiveMax);
+      pushRecurrent(gen);
     }
   } else if (unit == kUnitMonths) {
-    auto gen = std::make_shared<events::MonthlyGenerator>(start, every, end);
-    gen->setMaxOccurrences(maxOcc);
-    pushRecurrent(gen, start);
+    auto gen = std::make_shared<events::MonthlyGenerator>(
+        start, every, end, maxOcc);
+    pushRecurrent(gen);
   } else {  // anno
-    auto gen = std::make_shared<events::YearlyGenerator>(start, end);
-    gen->setMaxOccurrences(maxOcc);
-    pushRecurrent(gen, start);
+    auto gen = std::make_shared<events::YearlyGenerator>(start, end, maxOcc);
+    pushRecurrent(gen);
   }
   return result;
 }
@@ -938,7 +916,7 @@ void ActivityFormPage::onDelete() {
 }
 
 void ActivityFormPage::onSave() {
-  // Pannello Evento "a domande": Event o uno o piu' RecurrentEvent
+  // Pannello Evento "a domande": attivita' singola o una o piu' serie
   if (m_forms->currentIndex() == kEventPanel) {
     auto activities = buildEventActivities();
     if (activities.empty()) {
@@ -954,19 +932,10 @@ void ActivityFormPage::onSave() {
       ok = m_controller->updateActivity(m_editingActivity,
                                         std::move(activities[0]));
       break;
-    case Mode::EditOccurrence: {
-      auto* event = dynamic_cast<events::Event*>(activities[0].get());
-      if (!event) {
-        m_errorLabel->setText(
-            tr("Errore interno nella costruzione dell'evento."));
-        return;
-      }
-      std::unique_ptr<events::Event> replacement(
-          static_cast<events::Event*>(activities[0].release()));
+    case Mode::EditOccurrence:
       ok = m_controller->modifyOccurrence(*m_editingOccurrence,
-                                          std::move(replacement));
+                                          std::move(activities[0]));
       break;
-    }
     }
     if (ok) {
       m_errorLabel->clear();
@@ -991,18 +960,10 @@ void ActivityFormPage::onSave() {
   case Mode::EditActivity:
     ok = m_controller->updateActivity(m_editingActivity, std::move(activity));
     break;
-  case Mode::EditOccurrence: {
-    auto* event = dynamic_cast<events::Event*>(activity.get());
-    if (!event) {
-      m_errorLabel->setText(tr("Errore interno nella costruzione dell'evento."));
-      return;
-    }
-    std::unique_ptr<events::Event> replacement(
-        static_cast<events::Event*>(activity.release()));
+  case Mode::EditOccurrence:
     ok = m_controller->modifyOccurrence(*m_editingOccurrence,
-                                        std::move(replacement));
+                                        std::move(activity));
     break;
-  }
   }
 
   if (ok) {

@@ -4,12 +4,13 @@
 
 #include "events/core/ActivityVisitor.h"
 #include "events/core/DateGeneratorVisitor.h"
-#include "events/domain/Anniversary.h"
-#include "events/domain/Event.h"
 #include "events/domain/Meeting.h"
-#include "events/domain/RecurrentEvent.h"
 #include "events/domain/Task.h"
+#include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
+#include "events/generators/SingleGenerator.h"
+#include "events/generators/YearlyGenerator.h"
+#include "views/ViewShared.h"
 
 namespace app {
 namespace ActivityViewHelpers {
@@ -22,24 +23,27 @@ QString localDateTime(const events::TimePoint tp) {
 }
 
 // --- Visitor: etichetta del tipo (solo per visualizzazione) -----------------
+// Il tipo e' il dispatch dinamico (Activity/Task/Meeting); la ricorrenza si
+// deduce dal generatore. Un anniversario e' un'Activity annuale "tutto il
+// giorno" (come ActivityFactory::createAnniversary).
 class TypeLabelVisitor : public events::ActivityVisitor {
 public:
   QString label;
 
-  void visit(const events::Event&) override {
-    label = QObject::tr("Evento");
-  }
-  void visit(const events::RecurrentEvent&) override {
-    label = QObject::tr("Ricorrente");
+  void visit(const events::Activity& activity) override {
+    if (isAnniversary(&activity)) {
+      label = QObject::tr("Anniversario");
+    } else if (isRecurrent(&activity)) {
+      label = QObject::tr("Ricorrente");
+    } else {
+      label = QObject::tr("Evento");
+    }
   }
   void visit(const events::Task&) override {
     label = QObject::tr("Compito");
   }
   void visit(const events::Meeting&) override {
     label = QObject::tr("Riunione");
-  }
-  void visit(const events::Anniversary&) override {
-    label = QObject::tr("Anniversario");
   }
 };
 
@@ -65,8 +69,8 @@ public:
     rule = QObject::tr("%1 mesi").arg(generator.getMonths());
   }
 
-  void visit(const events::NullGenerator&) override {
-    rule = QObject::tr("mai");
+  void visit(const events::SingleGenerator&) override {
+    rule = QObject::tr("una volta");
   }
 };
 
@@ -75,23 +79,30 @@ class SummaryVisitor : public events::ActivityVisitor {
 public:
   QString summary;
 
-  void visit(const events::Event& event) override {
-    summary = localDateTime(event.getStart()) + QLatin1String(", durata ") +
-              durationLabel(event.getDuration());
-  }
-
-  void visit(const events::RecurrentEvent& event) override {
-    RuleVisitor rule;
-    event.getGenerator()->accept(rule);
-    summary = QObject::tr("ogni %1, dal %2")
-                  .arg(rule.rule, localDateTime(event.getStart()));
+  void visit(const events::Activity& activity) override {
+    if (isAnniversary(&activity)) {
+      summary = QObject::tr("ogni anno, dal %1")
+                    .arg(QDateTime::fromSecsSinceEpoch(
+                             activity.getStart().time_since_epoch().count())
+                             .toString(QStringLiteral("dd/MM")));
+      return;
+    }
+    if (isRecurrent(&activity)) {
+      RuleVisitor rule;
+      activity.getGenerator()->accept(rule);
+      summary = QObject::tr("ogni %1, dal %2")
+                    .arg(rule.rule, localDateTime(activity.getStart()));
+      return;
+    }
+    summary = localDateTime(activity.getStart()) + QLatin1String(", durata ") +
+              durationLabel(activity.getDuration());
   }
 
   void visit(const events::Task& task) override {
     summary = localDateTime(task.getDue());
     if (task.isDone()) {
       summary += QLatin1String(" (") + QObject::tr("evaso") + QLatin1Char(')');
-    } else if (task.isOverdue(std::chrono::time_point_cast<events::Duration>(
+    } else if (task.isOverdue(task.getDue(), std::chrono::time_point_cast<events::Duration>(
                    events::Clock::now()))) {
       summary += QLatin1String(" (") + QObject::tr("scaduto") + QLatin1Char(')');
     }
@@ -105,25 +116,6 @@ public:
                  QString::fromStdString(meeting.getLocation());
     }
   }
-
-void visit(const events::Anniversary& anniversary) override {
-    summary = QObject::tr("ogni anno, dal %1")
-                  .arg(QDateTime::fromSecsSinceEpoch(
-                           anniversary.getStart().time_since_epoch().count())
-                           .toString(QStringLiteral("dd/MM")));
-  }
-
-private:
-  static QString durationLabel(const events::Duration duration) {
-    const qint64 minutes = duration.count() / 60;
-    if (minutes < 60) {
-      return QObject::tr("%1 min").arg(minutes);
-    }
-    if (minutes % 60 == 0) {
-      return QObject::tr("%1 h").arg(minutes / 60);
-    }
-    return QObject::tr("%1 h %2 min").arg(minutes / 60).arg(minutes % 60);
-  }
 };
 
 // --- Visitor: righe "campo: valore" specifiche per tipo (per il dettaglio) ---
@@ -131,21 +123,22 @@ class FieldsVisitor : public events::ActivityVisitor {
 public:
   QStringList fields;
 
-  void visit(const events::Event& event) override {
-    fields << QObject::tr("Inizio: %1").arg(localDateTime(event.getStart()))
-           << QObject::tr("Fine: %1").arg(localDateTime(event.getEnd()))
+  void visit(const events::Activity& activity) override {
+    fields << QObject::tr("Inizio: %1")
+                  .arg(localDateTime(activity.getStart()))
+           << QObject::tr("Fine: %1")
+                  .arg(localDateTime(activity.getStart() +
+                                     activity.getDuration()))
            << QObject::tr("Durata: %1")
-                  .arg(durationLabel(event.getDuration()));
-  }
-
-  void visit(const events::RecurrentEvent& event) override {
-    fields << QObject::tr("Regola: %1")
-                  .arg(recurrenceRuleLabel(event))
-           << QObject::tr("Prima occorrenza: %1")
-                  .arg(localDateTime(event.getTemplateEvent().getStart()))
-           << QObject::tr("Durata: %1")
-                  .arg(durationLabel(event.getTemplateEvent().getDuration()))
-           << QObject::tr("Eccezioni: %1").arg(event.getExceptions().size());
+                  .arg(durationLabel(activity.getDuration()));
+    if (isRecurrent(&activity)) {
+      fields << QObject::tr("Regola: %1")
+                    .arg(recurrenceRuleLabel(activity));
+    }
+    if (!activity.getExceptions().empty()) {
+      fields << QObject::tr("Eccezioni: %1")
+                    .arg(static_cast<int>(activity.getExceptions().size()));
+    }
   }
 
   void visit(const events::Task& task) override {
@@ -160,20 +153,15 @@ public:
 
   void visit(const events::Meeting& meeting) override {
     fields << QObject::tr("Inizio: %1").arg(localDateTime(meeting.getStart()))
-           << QObject::tr("Fine: %1").arg(localDateTime(meeting.getEnd()))
+           << QObject::tr("Fine: %1")
+                  .arg(localDateTime(meeting.getStart() +
+                                     meeting.getDuration()))
            << QObject::tr("Durata: %1")
                   .arg(durationLabel(meeting.getDuration()))
            << QObject::tr("Luogo: %1")
                   .arg(QString::fromStdString(meeting.getLocation()))
            << QObject::tr("Partecipanti: %1")
                   .arg(static_cast<int>(meeting.attendeeCount()));
-  }
-
-  void visit(const events::Anniversary& anniversary) override {
-    fields << QObject::tr("Data: %1")
-                  .arg(QDateTime::fromSecsSinceEpoch(
-                           anniversary.getStart().time_since_epoch().count())
-                           .toString(QStringLiteral("dd/MM")));
   }
 };
 
@@ -197,9 +185,9 @@ QStringList fieldLines(const events::Activity& activity) {
   return visitor.fields;
 }
 
-QString recurrenceRuleLabel(const events::RecurrentEvent& event) {
+QString recurrenceRuleLabel(const events::Activity& activity) {
   RuleVisitor visitor;
-  event.getGenerator()->accept(visitor);
+  activity.getGenerator()->accept(visitor);
   return visitor.rule;
 }
 

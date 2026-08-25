@@ -38,8 +38,8 @@ class CalendarController;
  *  si ripete: unita' (giorni/settimane/mesi/anno), "ogni N", per le
  *  settimane i giorni della settimana (pulsanti cliccabili) e la fine
  *  (mai / fino a data / dopo N occorrenze). In base alle risposte viene
- *  istanziato un Event oppure uno o piu' RecurrentEvent (uno per giorno
- *  della settimana selezionato).
+ *  istanziata un'attivita' singola oppure una o piu' serie ricorrenti (una
+ *  per giorno della settimana selezionato).
  *
  *  Gli altri tipi (Riunione, Compito, Tutto il giorno, Anniversario) hanno
  *  un pannello dedicato, scelto dalla combo.
@@ -82,8 +82,8 @@ private:
     void emitPreview();
 
     /** @brief Costruisce le attivita' del pannello Evento "a domande":
-     *  un Event oppure uno o piu' RecurrentEvent (uno per giorno della
-     *  settimana selezionato, per la ricorrenza settimanale). */
+     *  una attivita' singola oppure una o piu' serie ricorrenti (una per
+     *  giorno della settimana selezionato, per la ricorrenza settimanale). */
     std::vector<std::unique_ptr<events::Activity>> buildEventActivities() const;
 
 private:
@@ -97,11 +97,10 @@ private:
     std::unique_ptr<events::Activity> buildActivity() const;
 
     // Popolamento dei campi in modifica
-    void populateEvent(const events::Event& event);
-    void populateRecurrent(const events::RecurrentEvent& event);
+    void populateEventLike(const events::Activity& activity);
     void populateMeeting(const events::Meeting& meeting);
     void populateTask(const events::Task& task);
-    void populateAnniversary(const events::Anniversary& anniversary);
+    void populateAnniversary(const events::Activity& activity);
 
     // Campi comuni per pannello (titolo/data/durata) e loro sincronizzazione
     QLineEdit* titleOf(int panel) const;

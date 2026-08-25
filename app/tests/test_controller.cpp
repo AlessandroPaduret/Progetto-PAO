@@ -9,8 +9,6 @@
 
 #include "CalendarController.h"
 #include "events/domain/ActivityFactory.h"
-#include "events/domain/Event.h"
-#include "events/domain/RecurrentEvent.h"
 #include "events/domain/Task.h"
 
 using namespace std::chrono_literals;
@@ -160,7 +158,7 @@ TEST_CASE("Controller: azioni sulle occorrenze", "[controller]") {
 
         const Occurrence* target = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
         REQUIRE(target != nullptr);
-        auto replacement = std::make_unique<Event>(
+        auto replacement = ActivityFactory::createSimpleEvent(
             "Meeting (posticipato)", tp(utc(2026, 1, 12, 11)), 1h);
         REQUIRE(controller.modifyOccurrence(*target, std::move(replacement)));
 
@@ -249,7 +247,7 @@ TEST_CASE("Controller: drag di una sola occorrenza di una serie (buco in origine
     // Sposta SOLO la seconda occorrenza (mar 6/1 09:00) alla destinazione
     const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 6, 9)));
     REQUIRE(second != nullptr);
-    auto replacement = std::make_unique<Event>(
+    auto replacement = ActivityFactory::createSimpleEvent(
         second->source->getTitle(), tp(utc(2026, 1, 8, 15)), second->duration);
     REQUIRE(controller.modifyOccurrence(*second, std::move(replacement)));
 
@@ -287,8 +285,8 @@ TEST_CASE("Controller: 'da questo momento in poi' divide la serie", "[controller
     // Serie giornaliera 8:00-10:00 (2h) per una settimana, fine 12/1 00:00
     auto generator = std::make_shared<FixedIntervalGenerator>(
         tp(utc(2026, 1, 5, 8)), std::chrono::hours(24), tp(utc(2026, 1, 12)));
-    controller.addActivity(std::make_unique<RecurrentEvent>(
-        generator, Event("Lezione", tp(utc(2026, 1, 5, 8)), 2h)));
+    controller.addActivity(std::make_unique<events::Activity>(
+        "Lezione", 2h, generator));
 
     auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
     REQUIRE(occurrences.size() == 7);  // 5/1 .. 11/1 alle 08:00

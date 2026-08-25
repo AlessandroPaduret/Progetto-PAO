@@ -41,8 +41,8 @@ public:
     /** @brief Rimuove l'attivita' identificata dal puntatore */
     bool removeActivity(const events::Activity* activity);
 
-    /** @brief Sostituisce un'attivita' con una nuova (le eccezioni di un
-     *         RecurrentEvent vengono conservate) */
+    /** @brief Sostituisce un'attivita' con una nuova (le eccezioni vengono
+     *         conservate, se accettate dal nuovo generatore) */
     bool updateActivity(const events::Activity* oldActivity,
                         std::unique_ptr<events::Activity> replacement);
 
@@ -85,7 +85,7 @@ public:
     /** @brief Modifica una singola istanza: l'originale viene escluso
      *  (eccezione interna se ricorrente) e sostituito da un evento singolo. */
     bool modifyOccurrence(const events::Occurrence& occurrence,
-                          std::unique_ptr<events::Event> replacement);
+                          std::unique_ptr<events::Activity> replacement);
 
     /** @brief Inverte lo stato di completamento di un COMPITO (l'unico tipo
      *  con stato "evaso/da fare"). Non ha effetto sugli altri tipi. */

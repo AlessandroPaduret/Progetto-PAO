@@ -20,13 +20,14 @@
 #include <QVBoxLayout>
 
 #include "CalendarController.h"
-#include "events/domain/RecurrentEvent.h"
+#include "events/domain/ActivityFactory.h"
 #include "views/ActivityDetailDialog.h"
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
 #include "views/MonthView.h"
 #include "views/RecurrenceChoiceDialog.h"
+#include "views/ViewShared.h"
 #include "views/WeekView.h"
 #include "views/YearView.h"
 
@@ -598,7 +599,7 @@ void MainWindow::onChoiceInstance() {
         // "Sposta solo questo evento": l'occorrenza esce dalla serie
         // (eccezione interna: buco in origine) e diventa un evento standard
         // alla data/ora di destinazione del trascinamento.
-        auto replacement = std::make_unique<events::Event>(
+        auto replacement = events::ActivityFactory::createSimpleEvent(
             occurrence.source->getTitle(),
             events::TimePoint(
                 std::chrono::seconds(m_pendingDragTarget.toSecsSinceEpoch())),
@@ -648,8 +649,7 @@ void MainWindow::onDeleteSelected() {
 }
 
 void MainWindow::confirmDeleteOccurrence(const events::Occurrence& occurrence) {
-    const auto* recurrent =
-        dynamic_cast<const events::RecurrentEvent*>(occurrence.source);
+    const bool recurrent = isRecurrent(occurrence.source);
     if (!recurrent) {
         if (QMessageBox::question(
                 this, tr("Elimina attivita'"),

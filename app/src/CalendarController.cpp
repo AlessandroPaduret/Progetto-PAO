@@ -8,7 +8,10 @@
 #include <utility>
 
 #include "persistence/JsonPersistence.h"
+#include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
+#include "events/generators/MoveGeneratorVisitor.h"
+#include "events/generators/YearlyGenerator.h"
 
 namespace app {
 
@@ -16,6 +19,15 @@ namespace {
 
 events::TimePoint toTimePoint(const QDateTime& utc) {
   return events::TimePoint(std::chrono::seconds(utc.toSecsSinceEpoch()));
+}
+
+// La ricorrenza si deduce dal generatore: un'attivita' e' una serie se il suo
+// generatore produce piu' date (Fixed/Monthly/Yearly), non Single.
+bool isRecurrentActivity(const events::Activity* activity) {
+  const events::DateGenerator* gen = activity->getGenerator().get();
+  return dynamic_cast<const events::FixedIntervalGenerator*>(gen) != nullptr ||
+         dynamic_cast<const events::MonthlyGenerator*>(gen) != nullptr ||
+         dynamic_cast<const events::YearlyGenerator*>(gen) != nullptr;
 }
 
 } // namespace
@@ -67,21 +79,16 @@ bool CalendarController::updateActivity(
 
   // Le eccezioni vanno copiate PRIMA di rimuovere (che distrugge l'oggetto):
   // le eccezioni si gestiscono solo dalla vista settimanale.
-  std::unordered_set<events::TimePoint, events::TimePointHasher> exceptions;
-  if (const auto* oldRecurrent =
-          dynamic_cast<const events::RecurrentEvent*>(oldActivity)) {
-    exceptions = oldRecurrent->getExceptions();
-  }
+  const auto exceptions = oldActivity->getExceptions();
 
   if (!m_calendar.remove(oldActivity)) {
     return false;
   }
 
-  if (auto* newRecurrent =
-          dynamic_cast<events::RecurrentEvent*>(replacement.get())) {
-    for (const auto& exception : exceptions) {
-      newRecurrent->addException(exception);
-    }
+  // Le eccezioni sono accettate solo se la data e' generabile dal nuovo
+  // generatore (Activity::addException valida via isIn).
+  for (const auto& exception : exceptions) {
+    replacement->addException(exception);
   }
 
   m_calendar.add(std::move(replacement));
@@ -110,78 +117,31 @@ bool CalendarController::moveActivity(const events::Activity* activity,
   return true;
 }
 
-namespace {
-
-// Clona la regola di ricorrenza con un nuovo inizio, mantenendo la fine
-// ORIGINALE (invariata, salvata prima del troncamento). Se la fine
-// resterebbe antecedente al nuovo inizio, viene portata al nuovo inizio.
-class ReseedGeneratorVisitor : public events::DateGeneratorVisitor {
-public:
-  events::TimePoint newStart;
-  events::TimePoint end = events::TimePoint::max();
-
-  void visit(const events::FixedIntervalGenerator& generator) override {
-    events::TimePoint safeEnd = end;
-    if (safeEnd < newStart) {
-      safeEnd = newStart;
-    }
-    result = std::make_shared<events::FixedIntervalGenerator>(
-        newStart, generator.getInterval(), safeEnd);
-  }
-
-  void visit(const events::YearlyGenerator&) override {
-    events::TimePoint safeEnd = end;
-    if (safeEnd < newStart) {
-      safeEnd = newStart;
-    }
-    result = std::make_shared<events::YearlyGenerator>(newStart, safeEnd);
-  }
-
-  void visit(const events::MonthlyGenerator& generator) override {
-    events::TimePoint safeEnd = end;
-    if (safeEnd < newStart) {
-      safeEnd = newStart;
-    }
-    auto monthly = std::make_shared<events::MonthlyGenerator>(
-        newStart, generator.getMonths(), safeEnd);
-    monthly->setMaxOccurrences(generator.getMaxOccurrences());
-    result = monthly;
-  }
-
-  void visit(const events::NullGenerator&) override {
-    result = std::make_shared<events::NullGenerator>();
-  }
-
-  std::shared_ptr<events::DateGenerator> result;
-};
-
-} // namespace
-
 bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
                                          const QDateTime& newStart) {
-  auto* series = dynamic_cast<events::RecurrentEvent*>(
-      const_cast<events::Activity*>(occurrence.source));
-  if (!series || !newStart.isValid()) {
+  auto* series = const_cast<events::Activity*>(occurrence.source);
+  if (!isRecurrentActivity(series) || !newStart.isValid()) {
     return false;
   }
 
   // 0) La data di scadenza ORIGINALE va salvata PRIMA del troncamento
   //    (truncateBefore la ridurrebbe a questa occorrenza)
-  ReseedGeneratorVisitor reseed;
-  reseed.newStart = toTimePoint(newStart);
-  reseed.end = series->getGenerator()->getEnd();
+  const events::TimePoint originalEnd = series->getGenerator()->getEnd();
+  const events::TimePoint target = toTimePoint(newStart);
 
   // 1) La serie attuale viene FERMATA prima dell'occorrenza interessata
   series->truncateBefore(occurrence.start);
 
   // 2) Nasce una nuova serie con le stesse regole di ricorrenza (tipo e
   //    intervallo del generatore, durata dell'occorrenza) ma inizio diverso;
-  //    la data di scadenza rimane quella originale.
-  series->getGenerator()->accept(reseed);
+  //    la data di scadenza rimane quella originale. MoveGeneratorVisitor
+  //    ricostruisce il generatore (immutabile) con il nuovo inizio e la fine
+  //    invariata.
+  events::MoveGeneratorVisitor mover(target, originalEnd);
+  series->getGenerator()->accept(mover);
 
-  auto replacement = std::make_unique<events::RecurrentEvent>(
-      reseed.result,
-      events::Event(series->getTitle(), reseed.newStart, occurrence.duration));
+  auto replacement = std::make_unique<events::Activity>(
+      series->getTitle(), series->getDuration(), mover.result);
   m_calendar.add(std::move(replacement));
   emit activitiesChanged();
   return true;
@@ -190,11 +150,10 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
 bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
                                           bool andFollowing) {
   auto* activity = const_cast<events::Activity*>(occurrence.source);
-  auto* recurrent = dynamic_cast<events::RecurrentEvent*>(activity);
-  if (recurrent && !andFollowing) {
-    recurrent->addException(occurrence.start);  // EXDATE: solo questa
-  } else if (recurrent) {
-    recurrent->truncateBefore(occurrence.start);  // questa e le successive
+  if (isRecurrentActivity(activity) && !andFollowing) {
+    activity->addException(occurrence.start);  // EXDATE: solo questa
+  } else if (isRecurrentActivity(activity)) {
+    activity->truncateBefore(occurrence.start);  // questa e le successive
   } else {
     m_calendar.remove(occurrence.source);
   }
@@ -204,13 +163,13 @@ bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
 
 bool CalendarController::modifyOccurrence(
     const events::Occurrence& occurrence,
-    std::unique_ptr<events::Event> replacement) {
+    std::unique_ptr<events::Activity> replacement) {
   if (!replacement) {
     return false;
   }
   auto* activity = const_cast<events::Activity*>(occurrence.source);
-  if (auto* recurrent = dynamic_cast<events::RecurrentEvent*>(activity)) {
-    recurrent->addException(occurrence.start);  // scarta l'istanza originale
+  if (isRecurrentActivity(activity)) {
+    activity->addException(occurrence.start);  // scarta l'istanza originale
   } else {
     m_calendar.remove(occurrence.source);
   }

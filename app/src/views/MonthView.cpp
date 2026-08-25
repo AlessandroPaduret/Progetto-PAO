@@ -9,7 +9,6 @@
 
 #include <algorithm>
 
-#include "events/domain/RecurrentEvent.h"
 #include "views/ViewShared.h"
 
 namespace app {
@@ -286,9 +285,7 @@ void MonthView::mousePressEvent(QMouseEvent* event) {
             update();
             QAction* infoAction = menu.addAction(tr("Info"));
             QAction* modifyAction = menu.addAction(tr("Modifica"));
-            const bool isRecurrent =
-                dynamic_cast<const events::RecurrentEvent*>(
-                    m_occurrences[index].source) != nullptr;
+            const bool recurrent = isRecurrent(m_occurrences[index].source);
             QAction* modifyInstanceAction =
                 isRecurrent ? menu.addAction(tr("Modifica istanza")) : nullptr;
             QAction* deleteAction = menu.addAction(tr("Elimina"));
@@ -331,9 +328,8 @@ void MonthView::mouseDoubleClickEvent(QMouseEvent* event) {
         m_selected = index;
         update();
         const events::Occurrence& occurrence = m_occurrences[index];
-        if (const auto* recurrent =
-                dynamic_cast<const events::RecurrentEvent*>(occurrence.source)) {
-            if (occurrence.start > recurrent->getStart()) {
+        if (isRecurrent(occurrence.source)) {
+            if (occurrence.start > occurrence.source->getStart()) {
                 emit occurrenceEditChoiceRequested(occurrence);
                 return;
             }

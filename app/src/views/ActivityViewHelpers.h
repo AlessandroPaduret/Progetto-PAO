@@ -20,7 +20,7 @@ QString typeLabel(const events::Activity& activity);
 QString summaryLabel(const events::Activity& activity);
 
 /** @brief Regola di ricorrenza leggibile ("ogni 7 giorni", "ogni anno", ...). */
-QString recurrenceRuleLabel(const events::RecurrentEvent& event);
+QString recurrenceRuleLabel(const events::Activity& activity);
 
 /** @brief Durata leggibile ("1 h 30 min"). */
 QString durationLabel(const events::Duration duration);
