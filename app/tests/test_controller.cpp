@@ -414,3 +414,65 @@ TEST_CASE("ALLDAY: un evento normale non e' all-day", "[all-day]") {
     REQUIRE(occs.size() == 1);
     REQUIRE_FALSE(app::coversFullDay(occs[0]));
 }
+
+TEST_CASE("ALLDAY: piu' eventi all-day vengono affiancati su righe distinte",
+          "[all-day]") {
+    // Replica dell'algoritmo di layout della striscia in WeekView::ensureRects:
+    // ogni evento all-day va sulla riga piu' alta libera in tutti i giorni che
+    // copre; eventi su giorni diversi possono condividere la riga 0.
+    const int kDayCount = 7;
+    const QDate monday(2026, 8, 31);
+
+    auto dayIndex = [&](const QDate& d) { return monday.daysTo(d); };
+
+    // Ogni item: {firstDay, lastDay, row}
+    struct Item {
+        int first, last, row;
+    };
+    std::vector<Item> items;
+    std::vector<std::vector<bool>> dayRows(kDayCount);
+
+    auto place = [&](int firstDay, int lastDay) {
+        int row = 0;
+        bool free = false;
+        while (!free) {
+            free = true;
+            for (int d = firstDay; d <= lastDay; ++d) {
+                if (static_cast<int>(dayRows[d].size()) > row && dayRows[d][row]) {
+                    free = false;
+                    ++row;
+                    break;
+                }
+            }
+        }
+        for (int d = firstDay; d <= lastDay; ++d) {
+            if (static_cast<int>(dayRows[d].size()) <= row) {
+                dayRows[d].resize(row + 1, false);
+            }
+            dayRows[d][row] = true;
+        }
+        items.push_back({firstDay, lastDay, row});
+    };
+
+    // Due eventi all-day lo stesso lunedi' -> righe diverse (0 e 1)
+    place(0, 0);
+    place(0, 0);
+    REQUIRE(items[0].row == 0);
+    REQUIRE(items[1].row == 1);
+
+    // Un evento che copre lunedi' e martedi' sfrutta la riga libera
+    items.clear();
+    dayRows.assign(kDayCount, {});
+    place(0, 1);   // lun-mar -> riga 0
+    place(0, 0);   // lun -> deve scendere alla riga 1
+    REQUIRE(items[0].row == 0);
+    REQUIRE(items[1].row == 1);
+
+    // Due eventi su giorni diversi -> entrambi in riga 0
+    items.clear();
+    dayRows.assign(kDayCount, {});
+    place(0, 0);   // lun
+    place(2, 2);   // mer
+    REQUIRE(items[0].row == 0);
+    REQUIRE(items[1].row == 0);
+}

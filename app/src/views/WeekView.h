@@ -138,6 +138,7 @@ private:
     std::vector<events::Occurrence> m_occurrences;
     std::vector<QRect> m_rects;           // layout corrente (parallelo a m_occurrences)
     std::vector<QRect> m_checkRects;      // spunta di ogni occorrenza
+    int m_allDayHeight = kAllDayHeight;   // altezza corrente striscia "tutto il giorno"
     QDate m_monday;
     int m_dayCount = kDaysPerWeek;
     int m_selected = -1;

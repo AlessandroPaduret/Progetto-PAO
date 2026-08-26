@@ -46,11 +46,11 @@ int WeekView::baseWidth() const {
 }
 
 int WeekView::baseHeight() const {
-    return kHeaderHeight + kAllDayHeight + 24 * kHourHeight;
+    return kHeaderHeight + m_allDayHeight + 24 * kHourHeight;
 }
 
 int WeekView::gridTop() const {
-    return kHeaderHeight + kAllDayHeight;
+    return kHeaderHeight + m_allDayHeight;
 }
 
 int WeekView::dayWidth() const {
@@ -112,6 +112,16 @@ void WeekView::ensureRects() {
     m_checkRects.assign(m_occurrences.size(), QRect());
 
     // --- Striscia "tutto il giorno" -----------------------------------------
+    // Ogni occorrenza all-day viene assegnata alla riga piu' in alto libera
+    // in TUTTI i giorni che copre; l'altezza della striscia si espande al
+    // numero di righe necessarie, cosi' piu' eventi all-day coesistono
+    // (invece di sovrapporsi, vincendo l'ultimo creato).
+    std::vector<std::vector<bool>> dayRows(m_dayCount);  // [giorno][riga] occupata
+    struct AllDayItem {
+        int index, firstDay, lastDay, row;
+    };
+    std::vector<AllDayItem> allDayItems;
+
     for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
         const events::Occurrence& occ = m_occurrences[i];
         if (!coversFullDay(occ)) {
@@ -127,12 +137,42 @@ void WeekView::ensureRects() {
         }
         firstDay = qBound(0, firstDay, m_dayCount - 1);
         lastDay = qBound(0, lastDay, m_dayCount - 1);
-        const int x = kGutterWidth + firstDay * dayWidth() + 2;
-        const int w = (lastDay - firstDay + 1) * dayWidth() - 4;
-        const int y = kHeaderHeight + 2;
-        m_rects[i] = QRect(x, y, w, kAllDayHeight - 4);
-        if (isTask(occ.source)) {
-            m_checkRects[i] = checkRectOf(m_rects[i]);
+
+        // Riga piu' alta libera in tutti i giorni dello span
+        int row = 0;
+        bool free = false;
+        while (!free) {
+            free = true;
+            for (int d = firstDay; d <= lastDay; ++d) {
+                if (static_cast<int>(dayRows[d].size()) > row && dayRows[d][row]) {
+                    free = false;
+                    ++row;
+                    break;
+                }
+            }
+        }
+        for (int d = firstDay; d <= lastDay; ++d) {
+            if (static_cast<int>(dayRows[d].size()) <= row) {
+                dayRows[d].resize(row + 1, false);
+            }
+            dayRows[d][row] = true;
+        }
+        allDayItems.push_back({i, firstDay, lastDay, row});
+    }
+
+    int maxRows = 1;
+    for (int d = 0; d < m_dayCount; ++d) {
+        maxRows = std::max(maxRows, static_cast<int>(dayRows[d].size()));
+    }
+    m_allDayHeight = maxRows * kAllDayHeight;
+
+    for (const AllDayItem& item : allDayItems) {
+        const int x = kGutterWidth + item.firstDay * dayWidth() + 2;
+        const int w = (item.lastDay - item.firstDay + 1) * dayWidth() - 4;
+        const int y = kHeaderHeight + 2 + item.row * kAllDayHeight;
+        m_rects[item.index] = QRect(x, y, w, kAllDayHeight - 4);
+        if (isTask(m_occurrences[item.index].source)) {
+            m_checkRects[item.index] = checkRectOf(m_rects[item.index]);
         }
     }
 
@@ -304,7 +344,7 @@ void WeekView::paintEvent(QPaintEvent*) {
 
     // --- Striscia "tutto il giorno" (sfondo + separatori) ---
     painter.fillRect(QRect(kGutterWidth, kHeaderHeight, width() - kGutterWidth,
-                           kAllDayHeight),
+                           m_allDayHeight),
                      QColor("#f8f9fa"));
     painter.setPen(QColor("#dadce0"));
     painter.drawLine(kGutterWidth, kHeaderHeight, width(), kHeaderHeight);
