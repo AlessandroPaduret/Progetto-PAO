@@ -30,6 +30,13 @@ inline bool isAnniversary(const events::Activity* activity) {
                std::chrono::hours(24) - std::chrono::seconds(1);
 }
 
+/** @brief true se l'attivita' e' "tutto il giorno": copre un giorno di
+ *  calendario intero (durata >= 24h - 1s). */
+inline bool isAllDayActivity(const events::Activity* activity) {
+    return activity && activity->getDuration() >=
+                           std::chrono::hours(24) - std::chrono::seconds(1);
+}
+
 /** @brief Colore stabile per un'attivita': deriva dall'indirizzo dell'oggetto. */
 inline QColor activityColor(const events::Activity* activity) {
     static const QColor kPalette[] = {
@@ -64,6 +71,18 @@ inline QDateTime localTime(const events::TimePoint tp) {
  *  modello: epoch seconds / ISO-8601 UTC). */
 inline QDateTime utcTime(const events::TimePoint tp) {
     return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count(), QTimeZone(0));
+}
+
+/** @brief Data/ora di un istante per un'attivita', adatta al display.
+ *  Per gli eventi "tutto il giorno" (salvati a mezzanotte UTC) mostra la
+ *  data con ora 00:00 invece dell'ora locale spostata dall'offset (es. 02:00
+ *  con UTC+2); per gli altri tipi converte in ora locale. */
+inline QDateTime activityDisplayTime(const events::Activity* activity,
+                                     const events::TimePoint tp) {
+    if (isAllDayActivity(activity)) {
+        return utcTime(tp);
+    }
+    return localTime(tp);
 }
 
 /** @brief true se l'occorrenza e' "tutto il giorno": nel suo intervallo

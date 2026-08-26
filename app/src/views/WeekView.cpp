@@ -438,7 +438,8 @@ void WeekView::paintEvent(QPaintEvent*) {
 
         QString text = QString::fromStdString(occurrence.source->getTitle());
         if (i == m_selected) {
-            text = localTime(occurrence.start).toString(QStringLiteral("HH:mm")) +
+            text = activityDisplayTime(occurrence.source, occurrence.start)
+                       .toString(QStringLiteral("HH:mm")) +
                    QLatin1Char(' ') + text;
         }
         // Margine in basso per non sovrapporre il testo alla spunta (basso a destra)
@@ -596,16 +597,20 @@ bool WeekView::event(QEvent* event) {
         const int index = hitTest(help->pos());
         if (index >= 0) {
             const events::Occurrence& occurrence = m_occurrences[index];
-            const QDateTime localStart = localTime(occurrence.start);
-            const QDateTime localEnd = localTime(occurrence.end());
+            // Per gli eventi "tutto il giorno" mostra l'ora 00:00 (salvati a
+            // mezzanotte UTC), non quella locale spostata dall'offset.
+            const QDateTime start = activityDisplayTime(
+                occurrence.source, occurrence.start);
+            const QDateTime end =
+                activityDisplayTime(occurrence.source, occurrence.end());
             const QString text =
                 QString::fromStdString(occurrence.source->getTitle());
             QToolTip::showText(help->globalPos(),
                                QStringLiteral("%1\n%2 \u2013 %3")
                                    .arg(text,
-                                        localStart.toString(
+                                        start.toString(
                                             QStringLiteral("dd/MM/yyyy HH:mm")),
-                                        localEnd.toString(
+                                        end.toString(
                                             QStringLiteral("HH:mm"))),
                                this);
         } else {

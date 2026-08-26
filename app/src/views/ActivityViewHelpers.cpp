@@ -17,8 +17,9 @@ namespace ActivityViewHelpers {
 
 namespace {
 
-QString localDateTime(const events::TimePoint tp) {
-  return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count())
+QString localDateTime(const events::Activity& activity,
+                      const events::TimePoint tp) {
+  return app::activityDisplayTime(&activity, tp)
       .toString(QStringLiteral("dd/MM/yyyy HH:mm"));
 }
 
@@ -91,15 +92,16 @@ public:
       RuleVisitor rule;
       activity.getGenerator()->accept(rule);
       summary = QObject::tr("ogni %1, dal %2")
-                    .arg(rule.rule, localDateTime(activity.getStart()));
+                    .arg(rule.rule, localDateTime(activity, activity.getStart()));
       return;
     }
-    summary = localDateTime(activity.getStart()) + QLatin1String(", durata ") +
+    summary = localDateTime(activity, activity.getStart()) +
+              QLatin1String(", durata ") +
               durationLabel(activity.getDuration());
   }
 
   void visit(const events::Task& task) override {
-    summary = localDateTime(task.getDue());
+    summary = localDateTime(task, task.getDue());
     if (task.isDone()) {
       summary += QLatin1String(" (") + QObject::tr("evaso") + QLatin1Char(')');
     } else if (task.isOverdue(task.getDue(), std::chrono::time_point_cast<events::Duration>(
@@ -109,7 +111,8 @@ public:
   }
 
   void visit(const events::Meeting& meeting) override {
-    summary = localDateTime(meeting.getStart()) + QLatin1String(", durata ") +
+    summary = localDateTime(meeting, meeting.getStart()) +
+              QLatin1String(", durata ") +
               durationLabel(meeting.getDuration());
     if (!meeting.getLocation().empty()) {
       summary += QLatin1String(", ") +
@@ -125,10 +128,10 @@ public:
 
   void visit(const events::Activity& activity) override {
     fields << QObject::tr("Inizio: %1")
-                  .arg(localDateTime(activity.getStart()))
+                  .arg(localDateTime(activity, activity.getStart()))
            << QObject::tr("Fine: %1")
-                  .arg(localDateTime(activity.getStart() +
-                                     activity.getDuration()))
+                  .arg(localDateTime(activity, activity.getStart() +
+                                                activity.getDuration()))
            << QObject::tr("Durata: %1")
                   .arg(durationLabel(activity.getDuration()));
     if (isRecurrent(&activity)) {
@@ -142,7 +145,7 @@ public:
   }
 
   void visit(const events::Task& task) override {
-    fields << QObject::tr("Scadenza: %1").arg(localDateTime(task.getDue()))
+    fields << QObject::tr("Scadenza: %1").arg(localDateTime(task, task.getDue()))
            << QObject::tr("Priorita': %1")
                   .arg(QString::fromStdString(
                       events::Task::priorityLabel(task.getPriority())))
@@ -152,10 +155,10 @@ public:
   }
 
   void visit(const events::Meeting& meeting) override {
-    fields << QObject::tr("Inizio: %1").arg(localDateTime(meeting.getStart()))
+    fields << QObject::tr("Inizio: %1").arg(localDateTime(meeting, meeting.getStart()))
            << QObject::tr("Fine: %1")
-                  .arg(localDateTime(meeting.getStart() +
-                                     meeting.getDuration()))
+                  .arg(localDateTime(meeting, meeting.getStart() +
+                                               meeting.getDuration()))
            << QObject::tr("Durata: %1")
                   .arg(durationLabel(meeting.getDuration()))
            << QObject::tr("Luogo: %1")

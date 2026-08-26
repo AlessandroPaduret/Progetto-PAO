@@ -392,6 +392,14 @@ TEST_CASE("ALLDAY fix verification", "[all-day]") {
                                  .addSecs(-1);
     const auto occs = controller.occurrencesIn(weekFrom, weekTo);
     REQUIRE(occs.size() == 1);
+
+    // Display: per un evento "tutto il giorno" l'ora mostrata deve essere
+    // 00:00 (salvato a mezzanotte UTC), non l'ora locale spostata (02:00).
+    const QDateTime shownStart =
+        app::activityDisplayTime(occs[0].source, occs[0].start);
+    REQUIRE(shownStart.toString(QStringLiteral("HH:mm")) == QStringLiteral("00:00"));
+    REQUIRE(shownStart.date() == monday);
+
     // L'evento salvato a mezzanotte UTC deve essere riconosciuto come
     // "tutto il giorno" (2 mezzenotti consecutive nel suo intervallo).
     REQUIRE(app::coversFullDay(occs[0]));

@@ -348,8 +348,12 @@ bool MonthView::event(QEvent* event) {
         const int index = hitTest(help->pos());
         if (index >= 0) {
             const events::Occurrence& occurrence = m_occurrences[index];
-            const QDateTime start = localTime(occurrence.start);
-            const QDateTime end = localTime(occurrence.end());
+            // Per gli eventi "tutto il giorno" mostra l'ora 00:00 (salvati a
+            // mezzanotte UTC), non quella locale spostata dall'offset.
+            const QDateTime start = activityDisplayTime(
+                occurrence.source, occurrence.start);
+            const QDateTime end = activityDisplayTime(
+                occurrence.source, occurrence.end());
             QToolTip::showText(help->globalPos(),
                                QStringLiteral("%1\n%2 \u2013 %3")
                                    .arg(QString::fromStdString(
