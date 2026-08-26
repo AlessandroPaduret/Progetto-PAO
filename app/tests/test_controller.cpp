@@ -361,3 +361,37 @@ int main(int argc, char* argv[]) {
     }
     return session.run();
 }
+
+TEST_CASE("ALLDAY fix verification", "[all-day]") {
+    QDate monday(2026, 8, 31);
+    REQUIRE(monday.dayOfWeek() == 1);
+
+    // Simulate the FIXED creation path: all-day start at UTC midnight.
+    auto toTP = [](const QDateTime& d) {
+        return TimePoint(std::chrono::seconds(d.toSecsSinceEpoch()));
+    };
+    auto toLocalDate = [](const TimePoint tp) {
+        return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count())
+            .toLocalTime()
+            .date();
+    };
+
+    const TimePoint startUtc =
+        toTP(QDateTime(monday, QTime(0, 0), QTimeZone(0)));
+
+    app::CalendarController controller;
+    auto ev = ActivityFactory::createSimpleEvent("AllDay", startUtc,
+                                                 std::chrono::seconds(86400));
+    controller.addActivity(std::move(ev));
+
+    // Week query (UTC) for the week of Monday
+    const QDateTime weekFrom(monday, QTime(0, 0), QTimeZone(0));
+    const QDateTime weekTo = QDateTime(monday.addDays(7), QTime(0, 0),
+                                       QTimeZone(0))
+                                 .addSecs(-1);
+    const auto occs = controller.occurrencesIn(weekFrom, weekTo);
+    REQUIRE(occs.size() == 1);
+    // Strip placement: il giorno (locale) in cui parte l'occorrenza deve
+    // essere il lunedi' stesso (firstDay = 0), non la domenica precedente.
+    REQUIRE(monday.daysTo(toLocalDate(occs[0].start)) == 0);
+}

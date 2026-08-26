@@ -17,6 +17,7 @@
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QTimeEdit>
+#include <QTimeZone>
 #include <QVBoxLayout>
 
 #include <memory>
@@ -582,10 +583,10 @@ void ActivityFormPage::populateEventLike(const events::Activity& activity) {
   m_startTimeE->setTime(start.time());
   m_durationE->setTime(QTime(0, 0).addSecs(
       static_cast<int>(activity.getDuration().count())));
-  // "Tutto il giorno" se parte a mezzanotte e copre un giorno intero
-  // (l'ora e la durata spariscono, ma la ricorrenza resta configurabile)
-  const bool allDay =
-      start.time() == QTime(0, 0) && activity.getDuration().count() >= 86399;
+  // "Tutto il giorno" se copre un giorno intero. La durata e' l'unico
+  // criterio affidabile: l'evento all-day e' salvato a mezzanotte UTC, quindi
+  // il suo inizio in ORA LOCALE non e' necessariamente alle 00:00.
+  const bool allDay = activity.getDuration().count() >= 86399;
   m_allDayCheck->setChecked(allDay);
   const bool recurrent = isRecurrent(&activity);
   m_repeatCheck->setChecked(recurrent);
@@ -712,9 +713,14 @@ ActivityFormPage::buildEventActivities() const {
     return result;
   }
   const bool allDay = m_allDayCheck->isChecked();
-  // "Tutto il giorno": inizio a mezzanotte, occorrenza di 24h - 1s
-  const events::TimePoint start = toTimePoint(QDateTime(
-      m_startDateE->date(), allDay ? QTime(0, 0) : m_startTimeE->time()));
+  // "Tutto il giorno": inizio a mezzanotte UTC (coerente con le query della
+  // griglia, che usano UTC) per non far slittare il giorno: in locale 00:00
+  // di Lun = Dom 22:00 UTC, che cadrebbe nel giorno/settimana precedente.
+  const events::TimePoint start =
+      allDay ? toTimePoint(
+                   QDateTime(m_startDateE->date(), QTime(0, 0), QTimeZone(0)))
+             : toTimePoint(
+                   QDateTime(m_startDateE->date(), m_startTimeE->time()));
   const events::Duration duration = allDay
                                         ? std::chrono::seconds(86399)
                                         : std::chrono::seconds(
@@ -802,8 +808,12 @@ ActivityFormPage::buildEventActivities() const {
 
     for (int dow : selected) {
       const int offset = (dow - baseDow + 7) % 7;
+      // Anche le serie settimanali "tutto il giorno" partono a mezzanotte
+      // UTC (come l'evento singolo), per la stessa ragione di allineamento.
       const events::TimePoint anchor =
-          toTimePoint(QDateTime(startDate.addDays(offset), time));
+          allDay ? toTimePoint(QDateTime(startDate.addDays(offset), QTime(0, 0),
+                                         QTimeZone(0)))
+                 : toTimePoint(QDateTime(startDate.addDays(offset), time));
       auto gen = std::make_shared<events::FixedIntervalGenerator>(
           anchor, events::Days(7 * every), effectiveEnd, effectiveMax);
       pushRecurrent(gen);
