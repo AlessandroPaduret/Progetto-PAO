@@ -10,6 +10,7 @@
 #include "CalendarController.h"
 #include "events/domain/ActivityFactory.h"
 #include "events/domain/Task.h"
+#include "views/ViewShared.h"
 
 using namespace std::chrono_literals;
 using namespace events;
@@ -391,7 +392,25 @@ TEST_CASE("ALLDAY fix verification", "[all-day]") {
                                  .addSecs(-1);
     const auto occs = controller.occurrencesIn(weekFrom, weekTo);
     REQUIRE(occs.size() == 1);
+    // L'evento salvato a mezzanotte UTC deve essere riconosciuto come
+    // "tutto il giorno" (2 mezzenotti consecutive nel suo intervallo).
+    REQUIRE(app::coversFullDay(occs[0]));
     // Strip placement: il giorno (locale) in cui parte l'occorrenza deve
     // essere il lunedi' stesso (firstDay = 0), non la domenica precedente.
     REQUIRE(monday.daysTo(toLocalDate(occs[0].start)) == 0);
+}
+
+TEST_CASE("ALLDAY: un evento normale non e' all-day", "[all-day]") {
+    // Evento breve (es. 10:00-11:00 locali): non deve finire nella striscia.
+    const QDateTime startLocal(QDate(2026, 8, 31), QTime(10, 0));
+    const TimePoint start =
+        TimePoint(std::chrono::seconds(startLocal.toSecsSinceEpoch()));
+    app::CalendarController controller;
+    controller.addActivity(ActivityFactory::createSimpleEvent(
+        "Riunione", start, std::chrono::minutes(60)));
+    const QDateTime dayFrom(QDate(2026, 8, 31), QTime(0, 0), QTimeZone(0));
+    const auto occs = controller.occurrencesIn(
+        dayFrom, QDateTime(QDate(2026, 8, 31), QTime(23, 59), QTimeZone(0)));
+    REQUIRE(occs.size() == 1);
+    REQUIRE_FALSE(app::coversFullDay(occs[0]));
 }

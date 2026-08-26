@@ -48,7 +48,7 @@ if(BUILD_TESTING)
     find_package(Catch2 3 QUIET)
     if(Catch2_FOUND)
         add_executable(app_controller_tests tests/test_controller.cpp)
-        target_link_libraries(app_controller_tests PRIVATE pao_core Catch2::Catch2)
+        target_link_libraries(app_controller_tests PRIVATE pao_core Catch2::Catch2 Qt6::Gui)
 
         include(Catch)
         catch_discover_tests(app_controller_tests)

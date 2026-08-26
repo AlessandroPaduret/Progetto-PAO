@@ -3,6 +3,7 @@
 
 #include <QColor>
 #include <QDateTime>
+#include <QTimeZone>
 
 #include "events/events.h"
 #include "events/generators/FixedIntervalGenerator.h"
@@ -59,21 +60,30 @@ inline QDateTime localTime(const events::TimePoint tp) {
     return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();
 }
 
-/** @brief true se l'occorrenza copre ALMENO un giorno di calendario intero
- *  (mezzanotte-mezzanotte): in tal caso va mostrata nella striscia in alto
- *  degli "eventi tutto il giorno".
+/** @brief Converte un istante assoluto in data/ora UTC (come lo storage del
+ *  modello: epoch seconds / ISO-8601 UTC). */
+inline QDateTime utcTime(const events::TimePoint tp) {
+    return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count(), QTimeZone(0));
+}
+
+/** @brief true se l'occorrenza e' "tutto il giorno": nel suo intervallo
+ *  [start, end] cadono 2 mezzanotti consecutive (valutate in UTC, coerente
+ *  con lo storage del modello). In tal caso va mostrata nella striscia in
+ *  alto degli "eventi tutto il giorno".
  *
  *  Esempi: 12/12 13:50 -> 13/12 23:00 NON copre un giorno intero (normale);
- *  12/12 13:50 -> 14/12 01:00 copre interamente il 13/12 (all-day). */
+ *  12/12 00:00 UTC -> 13/12 00:00 UTC copre un giorno intero (all-day).
+ *  Nota: le mezzanotti sono in UTC, non in ora locale: un evento salvato a
+ *  mezzanotte UTC in un fuso con offset e' comunque all-day. */
 inline bool coversFullDay(const events::Occurrence& occ) {
-    const QDateTime start = localTime(occ.start);
-    // Prima mezzanotte >= all'inizio (se l'inizio e' a mezzanotte, quella stessa)
-    QDateTime dayStart(start.date(), QTime(0, 0));
+    const QDateTime start = utcTime(occ.start);
+    // Prima mezzanotte UTC >= all'inizio (se l'inizio e' a mezzanotte, quella stessa)
+    QDateTime dayStart(start.date(), QTime(0, 0), QTimeZone(0));
     if (start > dayStart) {
         dayStart = dayStart.addDays(1);
     }
     const QDateTime dayEnd = dayStart.addDays(1);
-    return dayEnd <= localTime(occ.end());
+    return dayEnd <= utcTime(occ.end());
 }
 
 /** @brief Nome corto del giorno della settimana (1 = lunedi', 7 = domenica). */
