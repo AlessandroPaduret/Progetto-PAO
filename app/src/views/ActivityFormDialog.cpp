@@ -64,6 +64,12 @@ void ActivityFormDialog::startCreate(const QDateTime& suggestedStart) {
     m_page->startCreate(suggestedStart);
 }
 
+void ActivityFormDialog::startCreateType(int typeIndex,
+                                         const QDateTime& suggestedStart) {
+    m_titleLabel->setText(tr("Nuova attivita'"));
+    m_page->startCreateType(typeIndex, suggestedStart);
+}
+
 void ActivityFormDialog::startEditActivity(const events::Activity* activity) {
     m_titleLabel->setText(tr("Modifica attivita'"));
     m_page->startEditActivity(activity);

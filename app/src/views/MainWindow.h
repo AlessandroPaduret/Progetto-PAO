@@ -10,11 +10,9 @@
 #include "events/events.h"
 
 class QAction;
-class QEvent;
 class QLabel;
 class QMenu;
 class QStackedWidget;
-class QToolButton;
 
 namespace app {
 
@@ -68,9 +66,9 @@ private slots:
     void onNext();
     void onToday();
 
-    void onNewActivity();
-    void onEditSelected();
-    void onDeleteSelected();
+    /** @brief Apre il form di creazione preselezionando il tipo (0=Evento,
+     *  1=Riunione, 2=Compito, 3=Anniversario), dal menu "Nuova attivita'". */
+    void openNewActivityType(int typeIndex);
 
     void onSave();
     void onLoad();
@@ -89,8 +87,6 @@ private slots:
     void onChoiceSplit();
 
 protected:
-    /** @brief Apre la tendina "Visualizza" al passaggio del puntatore. */
-    bool eventFilter(QObject* object, QEvent* event) override;
     /** @brief Tiene centrato il pannello di creazione quando si ridimensiona. */
     void resizeEvent(QResizeEvent* event) override;
 
@@ -118,7 +114,6 @@ private:
 
     QWidget* m_navBar = nullptr;
     QLabel* m_navLabel = nullptr;
-    QToolButton* m_viewButton = nullptr;
     QMenu* m_viewMenu = nullptr;
     QAction* m_viewListAction = nullptr;
     QAction* m_viewDayAction = nullptr;

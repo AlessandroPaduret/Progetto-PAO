@@ -30,6 +30,10 @@ public:
     /** @brief Avvia la creazione (data/ora suggerita, es. dal doppio clic). */
     void startCreate(const QDateTime& suggestedStart = QDateTime());
 
+    /** @brief Avvia la creazione preselezionando il tipo (0=Evento,
+     *  1=Riunione, 2=Compito, 3=Anniversario), dal menu "Nuova attivita'". */
+    void startCreateType(int typeIndex, const QDateTime& suggestedStart = QDateTime());
+
     /** @brief Avvia la modifica di un'attivita' esistente. */
     void startEditActivity(const events::Activity* activity);
 

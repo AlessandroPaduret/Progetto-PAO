@@ -5,18 +5,16 @@
 #include <QApplication>
 #include <QDate>
 #include <QDateTime>
-#include <QEvent>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QTimeZone>
-#include <QToolBar>
-#include <QToolButton>
 #include <QVBoxLayout>
 
 #include "CalendarController.h"
@@ -117,17 +115,16 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     centralLayout->addWidget(m_pages, 1);
     setCentralWidget(central);
 
-    // --- Toolbar ----------------------------------------------------------------
-    auto* toolbar = new QToolBar(tr("Barra principale"), this);
-    toolbar->setMovable(false);
+    // --- Menu bar (GUI tipica) --------------------------------------------------
+    auto* menuBar = this->menuBar();
 
-    // Tasto "Visualizza": tendina con le 5 viste (si apre al passaggio del
-    // puntatore, gestito in eventFilter; l'azione scelta resta spuntata).
-    m_viewButton = new QToolButton(toolbar);
-    m_viewButton->setText(tr("Visualizza"));
-    m_viewButton->setPopupMode(QToolButton::InstantPopup);
-    m_viewButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    m_viewMenu = new QMenu(m_viewButton);
+    // Menu "File": Salva / Carica calendario
+    QMenu* fileMenu = menuBar->addMenu(tr("File"));
+    fileMenu->addAction(tr("Salva calendario"), this, &MainWindow::onSave);
+    fileMenu->addAction(tr("Carica calendario"), this, &MainWindow::onLoad);
+
+    // Menu "Visualizza": le 5 viste (l'azione attiva resta spuntata)
+    m_viewMenu = menuBar->addMenu(tr("Visualizza"));
     m_viewListAction = m_viewMenu->addAction(tr("Elenco"), this,
                                              &MainWindow::showListPage);
     m_viewDayAction = m_viewMenu->addAction(tr("Giorno"), this,
@@ -149,17 +146,17 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     viewGroup->addAction(m_viewWeekAction);
     viewGroup->addAction(m_viewMonthAction);
     viewGroup->addAction(m_viewYearAction);
-    m_viewButton->setMenu(m_viewMenu);
-    toolbar->addWidget(m_viewButton);
-    m_viewButton->installEventFilter(this);
-    toolbar->addSeparator();
-    toolbar->addAction(tr("Nuova attivita'..."), this, &MainWindow::onNewActivity);
-    toolbar->addAction(tr("Modifica"), this, &MainWindow::onEditSelected);
-    toolbar->addAction(tr("Elimina"), this, &MainWindow::onDeleteSelected);
-    toolbar->addSeparator();
-    toolbar->addAction(tr("Salva..."), this, &MainWindow::onSave);
-    toolbar->addAction(tr("Carica..."), this, &MainWindow::onLoad);
-    addToolBar(toolbar);
+
+    // Menu "Nuova attivita'": i tipi creabili dal form
+    QMenu* newMenu = menuBar->addMenu(tr("Nuova attivita'"));
+    newMenu->addAction(tr("Evento"), this,
+                       [this] { openNewActivityType(0); });
+    newMenu->addAction(tr("Riunione"), this,
+                       [this] { openNewActivityType(1); });
+    newMenu->addAction(tr("Compito"), this,
+                       [this] { openNewActivityType(2); });
+    newMenu->addAction(tr("Anniversario"), this,
+                       [this] { openNewActivityType(3); });
 
     // --- Connessioni ------------------------------------------------------------
     connect(controller, &CalendarController::activitiesChanged,
@@ -490,18 +487,9 @@ void MainWindow::showFormEditOccurrence(const events::Occurrence& occurrence) {
     m_formDialog->showCentered();
 }
 
-void MainWindow::onNewActivity() {
-    m_formDialog->startCreate();
+void MainWindow::openNewActivityType(int typeIndex) {
+    m_formDialog->startCreateType(typeIndex);
     m_formDialog->showCentered();
-}
-
-bool MainWindow::eventFilter(QObject* object, QEvent* event) {
-    // Tasto "Visualizza": la tendina si apre al passaggio del puntatore
-    if (object == m_viewButton && event->type() == QEvent::Enter &&
-        m_viewMenu && !m_viewMenu->isVisible()) {
-        m_viewButton->showMenu();
-    }
-    return QMainWindow::eventFilter(object, event);
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event) {
@@ -612,40 +600,6 @@ void MainWindow::onChoiceInstance() {
     // salvataggio la serie continua ad esistere ma senza quel giorno
     // (eccezione interna + nuovo evento singolo).
     showFormEditOccurrence(occurrence);
-}
-
-void MainWindow::onEditSelected() {
-    const int page = m_pages->currentIndex();
-    if (page == kPageWeek) {
-        if (const events::Occurrence* selected = m_weekView->selectedOccurrence()) {
-            showFormEditOccurrence(*selected);
-        }
-    } else if (page == kPageDay) {
-        if (const events::Occurrence* selected = m_dayView->selectedOccurrence()) {
-            showFormEditOccurrence(*selected);
-        }
-    } else if (page == kPageMonth) {
-        if (const events::Occurrence* selected = m_monthView->selectedOccurrence()) {
-            showFormEditOccurrence(*selected);
-        }
-    }
-}
-
-void MainWindow::onDeleteSelected() {
-    const int page = m_pages->currentIndex();
-    if (page == kPageWeek) {
-        if (const events::Occurrence* selected = m_weekView->selectedOccurrence()) {
-            confirmDeleteOccurrence(*selected);
-        }
-    } else if (page == kPageDay) {
-        if (const events::Occurrence* selected = m_dayView->selectedOccurrence()) {
-            confirmDeleteOccurrence(*selected);
-        }
-    } else if (page == kPageMonth) {
-        if (const events::Occurrence* selected = m_monthView->selectedOccurrence()) {
-            confirmDeleteOccurrence(*selected);
-        }
-    }
 }
 
 void MainWindow::confirmDeleteOccurrence(const events::Occurrence& occurrence) {

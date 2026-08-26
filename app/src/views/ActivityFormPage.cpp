@@ -476,6 +476,11 @@ void ActivityFormPage::onUnitChanged(int index) {
 }
 
 void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
+  startCreateType(kEventPanel, suggestedStart);
+}
+
+void ActivityFormPage::startCreateType(int typeIndex,
+                                       const QDateTime& suggestedStart) {
   m_mode = Mode::Create;
   m_editingActivity = nullptr;
   m_editingOccurrence.reset();
@@ -521,10 +526,10 @@ void ActivityFormPage::startCreate(const QDateTime& suggestedStart) {
   m_endDate->setDate(value.date());
 
   m_typeCombo->setEnabled(true);
-  m_typeCombo->setCurrentIndex(kEventPanel);
+  m_typeCombo->setCurrentIndex(qBound(0, typeIndex, kPanelCount - 1));
   m_doneCheck->setEnabled(true);
   m_saveButton->setText(tr("Salva"));
-  m_forms->setCurrentIndex(kEventPanel);
+  m_forms->setCurrentIndex(qBound(0, typeIndex, kPanelCount - 1));
   emitPreview();
 }
 

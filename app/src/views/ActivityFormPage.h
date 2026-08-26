@@ -55,6 +55,10 @@ public:
      *  doppio clic su una cella della settimana) se valida. */
     void startCreate(const QDateTime& suggestedStart = QDateTime());
 
+    /** @brief Avvia la creazione preselezionando il tipo nel menu "Nuova
+     *  attivita'" (0=Evento, 1=Riunione, 2=Compito, 3=Anniversario). */
+    void startCreateType(int typeIndex, const QDateTime& suggestedStart = QDateTime());
+
     /** @brief Avvia la modifica di un'attivita' esistente. */
     void startEditActivity(const events::Activity* activity);
 
