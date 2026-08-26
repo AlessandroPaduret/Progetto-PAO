@@ -3,6 +3,7 @@
 
 #include <QDate>
 #include <QMainWindow>
+#include <QString>
 
 #include <memory>
 #include <optional>
@@ -21,6 +22,7 @@ class ActivityFormDialog;
 class ActivityListPage;
 class CalendarController;
 class DayView;
+class LeftShortcutStyle;
 class MonthView;
 class RecurrenceChoiceDialog;
 class WeekView;
@@ -48,6 +50,7 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(CalendarController* controller, QWidget* parent = nullptr);
+    ~MainWindow() override;
 
 private slots:
     void refresh();
@@ -71,6 +74,8 @@ private slots:
     void openNewActivityType(int typeIndex);
 
     void onSave();
+    /** @brief "Salva con nome": chiede sempre il percorso col QFileDialog. */
+    void onSaveAs();
     void onLoad();
 
     void confirmDeleteOccurrence(const events::Occurrence& occurrence);
@@ -115,11 +120,14 @@ private:
     QWidget* m_navBar = nullptr;
     QLabel* m_navLabel = nullptr;
     QMenu* m_viewMenu = nullptr;
+    std::unique_ptr<LeftShortcutStyle> m_menuStyle;  // scorciatoie a sinistra
     QAction* m_viewListAction = nullptr;
     QAction* m_viewDayAction = nullptr;
     QAction* m_viewWeekAction = nullptr;
     QAction* m_viewMonthAction = nullptr;
     QAction* m_viewYearAction = nullptr;
+
+    QString m_currentFilePath;   // ultimo file salvato/caricato (per "Salva")
 
     QDate m_anchor;
     ViewKind m_view = ViewKind::Week;

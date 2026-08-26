@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QShortcut>
 #include <QStackedWidget>
 #include <QTimeZone>
 #include <QVBoxLayout>
@@ -23,6 +24,7 @@
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
+#include "views/LeftShortcutStyle.h"
 #include "views/MonthView.h"
 #include "views/RecurrenceChoiceDialog.h"
 #include "views/ViewShared.h"
@@ -118,10 +120,28 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     // --- Menu bar (GUI tipica) --------------------------------------------------
     auto* menuBar = this->menuBar();
 
-    // Menu "File": Salva / Carica calendario
+    // Menu "File": Salva / Salva con nome / Carica calendario (con scorciatoie)
     QMenu* fileMenu = menuBar->addMenu(tr("File"));
-    fileMenu->addAction(tr("Salva calendario"), this, &MainWindow::onSave);
-    fileMenu->addAction(tr("Carica calendario"), this, &MainWindow::onLoad);
+    QAction* saveAction =
+        fileMenu->addAction(tr("Salva calendario"), this, &MainWindow::onSave);
+    saveAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
+    QAction* saveAsAction =
+        fileMenu->addAction(tr("Salva con nome"), this, &MainWindow::onSaveAs);
+    saveAsAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
+    fileMenu->addSeparator();
+    QAction* loadAction =
+        fileMenu->addAction(tr("Carica calendario"), this, &MainWindow::onLoad);
+    loadAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
+
+    // Stile dei menu: la scorciatoia va a sinistra, in grigio/trasparente.
+    // La MainWindow possiede lo stile; il menu (figlio) lo usa per il paint.
+    m_menuStyle = std::make_unique<LeftShortcutStyle>(QApplication::style());
+    fileMenu->setStyle(m_menuStyle.get());
+
+    // Ctrl+N: nuova attivita' (form con tipo predefinito Evento)
+    auto* newShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_N), this);
+    connect(newShortcut, &QShortcut::activated, this,
+            [this] { openNewActivityType(0); });
 
     // Menu "Visualizza": le 5 viste (l'azione attiva resta spuntata)
     m_viewMenu = menuBar->addMenu(tr("Visualizza"));
@@ -298,6 +318,8 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     showWeekPage();
     refresh();
 }
+
+MainWindow::~MainWindow() = default;
 
 void MainWindow::refresh() {
     // Vista giorno: occorrenze del giorno indicato
@@ -633,11 +655,26 @@ void MainWindow::confirmDeleteOccurrence(const events::Occurrence& occurrence) {
 }
 
 void MainWindow::onSave() {
+    // Salva sull'ultimo file usato (caricato o salvato in precedenza);
+    // se non ce n'e' uno, si comporta come "Salva con nome".
+    if (m_currentFilePath.isEmpty()) {
+        onSaveAs();
+        return;
+    }
+    QString error;
+    if (!m_controller->saveToFile(m_currentFilePath, &error)) {
+        QMessageBox::warning(this, tr("Salvataggio"), error);
+    }
+}
+
+void MainWindow::onSaveAs() {
     const QString path = QFileDialog::getSaveFileName(
-        this, tr("Salva attivita'"), QString(), tr("File JSON (*.json)"));
+        this, tr("Salva attivita'"), m_currentFilePath,
+        tr("File JSON (*.json)"));
     if (path.isEmpty()) {
         return;
     }
+    m_currentFilePath = path;
     QString error;
     if (!m_controller->saveToFile(path, &error)) {
         QMessageBox::warning(this, tr("Salvataggio"), error);
@@ -646,14 +683,17 @@ void MainWindow::onSave() {
 
 void MainWindow::onLoad() {
     const QString path = QFileDialog::getOpenFileName(
-        this, tr("Carica attivita'"), QString(), tr("File JSON (*.json)"));
+        this, tr("Carica attivita'"), m_currentFilePath,
+        tr("File JSON (*.json)"));
     if (path.isEmpty()) {
         return;
     }
     QString error;
     if (!m_controller->loadFromFile(path, &error)) {
         QMessageBox::warning(this, tr("Caricamento"), error);
+        return;
     }
+    m_currentFilePath = path;
 }
 
 } // namespace app

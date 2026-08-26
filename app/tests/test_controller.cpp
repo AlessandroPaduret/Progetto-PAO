@@ -431,8 +431,6 @@ TEST_CASE("ALLDAY: piu' eventi all-day vengono affiancati su righe distinte",
     const int kDayCount = 7;
     const QDate monday(2026, 8, 31);
 
-    auto dayIndex = [&](const QDate& d) { return monday.daysTo(d); };
-
     // Ogni item: {firstDay, lastDay, row}
     struct Item {
         int first, last, row;
