@@ -2,6 +2,7 @@
 #define ACTIVITY_BUILDER_H
 
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <unordered_set>
 #include <vector>
@@ -27,11 +28,10 @@ protected:
     String m_title;
     TimePoint m_start;
     Duration m_duration = Duration::zero();
-    std::shared_ptr<DateGenerator> m_generator;  ///< nullptr = fallback SingleGenerator
+    std::unique_ptr<DateGenerator> m_generator; ///< nullptr = fallback SingleGenerator
     std::unordered_set<TimePoint, TimePointHasher> m_exceptions;
 
-    /** @return m_generator oppure SingleGenerator(m_start) come fallback */
-    std::shared_ptr<DateGenerator> resolveGenerator() const;
+    std::unique_ptr<DateGenerator> resolveGenerator();
 
 public:
     /** @brief Costruttore.
@@ -46,13 +46,19 @@ public:
     /** @brief Imposta la regola di ricorrenza esplicita
      *  @return *this per il concatenamento fluente
      */
-    ActivityBuilder& addGenerator(std::shared_ptr<DateGenerator> generator);
+    ActivityBuilder& addGenerator(std::unique_ptr<DateGenerator> generator);
 
     /** @brief Aggiunge un'eccezione (occorenza esclusa dalla serie) */
     ActivityBuilder& addException(TimePoint tp);
 
-    /** @brief Costruisce l'attivita' (evento singolo se non c'e' un generatore) */
-    Activity build() const;
+    /** @brief imposta il numeoro massimo di occorrenze dell'attività da creare
+     *  @param maxOccurrences numero massimo di occorrenze della attività da creare
+     *  @return *this per il concatenamento fluente
+     */
+    ActivityBuilder& withMaxOccurrences(std::size_t maxOccurrences);
+
+    // Rimosso const: consuma lo stato del builder via move
+    Activity build(); 
 };
 
 /**
@@ -74,11 +80,8 @@ public:
     /** @brief Imposta la priorita' del compito */
     TaskBuilder& withPriority(Priority priority);
 
-    /** @brief Segna il compito come evaso */
-    TaskBuilder& makeCheckable();
-
-    /** @brief Costruisce il compito (evento singolo se non c'e' un generatore) */
-    Task build() const;
+    // Rimosso const
+    Task build(); 
 };
 
 /**
@@ -103,10 +106,10 @@ public:
     /** @brief Aggiunge un partecipante (i duplicati sono rifiutati) */
     MeetingBuilder& addAttendee(const String& attendee);
 
-    /** @brief Costruisce la riunione */
-    Meeting build() const;
+    // Rimosso const
+    Meeting build(); 
 };
 
 } // namespace events
 
-#endif // ACTIVITY_BUILDER_H
+#endif // ACTIVITY_BUILDER_HZ
