@@ -1,9 +1,10 @@
 #ifndef FIXED_INTERVAL_GENERATOR_H
 #define FIXED_INTERVAL_GENERATOR_H
 
-#include <cstddef>
-#include <vector>
 #include <chrono>
+#include <cstddef>
+#include <memory>
+#include <vector>
 
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
@@ -11,60 +12,101 @@
 
 namespace events {
 
-class MoveGeneratorVisitor;
-
 /**
  * @class FixedIntervalGenerator
- * @brief Generatore a intervallo fisso in secondi (giorni/settimane).
+ * @brief Generatore concreto per serie temporali ad intervallo fisso.
  *
- * IMMUTABILE: tutta la configurazione entra dal costruttore (incluso
- * `maxOccurrences`); sono esposti solo accessor read-only. Per spostare o
- * troncare la serie usare MoveGeneratorVisitor (che ricostruisce un nuovo
- * generatore).
+ * Rappresenta la regola logica di ricorrenza di un'attivita' che si ripete
+ * a cadenza costante (es. ogni 24 ore, ogni 7 giorni, ecc.).
+ *
+ * @details
+ * - **Mutabilita'**: L'intervallo (`m_interval`) resta fisso dopo la costruzione,
+ *   ma i limiti temporali (`m_start`, `m_end`) sono modificabili tramite
+ *   @ref setStart e @ref setEnd (spostamento e troncamento della serie).
+ * - **Polimorfismo**: Implementa l'interfaccia @ref DateGenerator fornendo sia 
+ *   l'algoritmo di generazione delle date sia la capacita' di duplicazione profonda tramite @ref clone().
  */
 class FixedIntervalGenerator : public DateGenerator {
 private:
-    TimePoint m_start;
-    Duration m_interval;
-    TimePoint m_end;
-    std::size_t m_maxOccurrences;  ///< 0 = illimitate
+    TimePoint m_start;        ///< Istante temporale della prima occorrenza valida.
+    const Duration m_interval;///< Durata fissa dell'intervallo tra due occorrenze successive.
+    TimePoint m_end;          ///< Istante temporale limite oltre il quale non vengono prodotte occorrenze.
 
 public:
-    /** @brief Costruttore (tutta la configurazione e' iniettabile da qui).
-     *  @param start Prima occorrenza
-     *  @param interval Passo tra le occorrenze (> 0)
-     *  @param end Fine della ricorrenza (default: senza fine)
-     *  @param maxOccurrences Limite di occorrenze (0 = illimitate)
+    /** 
+     * @brief Costruttore principale con iniezione di tutti i parametri di configurazione.
+     * 
+     * @param start Prima occorrenza della serie.
+     * @param interval Passo temporale tra le occorrenze (deve essere > 0).
+     * @param end Limite temporale superiore (default: `TimePoint::max()` per serie illimitate).
      */
     FixedIntervalGenerator(TimePoint start, Duration interval,
-                           TimePoint end = TimePoint::max(),
-                           std::size_t maxOccurrences = 0);
+                           TimePoint end = TimePoint::max());
 
-    /** @return La data di inizio dell'intervallo */
+    /** @brief Distruttore virtuale di default. */
+    ~FixedIntervalGenerator() override = default;
+
+    //@{
+    /** @name Implementazione di DateGenerator - Ciclo di Vita */
+
+    /// @inheritdoc
+    [[nodiscard]] std::unique_ptr<DateGenerator> clone() const override;
+    //@}
+
+    
+    //@{
+    /** @name Query dello Stato e Accessor Specifici */
+
+    /// @inheritdoc
     TimePoint getStart() const override;
 
-    /** @return L'intervallo di tempo tra le date generate */
+    /** 
+     * @brief Restituisce l'intervallo di tempo fisso tra due date successive.
+     * @return Duration rappresentante la frequenza dell'intervallo.
+     */
     Duration getInterval() const;
 
-    /** @return La data di fine dell'intervallo */
+    /// @inheritdoc
     TimePoint getEnd() const override;
 
-    /** @return Il numero massimo di occorrenze (0 = illimitate) */
-    std::size_t getMaxOccurrences() const;
+    /** @brief Imposta l'inizio della serie (se supera la fine, la fine si allinea) */
+    void setStart(TimePoint start) override;
 
-    /// Implementazione dei metodi virtuali di DateGenerator
+    /** @brief Imposta la fine della serie (troncamento) */
+    void setEnd(TimePoint end) override;
+    //@}
 
-    /** @brief Genera le date comprese nell'intervallo [from, to] (inclusivo) */
+
+    //@{
+    /** @name Algoritmi di Generazione e Verifica Date */
+
+    /** 
+     * @brief Genera le date comprese nell'intervallo [from, to] (inclusivo).
+     * 
+     * Calcola matematicamente le date prodotte dalla regola `m_start + k * m_interval`
+     * restituendo solo quelle che ricadono all'interno dell'intervallo di ricerca [from, to]
+     * e non superano `m_end`.
+     * 
+     * @param from Data di inizio della finestra di ricerca (inclusa).
+     * @param to Data di fine della finestra di ricerca (inclusa).
+     * @return std::vector<TimePoint> Vettore ordinato delle date generate.
+     */
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
-    /** @return true se `tp` e' una data generata dalla serie */
+    /// @inheritdoc
     bool isIn(TimePoint tp) const override;
+    //@}
 
-    /** @return Descrizione testuale del generatore (solo visualizzazione) */
+
+    //@{
+    /** @name Ispezione e Serializzazione */
+
+    /// @inheritdoc
     String describe() const override;
 
-    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const FixedIntervalGenerator&) */
+    /// @inheritdoc
     void accept(DateGeneratorVisitor& visitor) const override;
+    //@}
 };
 
 } // namespace events

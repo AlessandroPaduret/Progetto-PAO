@@ -7,27 +7,28 @@
 #include "events/core/Activity.h"
 #include "events/core/ActivityVisitor.h"
 #include "events/core/Format.h"
-#include "events/generators/MoveGeneratorVisitor.h"
 #include "events/generators/SingleGenerator.h"
 
 namespace events {
 
 Activity::Activity(String title, Duration duration,
-                   std::shared_ptr<DateGenerator> generator)
+                   std::unique_ptr<DateGenerator> generator)
     : m_title(std::move(title)),
       m_duration(duration),
       m_generator(generator ? std::move(generator)
-                            : std::make_shared<SingleGenerator>(
+                            : std::make_unique<SingleGenerator>(
                                   std::chrono::time_point_cast<std::chrono::seconds>(
                                       Clock::now()))) {
   if (duration < Duration::zero()) {
     throw std::invalid_argument("La durata non puo' essere negativa.");
   }
-  // L'istante di riferimento vive nel generatore (immutabile): la Activity
-  // non ha un proprio inizio; il fallback e' un SingleGenerator(now).
+  // L'istante di riferimento vive nel generatore: la Activity non ha un
+  // proprio inizio; il fallback e' un SingleGenerator(now).
 }
 
-Activity *Activity::clone_impl() const { return new Activity(*this); }
+std::unique_ptr<Activity> Activity::clone() const {
+  return std::make_unique<Activity>(m_title, m_duration, m_generator->clone());
+}
 
 String Activity::getTitle() const { return m_title; }
 
@@ -46,15 +47,22 @@ void Activity::setDuration(Duration duration) {
 
 TimePoint Activity::getEnd() const { return m_generator->getEnd(); }
 
+void Activity::setStart(TimePoint start) { m_generator->setStart(start); }
+
 void Activity::setEnd(TimePoint end) {
-  // La fine della ricorrenza vive nel generatore: la si imposta troncandolo.
-  MoveGeneratorVisitor visitor(std::nullopt, end);
-  m_generator->accept(visitor);
-  m_generator = visitor.result;
+  // La fine della ricorrenza vive nel generatore: si tronca con setEnd.
+  m_generator->setEnd(end);
 }
 
-const std::shared_ptr<DateGenerator> &Activity::getGenerator() const {
-  return m_generator;
+const DateGenerator &Activity::getGenerator() const {
+  return *m_generator;
+}
+
+void Activity::setGenerator(std::unique_ptr<DateGenerator> generator) {
+  m_generator = generator ? std::move(generator)
+                          : std::make_unique<SingleGenerator>(
+                                std::chrono::time_point_cast<std::chrono::seconds>(
+                                    Clock::now()));
 }
 
 const std::unordered_set<TimePoint, TimePointHasher> &
@@ -72,10 +80,8 @@ bool Activity::addException(TimePoint tp) {
 }
 
 void Activity::truncateBefore(TimePoint tp) {
-  // Ricostruisce il generatore con la nuova fine (tp escluso).
-  MoveGeneratorVisitor visitor(std::nullopt, tp - Duration(1));
-  m_generator->accept(visitor);
-  m_generator = visitor.result;
+  // Conserva le occorrenze strettamente precedenti a tp (tp escluso).
+  m_generator->setEnd(tp - Duration(1));
 }
 
 std::vector<TimePoint> Activity::occurrenceDates(const TimePoint from,
@@ -99,12 +105,11 @@ std::vector<Occurrence> Activity::occurrencesIn(const TimePoint from,
 }
 
 void Activity::moveTo(TimePoint newStart) {
-  // Il generatore e' immutabile: MoveGeneratorVisitor ne ricostruisce uno
-  // nuovo traslato. La fine NON slitta (resta quella che era); le eccezioni
-  // (date assolute) non vengono traslate: la serie spostata e' INTONSA.
-  MoveGeneratorVisitor visitor(newStart, std::nullopt);
-  m_generator->accept(visitor);
-  m_generator = visitor.result;
+  // Sposta la serie con setStart (la fine NON slitta; se il nuovo inizio
+  // supera la fine, il generatore allinea la fine al nuovo inizio). Le
+  // eccezioni (date assolute) non vengono traslate: la serie spostata e'
+  // INTONSA.
+  m_generator->setStart(newStart);
   m_exceptions.clear();
 }
 
@@ -114,10 +119,6 @@ String Activity::describe() const {
 
 void Activity::accept(ActivityVisitor &visitor) const {
   visitor.visit(*this);
-}
-
-std::unique_ptr<Activity> Activity::clone() const {
-  return std::unique_ptr<Activity>(clone_impl());
 }
 
 } // namespace events

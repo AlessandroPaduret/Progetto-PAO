@@ -1,4 +1,5 @@
 #include <chrono>
+#include <memory>
 #include <vector>
 #include <sstream>
 
@@ -7,11 +8,20 @@
 
 namespace events {
 
+
+/// Implementazione di DateGenerator - Ciclo di Vita
+
 FixedIntervalGenerator::FixedIntervalGenerator(TimePoint start,
-                                               Duration interval, TimePoint end,
-                                               std::size_t maxOccurrences)
-    : m_start(start), m_interval(interval), m_end(end),
-      m_maxOccurrences(maxOccurrences) {}
+                                               Duration interval, 
+                                               TimePoint end)
+    : m_start(start), m_interval(interval), m_end(end) {}
+
+std::unique_ptr<DateGenerator> FixedIntervalGenerator::clone() const {
+  return std::make_unique<FixedIntervalGenerator>(m_start, m_interval, m_end);
+}
+
+
+/// Query dello Stato e Accessor Specifici
 
 TimePoint FixedIntervalGenerator::getStart() const { return m_start; }
 
@@ -19,11 +29,17 @@ Duration FixedIntervalGenerator::getInterval() const { return m_interval; }
 
 TimePoint FixedIntervalGenerator::getEnd() const { return m_end; }
 
-std::size_t FixedIntervalGenerator::getMaxOccurrences() const {
-  return m_maxOccurrences;
+void FixedIntervalGenerator::setStart(TimePoint start) {
+  if (start > m_end) {
+    m_end = start;  // la fine non resta antecedente al nuovo inizio
+  }
+  m_start = start;
 }
 
-/// Implementazione dei metodi virtuali di DateGenerator
+void FixedIntervalGenerator::setEnd(TimePoint end) { m_end = end; }
+
+
+/// Algoritmi di Generazione e Verifica Date
 
 std::vector<TimePoint>
 FixedIntervalGenerator::generateDates(const TimePoint from,
@@ -49,13 +65,6 @@ FixedIntervalGenerator::generateDates(const TimePoint from,
 
     // 3. Generazione nel range (con limite di occorrenze, contate da m_start)
     while (current <= to && current <= m_end) {
-        if (m_maxOccurrences > 0) {
-            const std::size_t index = static_cast<std::size_t>(
-                (current - m_start) / m_interval);
-            if (index >= m_maxOccurrences) {
-                break;
-            }
-        }
         dates.push_back(current);
         current += m_interval;
     }
@@ -71,14 +80,11 @@ bool FixedIntervalGenerator::isIn(TimePoint tp) const {
   if (offset < Duration::zero() || offset % m_interval != Duration::zero()) {
     return false;
   }
-  if (m_maxOccurrences > 0) {
-    const std::size_t index = static_cast<std::size_t>(offset / m_interval);
-    if (index >= m_maxOccurrences) {
-      return false;
-    }
-  }
   return true;
 }
+
+
+/// Ispezione e Serializzazione
 
 String FixedIntervalGenerator::describe() const {
     std::ostringstream oss;

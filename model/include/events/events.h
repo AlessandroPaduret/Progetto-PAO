@@ -14,16 +14,17 @@
 #include "events/domain/Task.h"
 #include "events/domain/Meeting.h"
 #include "events/domain/Calendar.h"
-#include "events/domain/ActivityFactory.h"
 
 // Builders
 #include "events/builders/ActivityBuilder.h"
+#include "events/builders/GeneratorBuilder.h"
+
 
 // Generators
 #include "events/generators/SingleGenerator.h"
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
-#include "events/generators/MoveGeneratorVisitor.h"
+#include "events/generators/MaxOccurrencesDecorator.h"
 
 #endif  // EVENTS_ALL_H

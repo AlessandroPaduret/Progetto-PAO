@@ -1,6 +1,8 @@
 #include <chrono>
 #include <cstddef>
+#include <memory>
 #include <sstream>
+#include <type_traits>
 #include <vector>
 
 #include "events/core/CommonTypes.h"
@@ -8,20 +10,40 @@
 
 namespace events {
 
-MonthlyGenerator::MonthlyGenerator(TimePoint start, int months, TimePoint end,
-                                   std::size_t maxOccurrences)
-    : m_start(start), m_months(months > 0 ? months : 1), m_end(end),
-      m_maxOccurrences(maxOccurrences) {}
+
+/// Implementazione di DateGenerator - Ciclo di Vita
+
+MonthlyGenerator::MonthlyGenerator(TimePoint start, int months, TimePoint end)
+    : m_start(start), m_months(months > 0 ? months : 1), m_end(end) {}
+
+std::unique_ptr<DateGenerator> MonthlyGenerator::clone() const {
+  return std::make_unique<MonthlyGenerator>(m_start, m_months, m_end);
+}
+
+
+/// Query dello Stato e Accessor Specifici
 
 TimePoint MonthlyGenerator::getStart() const { return m_start; }
 
 int MonthlyGenerator::getMonths() const { return m_months; }
 
+void MonthlyGenerator::setMonths(int months) {
+  m_months = months > 0 ? months : 1;
+}
+
 TimePoint MonthlyGenerator::getEnd() const { return m_end; }
 
-std::size_t MonthlyGenerator::getMaxOccurrences() const {
-  return m_maxOccurrences;
+void MonthlyGenerator::setStart(TimePoint start) {
+  if (start > m_end) {
+    m_end = start;  // la fine non resta antecedente al nuovo inizio
+  }
+  m_start = start;
 }
+
+void MonthlyGenerator::setEnd(TimePoint end) { m_end = end; }
+
+
+/// Algoritmi di Generazione e Verifica Date
 
 std::vector<TimePoint> MonthlyGenerator::generateDates(
     const TimePoint from, const TimePoint to) const {
@@ -35,9 +57,6 @@ std::vector<TimePoint> MonthlyGenerator::generateDates(
 
   std::size_t k = 0;
   while (true) {
-    if (m_maxOccurrences > 0 && k >= m_maxOccurrences) {
-      break;
-    }
     const auto shiftedYm = baseYm + std::chrono::months{k * m_months};
     // Giorno del mese con clamping (es. 31 -> ultimo giorno del mese)
     std::chrono::year_month_day candidate = shiftedYm / base.day();
@@ -88,10 +107,6 @@ bool MonthlyGenerator::isIn(TimePoint tp) const {
   }
   const std::size_t k = static_cast<std::size_t>(monthsBetween / m_months);
 
-  if (m_maxOccurrences > 0 && k >= m_maxOccurrences) {
-    return false;
-  }
-
   // Il candidato per quel passo (con clamping del giorno) deve coincidere con tp.
   const auto shiftedYm = baseYm + std::chrono::months{monthsBetween};
   std::chrono::year_month_day candidate = shiftedYm / base.day();
@@ -103,6 +118,9 @@ bool MonthlyGenerator::isIn(TimePoint tp) const {
       timeOffset;
   return candidateTp == tp;
 }
+
+
+/// Ispezione e Serializzazione
 
 String MonthlyGenerator::describe() const {
   std::ostringstream oss;

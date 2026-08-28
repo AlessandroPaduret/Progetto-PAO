@@ -149,7 +149,9 @@ di un'attivita' sulla timeline; \texttt{Calendar} e' la collezione polimorfa
 che possiede le attivita' (\texttt{unique\_ptr}), ne aggrega le occorrenze
 ordinate (\texttt{occurrencesIn}) e offre la ricerca testuale per titolo
 (\texttt{search}, case-insensitive). La creazione degli oggetti passa
-esclusivamente da \texttt{ActivityFactory} (pattern \textbf{Factory}).
+esclusivamente dai \textbf{builder} \texttt{ActivityBuilder}/
+\texttt{TaskBuilder}/\texttt{MeetingBuilder} (pattern \textbf{Builder}),
+affiancati da \texttt{GeneratorBuilder} per le regole di ricorrenza.
 
 \section{Utilizzo non banale del polimorfismo}
 

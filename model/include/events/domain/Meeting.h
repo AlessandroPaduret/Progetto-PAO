@@ -24,9 +24,6 @@ private:
     String m_location;                    ///< Luogo o link
     std::vector<String> m_attendees;      ///< Partecipanti (senza duplicati)
 
-protected:
-    Meeting* clone_impl() const override;
-
 public:
     /** @brief Costruttore.
      *  @param title Titolo della riunione
@@ -38,7 +35,7 @@ public:
     Meeting(const String& title = "",
             const Duration duration = Duration::zero(),
             const String& location = "",
-            std::shared_ptr<DateGenerator> generator = nullptr);
+            std::unique_ptr<DateGenerator> generator = nullptr);
 
     /** @return Il luogo o link della riunione */
     String getLocation() const;
@@ -71,7 +68,7 @@ public:
     void accept(ActivityVisitor& visitor) const override;
 
     /** @brief Crea una copia della riunione */
-    std::unique_ptr<Meeting> clone() const;
+    std::unique_ptr<Activity> clone() const override;
 };
 
 } // namespace events

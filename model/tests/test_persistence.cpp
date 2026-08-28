@@ -21,7 +21,8 @@ TimePoint make_date(int y, int m, int d) {
 
 TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
     TimePoint start = make_date(2026, 1, 8) + 10h;
-    auto event = ActivityFactory::createSimpleEvent("Dentista", start, 1h);
+    auto event = std::make_unique<Activity>(
+        ActivityBuilder("Dentista", start).withDuration(1h).build());
 
     QJsonObject json = persistence::activityToJson(*event);
     REQUIRE(json.value("type").toString() == "event");
@@ -41,7 +42,14 @@ TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
 
 TEST_CASE("Persistenza: serie settimanale (fixed) round-trip", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 1) + 9h;
-    auto event = ActivityFactory::createSimpleWeekly("Meeting", start, 1h, make_date(2026, 3, 1));
+    auto event = std::make_unique<Activity>(
+        ActivityBuilder("Meeting")
+            .withDuration(1h)
+            .addGenerator(GeneratorBuilder::from(start)
+                              .repeatEvery(events::Days(7))
+                              .until(make_date(2026, 3, 1))
+                              .build())
+            .build());
     event->addException(make_date(2026, 1, 15) + 9h);
 
     QJsonObject json = persistence::activityToJson(*event);
@@ -54,7 +62,7 @@ TEST_CASE("Persistenza: serie settimanale (fixed) round-trip", "[json][recurrent
     REQUIRE(back->getTitle() == "Meeting");
     REQUIRE(back->getExceptions().size() == 1);
     // la ricorrenza si deduce dal generatore (fixed), non da un flag
-    REQUIRE(dynamic_cast<const events::FixedIntervalGenerator*>(back->getGenerator().get()) != nullptr);
+    REQUIRE(dynamic_cast<const events::FixedIntervalGenerator*>(&back->getGenerator()) != nullptr);
 
     auto a = event->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
     auto b = back->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 2, 28));
@@ -68,7 +76,8 @@ TEST_CASE("Persistenza: serie settimanale (fixed) round-trip", "[json][recurrent
 
 TEST_CASE("Persistenza: Task round-trip (occorrenze evase)", "[json][task]") {
     TimePoint due = make_date(2026, 3, 10);
-    auto task = ActivityFactory::createTask("Consegna", due, Priority::High);
+    auto task = std::make_unique<Task>(
+        TaskBuilder("Consegna", due).withPriority(Priority::High).build());
     task->setDone(due);
 
     QJsonObject json = persistence::activityToJson(*task);
@@ -89,7 +98,10 @@ TEST_CASE("Persistenza: Task round-trip (occorrenze evase)", "[json][task]") {
 
 TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meeting]") {
     TimePoint start = make_date(2026, 2, 1) + 10h;
-    auto meeting = ActivityFactory::createMeeting("Riunione", start, 90min, "Aula Magna");
+    auto meeting = std::make_unique<Meeting>(MeetingBuilder("Riunione", start)
+                                                 .withDuration(90min)
+                                                 .withLocation("Aula Magna")
+                                                 .build());
     meeting->addAttendee("Mario");
     meeting->addAttendee("Anna");
 
@@ -109,7 +121,13 @@ TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meet
 }
 
 TEST_CASE("Persistenza: Anniversario round-trip (leap-aware)", "[json][anniversary]") {
-    auto anniversary = ActivityFactory::createAnniversary("Mario", make_date(2028, 2, 29));
+    auto anniversary = std::make_unique<Activity>(
+        ActivityBuilder("Mario")
+            .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
+            .addGenerator(GeneratorBuilder::from(make_date(2028, 2, 29))
+                              .repeatYearly()
+                              .build())
+            .build());
 
     QJsonObject json = persistence::activityToJson(*anniversary);
     REQUIRE(json.value("type").toString() == "event");
@@ -133,15 +151,33 @@ TEST_CASE("Persistenza: Anniversario round-trip (leap-aware)", "[json][anniversa
 
 TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][file]") {
     Calendar calendar;
-    calendar.add(ActivityFactory::createSimpleEvent("Evento A", make_date(2026, 1, 1) + 9h, 1h));
-    calendar.add(ActivityFactory::createSimpleWeekly("Riunione B", make_date(2026, 1, 2) + 10h, 30min, make_date(2026, 3, 1)));
-    calendar.add(ActivityFactory::createTask("Compito C", make_date(2026, 2, 1), Priority::High));
-    calendar.add(ActivityFactory::createMeeting("Riunione D", make_date(2026, 1, 3) + 8h, 1h, "Zoom"));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("Evento A", make_date(2026, 1, 1) + 9h).withDuration(1h).build()));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("Riunione B")
+            .withDuration(30min)
+            .addGenerator(GeneratorBuilder::from(make_date(2026, 1, 2) + 10h)
+                              .repeatEvery(events::Days(7))
+                              .until(make_date(2026, 3, 1))
+                              .build())
+            .build()));
+    calendar.add(std::make_unique<Task>(
+        TaskBuilder("Compito C", make_date(2026, 2, 1)).withPriority(Priority::High).build()));
+    calendar.add(std::make_unique<Meeting>(MeetingBuilder("Riunione D", make_date(2026, 1, 3) + 8h)
+                                               .withDuration(1h)
+                                               .withLocation("Zoom")
+                                               .build()));
     // Evento "tutto il giorno": dalle 00:00 con durata 24h
-    auto allday = ActivityFactory::createSimpleEvent(
-        "Giornata E", make_date(2026, 1, 4), std::chrono::seconds(86400));
-    calendar.add(std::move(allday));
-    calendar.add(ActivityFactory::createAnniversary("Anniversario F", make_date(2000, 1, 6)));
+    calendar.add(std::make_unique<Activity>(ActivityBuilder("Giornata E", make_date(2026, 1, 4))
+                                                .withDuration(std::chrono::seconds(86400))
+                                                .build()));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("Anniversario F")
+            .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
+            .addGenerator(GeneratorBuilder::from(make_date(2000, 1, 6))
+                              .repeatYearly()
+                              .build())
+            .build()));
 
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
@@ -169,8 +205,8 @@ TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][fi
 
 TEST_CASE("Persistenza: serie mensile (con limite occorrenze)", "[json][recurrent][monthly]") {
     TimePoint start = make_date(2026, 1, 10) + 9h;
-    auto gen = std::make_shared<events::MonthlyGenerator>(start, 2, TimePoint::max(), 5);
-    Activity event("Pagamento", 1h, gen);
+    Activity event("Pagamento", 1h,
+                   GeneratorBuilder::from(start).repeatMonthly(2).limitTo(5).build());
 
     QJsonObject json = persistence::activityToJson(event);
     REQUIRE(json.value("generator").toObject().value("type").toString() == "monthly");
@@ -179,9 +215,8 @@ TEST_CASE("Persistenza: serie mensile (con limite occorrenze)", "[json][recurren
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
-    auto* monthly = dynamic_cast<events::MonthlyGenerator*>(back->getGenerator().get());
+    auto* monthly = dynamic_cast<const events::MaxOccurrencesDecorator*>(&back->getGenerator());
     REQUIRE(monthly != nullptr);
-    REQUIRE(monthly->getMonths() == 2);
     REQUIRE(monthly->getMaxOccurrences() == 5);
 
     auto a = event.occurrencesIn(make_date(2026, 1, 1), make_date(2027, 1, 1));
@@ -192,15 +227,15 @@ TEST_CASE("Persistenza: serie mensile (con limite occorrenze)", "[json][recurren
 
 TEST_CASE("Persistenza: serie settimanale con limite occorrenze", "[json][recurrent][cap]") {
     TimePoint start = make_date(2026, 1, 5) + 9h;
-    auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7), TimePoint::max(), 3);
-    Activity event("Corso", 1h, gen);
+    Activity event("Corso", 1h,
+                   GeneratorBuilder::from(start).repeatEvery(events::Days(7)).limitTo(3).build());
 
     QJsonObject json = persistence::activityToJson(event);
     REQUIRE(json.value("generator").toObject().value("max_occurrences").toInteger() == 3);
 
     auto back = persistence::activityFromJson(json);
     REQUIRE(back != nullptr);
-    auto* fixed = dynamic_cast<events::FixedIntervalGenerator*>(back->getGenerator().get());
+    auto* fixed = dynamic_cast<const events::MaxOccurrencesDecorator*>(&back->getGenerator());
     REQUIRE(fixed != nullptr);
     REQUIRE(fixed->getMaxOccurrences() == 3);
     REQUIRE(back->occurrencesIn(make_date(2026, 1, 1), make_date(2026, 3, 1)).size() == 3);
@@ -208,8 +243,8 @@ TEST_CASE("Persistenza: serie settimanale con limite occorrenze", "[json][recurr
 
 TEST_CASE("Persistenza: serie ricorrente di un giorno intero (00:00, 24h)", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 5);
-    auto gen = std::make_shared<events::FixedIntervalGenerator>(start, events::Days(7));
-    Activity series("Turno", std::chrono::seconds(86400), gen);
+    auto gen = GeneratorBuilder::from(start).repeatEvery(events::Days(7)).build();
+    Activity series("Turno", std::chrono::seconds(86400), std::move(gen));
 
     QJsonObject json = persistence::activityToJson(series);
     REQUIRE(json.value("type").toString() == "event");

@@ -16,18 +16,17 @@ namespace events {
 
 Meeting::Meeting(const String &title, const Duration duration,
                  const String &location,
-                 std::shared_ptr<DateGenerator> generator)
+                 std::unique_ptr<DateGenerator> generator)
     : Activity(title, duration,
                generator ? std::move(generator)
-                         : std::make_shared<SingleGenerator>(
+                         : std::make_unique<SingleGenerator>(
                                std::chrono::time_point_cast<std::chrono::seconds>(
                                    Clock::now()))),
       m_location(location) {}
 
-Meeting *Meeting::clone_impl() const { return new Meeting(*this); }
-
-std::unique_ptr<Meeting> Meeting::clone() const {
-  return std::unique_ptr<Meeting>(clone_impl());
+std::unique_ptr<Activity> Meeting::clone() const {
+  return std::make_unique<Meeting>(getTitle(), getDuration(), m_location,
+                                   getGenerator().clone());
 }
 
 String Meeting::getLocation() const { return m_location; }

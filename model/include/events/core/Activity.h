@@ -29,13 +29,11 @@ class Activity {
 protected:
     String m_title;                                    ///< Titolo dell'attivita'
     Duration m_duration;                               ///< Durata dell'occorrenza
-    std::shared_ptr<DateGenerator> m_generator;        ///< Regola di ricorrenza (fallback: SingleGenerator)
+    std::unique_ptr<DateGenerator> m_generator;        ///< Regola di ricorrenza (fallback: SingleGenerator)
     std::unordered_set<TimePoint, TimePointHasher> m_exceptions;  ///< Occorrenze escluse
 
     /** @brief Date generate in [from, to] meno le eccezioni (helper condiviso) */
     std::vector<TimePoint> occurrenceDates(TimePoint from, TimePoint to) const;
-
-    virtual Activity* clone_impl() const;              ///< Clonazione polimorfa
 
 public:
     /**
@@ -47,9 +45,16 @@ public:
      */
     Activity(String title = "",
              Duration duration = Duration::zero(),
-             std::shared_ptr<DateGenerator> generator = nullptr);
+             std::unique_ptr<DateGenerator> generator = nullptr);
 
     virtual ~Activity() = default;
+
+    /** @brief Spostamento di attivita' (le eccezioni e il generatore vengono mossi).
+     *         La copia non e' ammessa (ownership esclusiva del generatore). */
+    Activity(Activity&&) noexcept = default;
+
+    /** @brief Assegnamento per spostamento (la copia non e' ammessa). */
+    Activity& operator=(Activity&&) noexcept = default;
 
     /** @return Il titolo dell'attivita' */
     String getTitle() const;
@@ -60,20 +65,27 @@ public:
     /** @return L'istante di riferimento (inizio) dell'attivita' = getStart() del generatore */
     TimePoint getStart() const;
 
+    /** @return La fine della ricorrenza (= end del generatore; TimePoint::max() = senza fine) */
+    TimePoint getEnd() const;
+
+    /** @brief Imposta l'inizio della ricorrenza, spostando il generatore.
+     *         Le eccezioni NON vengono traslate (serie spostata intonsa). */
+    void setStart(TimePoint start);
+
+    /** @brief Imposta la fine della ricorrenza, troncando il generatore */
+    void setEnd(TimePoint end);
+
     /** @return La durata dell'occorrenza */
     Duration getDuration() const;
 
     /** @brief Imposta la durata @throws std::invalid_argument se negativa */
     void setDuration(Duration duration);
 
-    /** @return La fine della ricorrenza (= end del generatore; TimePoint::max() = senza fine) */
-    TimePoint getEnd() const;
-
-    /** @brief Imposta la fine della ricorrenza, troncando il generatore */
-    void setEnd(TimePoint end);
+    /** @brief Sostituisce la regola di ricorrenza (fallback: SingleGenerator(now) se nullo) */
+    void setGenerator(std::unique_ptr<DateGenerator> generator);
 
     /** @return La regola di ricorrenza (condivisa) */
-    const std::shared_ptr<DateGenerator>& getGenerator() const;
+    const DateGenerator& getGenerator() const;
 
     /** @return L'insieme delle eccezioni (date delle occorrenze escluse) */
     const std::unordered_set<TimePoint, TimePointHasher>& getExceptions() const;
@@ -94,8 +106,8 @@ public:
     virtual std::vector<Occurrence> occurrencesIn(TimePoint from, TimePoint to) const;
 
     /** @brief Sposta l'attivita' al nuovo istante (serie traslata, eccezioni svuotate).
-     *         Unica operazione di spostamento: ricostruisce il generatore tramite
-     *         MoveGeneratorVisitor (nessun setter sui generatori immutabili). */
+     *         Delega al generatore tramite setStart (la fine NON slitta; se il nuovo
+     *         inizio supera la fine, la fine si allinea al nuovo inizio). */
     virtual void moveTo(TimePoint newStart);
 
     /** @return Descrizione testuale dell'attivita' (solo visualizzazione) */
@@ -105,7 +117,7 @@ public:
     virtual void accept(ActivityVisitor& visitor) const;
 
     /** @brief Crea una copia polimorfa profonda dell'attivita' */
-    std::unique_ptr<Activity> clone() const;
+    virtual std::unique_ptr<Activity> clone() const;
 };
 
 } // namespace events

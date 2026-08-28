@@ -26,13 +26,12 @@ SOURCES += \
     app/src/views/YearView.cpp \
     model/src/events/Activity.cpp \
     model/src/events/ActivityBuilder.cpp \
-    model/src/events/ActivityFactory.cpp \
     model/src/events/Calendar.cpp \
-    model/src/events/DateGenerator.cpp \
     model/src/events/FixedIntervalGenerator.cpp \
+    model/src/events/GeneratorBuilder.cpp \
+    model/src/events/MaxOccurencesDecorator.cpp \
     model/src/events/Meeting.cpp \
     model/src/events/MonthlyGenerator.cpp \
-    model/src/events/MoveGeneratorVisitor.cpp \
     model/src/events/SingleGenerator.cpp \
     model/src/events/Task.cpp \
     model/src/events/YearlyGenerator.cpp \
@@ -54,6 +53,7 @@ HEADERS += \
     app/src/views/ViewShared.h \
     model/include/events/events.h \
     model/include/events/builders/ActivityBuilder.h \
+    model/include/events/builders/GeneratorBuilder.h \
     model/include/events/core/Activity.h \
     model/include/events/core/ActivityVisitor.h \
     model/include/events/core/CommonTypes.h \
@@ -61,13 +61,12 @@ HEADERS += \
     model/include/events/core/DateGeneratorVisitor.h \
     model/include/events/core/Format.h \
     model/include/events/core/Occurrence.h \
-    model/include/events/domain/ActivityFactory.h \
     model/include/events/domain/Calendar.h \
     model/include/events/domain/Meeting.h \
     model/include/events/domain/Task.h \
     model/include/events/generators/FixedIntervalGenerator.h \
+    model/include/events/generators/MaxOccurrencesDecorator.h \
     model/include/events/generators/MonthlyGenerator.h \
-    model/include/events/generators/MoveGeneratorVisitor.h \
     model/include/events/generators/SingleGenerator.h \
     model/include/events/generators/YearlyGenerator.h \
     model/persistence/include/persistence/JsonPersistence.h

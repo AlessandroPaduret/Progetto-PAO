@@ -20,9 +20,13 @@ TEST_CASE("ActivityBuilder per un evento settimanale", "[ActivityBuilder][FixedI
     auto duration = 1h;
     auto endRange = start + 3_weeks;
 
-    Activity event =  ActivityBuilder("Riunione settimanale", start)
+    Activity event = ActivityBuilder("Riunione settimanale")
                         .withDuration(1h)
-                        .addGenerator(std::make_unique<FixedIntervalGenerator>(start, 24h * 7, endRange, 0))
+                        .addGenerator(GeneratorBuilder::from(start)
+                                          .repeatEvery(24h * 7)
+                                          .until(endRange)
+                                          .build())
+                        .withMaxOccurrences(0)
                         .build();
 
     SECTION("Generazione corretta") {
@@ -84,7 +88,7 @@ TEST_CASE("Event valida la durata", "[Activity][validation]") {
     }
 }
 
-TEST_CASE("DateGenerator::isIn riconosce le date generabili", "[isIn]") {
+TEST_CASE("DateGenerator::isIn riconosce le date generabili e MaxOccurrencesDecorator funziona", "[isIn][MaxOccurrencesDecorator]") {
     TimePoint start = make_date(2026, 1, 1);
 
     SECTION("SingleGenerator") {
@@ -103,10 +107,11 @@ TEST_CASE("DateGenerator::isIn riconosce le date generabili", "[isIn]") {
     }
 
     SECTION("FixedIntervalGenerator con limite occorrenze") {
-        FixedIntervalGenerator gen(start, Days(7), TimePoint::max(), 3);
-        REQUIRE(gen.isIn(start));
-        REQUIRE(gen.isIn(start + 2_weeks));
-        REQUIRE_FALSE(gen.isIn(start + 3_weeks));  // oltre maxOccurrences
+        auto genWithLimit =
+            GeneratorBuilder::from(start).repeatEvery(Days(7)).limitTo(3).build();
+        REQUIRE(genWithLimit->isIn(start));
+        REQUIRE(genWithLimit->isIn(start + 2_weeks));
+        REQUIRE_FALSE(genWithLimit->isIn(start + 3_weeks));  // oltre maxOccurrences
     }
 
     SECTION("MonthlyGenerator") {
@@ -150,9 +155,11 @@ TEST_CASE("addException accetta solo date generabili", "[exception][isIn]") {
     }
 
     SECTION("serie: rifiuta date fuori dalla ricorrenza") {
-        Activity event = ActivityBuilder("Settimanale", start)
-                             .addGenerator(std::make_unique<FixedIntervalGenerator>(
-                                 start, Days(7), start + 3_weeks))
+        Activity event = ActivityBuilder("Settimanale")
+                             .addGenerator(GeneratorBuilder::from(start)
+                                               .repeatEvery(Days(7))
+                                               .until(start + 3_weeks)
+                                               .build())
                              .build();
         REQUIRE(event.addException(start + 1_weeks));           // occorrenza reale
         REQUIRE_FALSE(event.addException(start + 1h));          // non allineata
@@ -178,8 +185,10 @@ TEST_CASE("Task: stato di completamento per occorrenza", "[task][done]") {
 
     SECTION("task ricorrente: occorrenze indipendenti") {
         Task task("Ripasso", start, Priority::Medium,
-                  std::make_unique<FixedIntervalGenerator>(start, Days(7),
-                                                           start + 3_weeks));
+                  GeneratorBuilder::from(start)
+                      .repeatEvery(Days(7))
+                      .until(start + 3_weeks)
+                      .build());
         const TimePoint second = start + 1_weeks;
         const TimePoint third = start + 2_weeks;
 
@@ -223,7 +232,14 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
     }
 
     SECTION("Serie settimanale: espande la ricorrenza meno le eccezioni") {
-        auto event = ActivityFactory::createSimpleWeekly("Meeting", start, 1h, start + 4_weeks);
+        auto event = std::make_unique<Activity>(
+            ActivityBuilder("Meeting")
+                .withDuration(1h)
+                .addGenerator(GeneratorBuilder::from(start)
+                                  .repeatEvery(Days(7))
+                                  .until(start + 4_weeks)
+                                  .build())
+                .build());
         event->addException(start + 1_weeks);
         auto occ = event->occurrencesIn(start, to);
         REQUIRE(occ.size() == 4);
@@ -260,7 +276,13 @@ TEST_CASE("Occorrenze dei singoli tipi di attivita'", "[occurrences]") {
     }
 
     SECTION("Anniversario: ricorrenze annuali leap-aware") {
-        auto ann = ActivityFactory::createAnniversary("Compleanno", make_date(2028, 2, 29));
+        auto ann = std::make_unique<Activity>(
+            ActivityBuilder("Compleanno")
+                .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
+                .addGenerator(GeneratorBuilder::from(make_date(2028, 2, 29))
+                                  .repeatYearly()
+                                  .build())
+                .build());
         auto occ = ann->occurrencesIn(make_date(2028, 1, 1), make_date(2031, 12, 31));
         // 2028->29/2, 2029->28/2, 2030->28/2, 2031->28/2
         REQUIRE(occ.size() == 4);
@@ -319,10 +341,21 @@ TEST_CASE("Calendar raccoglie attivita' eterogenee", "[calendar]") {
     TimePoint start = make_date(2026, 1, 1);
     Calendar calendar;
 
-    calendar.add(ActivityFactory::createSimpleEvent("A evento", start, 1h));
-    calendar.add(ActivityFactory::createSimpleWeekly("B riunione", start + 1_weeks, 1h, start + 2_weeks));
-    calendar.add(ActivityFactory::createTask("C compito", start + Days(3), Priority::Medium));
-    calendar.add(ActivityFactory::createMeeting("D riunione", start + Days(2), 1h));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("A evento", start).withDuration(1h).build()));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("B riunione")
+            .withDuration(1h)
+            .addGenerator(GeneratorBuilder::from(start + 1_weeks)
+                              .repeatEvery(Days(7))
+                              .until(start + 2_weeks)
+                              .build())
+            .build()));
+    calendar.add(std::make_unique<Task>(TaskBuilder("C compito", start + Days(3))
+                                            .withPriority(Priority::Medium)
+                                            .build()));
+    calendar.add(std::make_unique<Meeting>(
+        MeetingBuilder("D riunione", start + Days(2)).withDuration(1h).build()));
 
     REQUIRE(calendar.size() == 4);
 
@@ -357,11 +390,27 @@ TEST_CASE("Polimorfismo non banale sulla gerarchia Activity", "[polymorphism]") 
     TimePoint to = start + 2_weeks;
 
     std::vector<std::unique_ptr<Activity>> activities;
-    activities.push_back(ActivityFactory::createSimpleEvent("Evento", start, 1h));
-    activities.push_back(ActivityFactory::createSimpleWeekly("Settimanale", start, 1h, start + 2_weeks));
-    activities.push_back(ActivityFactory::createTask("Compito", start + 1_weeks, Priority::Low));
-    activities.push_back(ActivityFactory::createMeeting("Riunione", start, 1h));
-    activities.push_back(ActivityFactory::createAnniversary("Anniversario", make_date(2000, 1, 1)));
+    activities.push_back(std::make_unique<Activity>(
+        ActivityBuilder("Evento", start).withDuration(1h).build()));
+    activities.push_back(std::make_unique<Activity>(
+        ActivityBuilder("Settimanale")
+            .withDuration(1h)
+            .addGenerator(GeneratorBuilder::from(start)
+                              .repeatEvery(Days(7))
+                              .until(start + 2_weeks)
+                              .build())
+            .build()));
+    activities.push_back(std::make_unique<Task>(
+        TaskBuilder("Compito", start + 1_weeks).withPriority(Priority::Low).build()));
+    activities.push_back(std::make_unique<Meeting>(
+        MeetingBuilder("Riunione", start).withDuration(1h).build()));
+    activities.push_back(std::make_unique<Activity>(
+        ActivityBuilder("Anniversario")
+            .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
+            .addGenerator(GeneratorBuilder::from(make_date(2000, 1, 1))
+                              .repeatYearly()
+                              .build())
+            .build()));
 
     SECTION("occurrencesIn si comporta in modo diverso per tipo dinamico") {
         std::vector<size_t> counts;
@@ -414,11 +463,27 @@ TEST_CASE("Visitor: doppio dispatch sul tipo dinamico", "[visitor]") {
     TimePoint start = make_date(2026, 1, 1);
 
     Calendar calendar;
-    calendar.add(ActivityFactory::createSimpleEvent("E", start, 1h));
-    calendar.add(ActivityFactory::createSimpleWeekly("W", start, 1h, start + 1_weeks));
-    calendar.add(ActivityFactory::createTask("T", start, Priority::High));
-    calendar.add(ActivityFactory::createMeeting("M", start, 1h));
-    calendar.add(ActivityFactory::createAnniversary("N", make_date(2000, 1, 1)));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("E", start).withDuration(1h).build()));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("W")
+            .withDuration(1h)
+            .addGenerator(GeneratorBuilder::from(start)
+                              .repeatEvery(Days(7))
+                              .until(start + 1_weeks)
+                              .build())
+            .build()));
+    calendar.add(std::make_unique<Task>(
+        TaskBuilder("T", start).withPriority(Priority::High).build()));
+    calendar.add(std::make_unique<Meeting>(
+        MeetingBuilder("M", start).withDuration(1h).build()));
+    calendar.add(std::make_unique<Activity>(
+        ActivityBuilder("N")
+            .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
+            .addGenerator(GeneratorBuilder::from(make_date(2000, 1, 1))
+                              .repeatYearly()
+                              .build())
+            .build()));
 
     CountingVisitor visitor;
     for (const auto& activity : calendar) {
@@ -431,7 +496,7 @@ TEST_CASE("Visitor: doppio dispatch sul tipo dinamico", "[visitor]") {
     REQUIRE(visitor.meetings == 1);
 }
 
-TEST_CASE("MonthlyGenerator: passi di calendario esatti", "[monthly]") {
+TEST_CASE("MonthlyGenerator: passi di calendario esatti", "[monthly][MonthlyGenerator][MaxOccurrencesDecorator]") {
     SECTION("ogni mese, stesso giorno") {
         MonthlyGenerator gen(make_date(2026, 1, 15));
         auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 5, 1));
@@ -467,8 +532,9 @@ TEST_CASE("MonthlyGenerator: passi di calendario esatti", "[monthly]") {
     }
 
     SECTION("fine e limite occorrenze") {
-        MonthlyGenerator gen(make_date(2026, 1, 1), 1, TimePoint::max(), 3);
-        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2027, 1, 1));
+        auto genWithLimit =
+            GeneratorBuilder::from(make_date(2026, 1, 1)).repeatMonthly().limitTo(3).build();
+        auto dates = genWithLimit->generateDates(make_date(2026, 1, 1), make_date(2027, 1, 1));
         REQUIRE(dates.size() == 3);
         REQUIRE(dates[0] == make_date(2026, 1, 1));
         REQUIRE(dates[2] == make_date(2026, 3, 1));
@@ -482,25 +548,28 @@ TEST_CASE("MonthlyGenerator: passi di calendario esatti", "[monthly]") {
     }
 }
 
-TEST_CASE("Limite di occorrenze nei generatori", "[cap]") {
+TEST_CASE("Limite di occorrenze nei generatori", "[cap][MaxOccurrencesDecorator]") {
     SECTION("FixedIntervalGenerator: dopo N occorrenze") {
-        FixedIntervalGenerator gen(make_date(2026, 1, 1), Days(7), TimePoint::max(), 4);
-        auto dates = gen.generateDates(make_date(2026, 1, 1), make_date(2026, 3, 1));
+        auto genWithLimit =
+            GeneratorBuilder::from(make_date(2026, 1, 1)).repeatEvery(Days(7)).limitTo(4).build();
+        auto dates = genWithLimit->generateDates(make_date(2026, 1, 1), make_date(2026, 3, 1));
         REQUIRE(dates.size() == 4);
         REQUIRE(dates[0] == make_date(2026, 1, 1));
         REQUIRE(dates[3] == make_date(2026, 1, 22));
     }
 
     SECTION("FixedIntervalGenerator: la finestra tarda conta dal primo inizio") {
-        FixedIntervalGenerator gen(make_date(2026, 1, 1), Days(7), TimePoint::max(), 4);
+        auto genWithLimit =
+            GeneratorBuilder::from(make_date(2026, 1, 1)).repeatEvery(Days(7)).limitTo(4).build();
         // interrogo dal 3/2: la 6a occorrenza (1/2) e' gia' passata ma conta
-        auto dates = gen.generateDates(make_date(2026, 2, 8), make_date(2026, 3, 1));
+        auto dates = genWithLimit->generateDates(make_date(2026, 2, 8), make_date(2026, 3, 1));
         REQUIRE(dates.empty());  // 1/1 + 4 occorrenze -> 22/1, nessuna dopo l'8/2
     }
 
     SECTION("YearlyGenerator: dopo N occorrenze") {
-        YearlyGenerator gen(make_date(2028, 2, 29), TimePoint::max(), 3);
-        auto dates = gen.generateDates(make_date(2028, 1, 1), make_date(2032, 1, 1));
+        auto genWithLimit =
+            GeneratorBuilder::from(make_date(2028, 2, 29)).repeatYearly().limitTo(3).build();
+        auto dates = genWithLimit->generateDates(make_date(2028, 1, 1), make_date(2032, 1, 1));
         REQUIRE(dates.size() == 3);
         REQUIRE(dates[0] == make_date(2028, 2, 29));
         REQUIRE(dates[1] == make_date(2029, 2, 28));
@@ -545,8 +614,14 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
     }
 
     SECTION("Serie: inizio spostato, la fine NON slitta") {
-        auto event = ActivityFactory::createSimpleWeekly(
-            "Riunione", start + 9h, 1h, start + 3_weeks);
+        auto event = std::make_unique<Activity>(
+            ActivityBuilder("Riunione")
+                .withDuration(1h)
+                .addGenerator(GeneratorBuilder::from(start + 9h)
+                                  .repeatEvery(Days(7))
+                                  .until(start + 3_weeks)
+                                  .build())
+                .build());
         const TimePoint earlier = start - 1_weeks + 9h;
         event->moveTo(earlier);
         REQUIRE(event->getStart() == earlier);

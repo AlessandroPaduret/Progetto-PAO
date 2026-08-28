@@ -14,22 +14,25 @@ C++20 library for calendar/personal activities (domain model). Namespace `events
   - evento singolo = `Activity` con `SingleGenerator`; serie = `Activity` con `FixedIntervalGenerator`/`MonthlyGenerator`/`YearlyGenerator`; anniversario = `Activity` con `YearlyGenerator` + durata all-day.
   - `Task` e `Meeting` sono **sottoclassi** di `Activity` (aggiungono priorità/stato e luogo/partecipanti). Le **eccezioni vivono su `Activity`** (`addException`/`truncateBefore`).
   - Tipo per persistenza/GUI = tipo dinamico (`Activity`=event, `Task`, `Meeting`); la **ricorrenza si deduce dal generatore**.
-- [x] **Builder**: `ActivityBuilder` (con `addGenerator`; **fallback = `SingleGenerator(start)`** se non si aggiunge nulla), `TaskBuilder` (`withPriority`), `MeetingBuilder` (`withLocation`/`addAttendee`). `ActivityFactory` resta (aggiornata) per compatibilità.
-- [x] **Generator immutabili** — niente setter pubblici; la configurazione entra dal costruttore (incluso `maxOccurrences` come parametro). Sono ammessi solo accessor read-only:
-  - `DateGenerator` (interfaccia pura **senza stato**): `getStart()` e `getEnd()` **virtual puri**, `generateDates`, `describe`, `accept`. Nessun `m_start` né `setStart` nel base (i generatori concreti tengono il proprio `m_start` immutabile).
-  - `SingleGenerator`: unico accessor dedicato `getPoint()` (+ `getStart()`/`getEnd()` per l'interfaccia; `getEnd()` == il punto).
-  - `FixedIntervalGenerator`/`MonthlyGenerator`/`YearlyGenerator`: getter read-only (`getStart`/`getInterval`/`getMonths`/`getEnd`/`getMaxOccurrences`).
-- [x] **`NullGenerator` eliminato** — non serve piu': la ricorrenza si deduce dal generatore concreto (Single/Fixed/Monthly/Yearly) e non esiste un caso "nullo". Rimossi da `DateGeneratorVisitor`, `MoveGeneratorVisitor` e persistenza (il tipo `"null"` non e' piu' serializzato).
-- [x] **Spostare/troncare un generatore = `MoveGeneratorVisitor`** (`events/generators/MoveGeneratorVisitor.h/.cpp`, sotto-classe di `DateGeneratorVisitor`): poiché i generatori sono immutabili, il visitor **ricostruisce** un nuovo generatore con `newStart` (clamp: `end < newStart` → `end = newStart`) o `newEnd` (troncamento), conservando `maxOccurrences`. `Activity::moveTo`/`setEnd`/`truncateBefore` lo usano.
-- [x] **`Activity` NON ha `m_start`** e **NON ha `start` nel costruttore**: il costruttore e' `Activity(title, duration, generator)` e l'istante di riferimento viene SOLO dal generatore (fallback `nullptr` = `SingleGenerator(now)`). **Unica operazione di spostamento = `moveTo(newStart)`** (ricostruisce il generatore e svuota le eccezioni: serie spostata intonsa). `Task::setDue` lo usa internamente.
-- [x] **Anche `Meeting` NON ha `start` nel costruttore**: `Meeting(title, duration, location, generator)` (fallback `SingleGenerator(now)`); `Task` conserva `due` come parametro per costruire il `SingleGenerator(due)` di fallback. `ActivityFactory`/builder restano i percorsi che accettano `start` e costruiscono il generatore.
-- [x] **`getEnd()`/`setEnd()` = fine della RICORRENZA (del generatore)**, non dell'occorrenza: `getEnd()` = `generator->getEnd()` (SingleGenerator → il suo punto; `TimePoint::max()` = senza fine); `setEnd(end)` tronca il generatore via `MoveGeneratorVisitor`. La fine dell'occorrenza resta solo su `Occurrence::end()`.
+- [x] **Builder**: `ActivityBuilder` (con `addGenerator`; **fallback = `SingleGenerator(start)`** se non si aggiunge nulla; `start` ora **opzionale** — se si aggiunge un generatore l'inizio arriva da quello), `TaskBuilder` (`withDuration`/`withPriority`), `MeetingBuilder` (`withDuration`/`withLocation`/`addAttendee`). `GeneratorBuilder` (`from().repeatEvery()/repeatMonthly()/repeatYearly()/until()/limitTo().build()`, usa `MaxOccurrencesDecorator` per `limitTo`) per costruire i generatori in modo dichiarativo. **`ActivityFactory` ELIMINATA**: i builder la sostituiscono.
+- [x] **Generator MUTABILI** — i limiti temporali sono modificabili a posteriori tramite setter, i parametri strutturali (intervallo, passo mesi, giorno di ricorrenza) restano dal costruttore:
+  - `DateGenerator`: `getStart()/getEnd()` **virtual puri** + `setStart()/setEnd()` **virtual puri**; `generateDates`, `describe`, `accept`, `clone`. `setStart` trasla la serie (se supera la fine, la fine si allinea al nuovo inizio); `setEnd` tronca.
+  - `SingleGenerator`: accessor `getPoint()` (== `getStart()`/`getEnd()`); `setStart`/`setEnd` impostano il punto.
+  - `FixedIntervalGenerator`: getter `getStart`/`getInterval`/`getEnd` + setter `setStart`/`setEnd` (l'intervallo resta fisso).
+  - `MonthlyGenerator`: getter `getStart`/`getMonths`/`getEnd` + setter `setStart`/`setEnd`/`setMonths` (passo in mesi modificabile).
+  - `YearlyGenerator`: getter `getStart`/`getEnd`/`getInterval` + setter `setStart`/`setEnd`.
+  - `MaxOccurrencesDecorator` (`generator`, `maxOccurrences`; **0 = illimitate**): getter `getMaxOccurrences`/`getWrappedGenerator` + `setStart`/`setEnd` delegati al generatore avvolto.
+- [x] **`NullGenerator` eliminato** — non serve piu': la ricorrenza si deduce dal generatore concreto (Single/Fixed/Monthly/Yearly) e non esiste un caso "nullo". Rimosso da `DateGeneratorVisitor` e persistenza (il tipo `"null"` non e' piu' serializzato).
+- [x] **`MoveGeneratorVisitor` ELIMINATO** — non serve piu': i generatori sono mutabili e `Activity::moveTo`/`setStart`/`setEnd`/`truncateBefore` delegano a `DateGenerator::setStart/setEnd` (nessuna ricostruzione del generatore). Rimossi `MoveGeneratorVisitor.h/.cpp`, gli include in `events.h`/`Attivita.pro`/`CalendarController.cpp`.
+- [x] **`Activity` NON ha `m_start`** e **NON ha `start` nel costruttore**: il costruttore e' `Activity(title, duration, generator)` e l'istante di riferimento viene SOLO dal generatore (fallback `nullptr` = `SingleGenerator(now)`). Spostamento = `setStart(newStart)` (o `moveTo`, che svuota anche le eccezioni: serie spostata intonsa). `Task::setDue` lo usa internamente.
+- [x] **Anche `Meeting` NON ha `start` nel costruttore**: `Meeting(title, duration, location, generator)` (fallback `SingleGenerator(now)`); `Task` conserva `due` come parametro per costruire il `SingleGenerator(due)` di fallback. I builder restano i percorsi che accettano `start` e costruiscono il generatore.
+- [x] **`getEnd()`/`setEnd()` = fine della RICORRENZA (del generatore)**, non dell'occorrenza: `getEnd()` = `generator->getEnd()` (SingleGenerator → il suo punto; `TimePoint::max()` = senza fine); `setEnd(end)` tronca il generatore. La fine dell'occorrenza resta solo su `Occurrence::end()`.
 - [x] **Rimossi metodi ridondanti da `Activity`**: `getSchedulable`, `isRecurrent`, `deleteExceptions(tp)` (niente rimozione puntuale; le eccezioni si gestiscono con `addException`). `getExceptions()` resta come accessor read-only per la persistenza.
 - [x] **Completamento dei Task per occorrenza** — `Task` tiene `m_doneOccurrences` (`std::unordered_set<TimePoint, TimePointHasher>`): si spunta una **singola occorrenza**, non l'intero compito. API: `isDone(tp)`/`setDone(tp, done)`, `getDoneOccurrences()`; `isDone()`/`setDone(bool)` restano come comodita' che delegano all'occorrenza `getStart()`. `isOverdue(tp, now)`/`timeRemaining(tp, now)` sono per-occorrenza. Persistenza JSON: campo `done_occurrences` (elenco ISO) al posto del singolo `done`.
 - [x] **`DateGenerator::isIn(tp)` (virtual puro)** — true se `tp` e' una data generabile dal generatore (coerente con `generateDates`: allineamento, fine e limite di occorrenze inclusi). Implementato in ogni generatore (es. `YearlyGenerator` leap-aware: 29/2 → 28/2).
 - [x] **`Activity::addException(tp)` valida via `isIn`** — ora restituisce `bool` e accetta l'eccezione **solo se `tp` e' una data generabile** dal generatore (niente date arbitrarie fuori dalla serie).
-- [x] **Fix**: il base `DateGenerator::getStart()` era non-virtual (rotto il build dei sotto-generatori con `override`) e `DateGenerator::setStart`/`m_start` erano codice morto. `truncateBefore` conserva le occorrenze **strettamente precedenti** a `tp` (esclusa `tp` e le successive).
-- [ ] `app/`, `server/`, `db/`, `Attivita.pro`, `examples/*.json` — da aggiornare in un secondo momento (fuori scope attuale).
+- [x] **Fix**: il base `DateGenerator::getStart()` era non-virtual (rotto il build dei sotto-generatori con `override`). `truncateBefore` conserva le occorrenze **strettamente precedenti** a `tp` (esclusa `tp` e le successive).
+- [ ] `app/` (viste e form usano ancora `ActivityFactory` e l'API `getGenerator()->`), `server/`, `db/`, `examples/*.json` — da aggiornare in un secondo momento (fuori scope attuale). `CalendarController.cpp` e `Attivita.pro` sono gia' stati allineati.
 
 ## Build & test
 
@@ -80,7 +83,7 @@ docker compose up --build model
     - `MonthView` — griglia mensile 7x5-6 QPainter: numero del giorno (oggi evidenziato, fuori-mese in grigio) e **chip colorati** (max 3/giorno + "+N"); ogni chip dei **Compiti** ha la **spunta** → `doneToggled`; clic sinistro seleziona, doppio clic modifica (con scelta serie/istanza per i ricorrenti, come in WeekView), doppio clic su cella vuota crea alle 09:00, menu contestuale, tooltip; niente drag&drop ne' anteprima live.
     - `YearView` — 12 mini-calendari in griglia 4x3 (un mese ciascuno, nomi giorni + numeri) con pallini colorati per le attivita' (grigi se Compito evaso); doppio clic su un giorno -> `daySelected` -> la MainWindow passa alla vista giorno di quella data; tooltip con i titoli del giorno.
     - `ActivityListPage` (tabella a 4 colonne: **pallino del colore dell'attivita'** (come le griglie del calendario) + Titolo/Tipo/**Dettagli**; ricerca live per titolo via `Calendar::search` + **filtro per tipo** (QComboBox "Tutti i tipi"/Evento/Ricorrente/Riunione/Compito/Anniversario) + **checkbox "Solo da fare"** (nasconde i Compiti evasi); ordinamento a clic sull'intestazione: su "Titolo" ordina per titolo con "Tipo" come chiave secondaria (e viceversa su "Tipo"; default per data di inizio), indicatore di sort mantenuto tra i refresh; stile pulito: fondo bianco, righe alternate, header a contrasto, **separatori verticali grigi tra le colonne**, **testo nero 13pt e righe alte per leggibilita'**). `ActivityDetailDialog` (pannello ridotto DENTRO la MainWindow — widget figlio, non esce dai bordi: boundedTo(host), ricentrato in `MainWindow::resizeEvent`; titolo 18pt centrato rispetto alla finestra (margine sinistro pari alla larghezza della "X") e righe "campo: valore" 13pt centrate e distanziate come paragrafi; "X" (fuori dalla riga del titolo, in alto a destra dell'angolo) per chiudere + pulsanti in basso "Modifica" -> `editRequested` (apre il form) e "Elimina").
-    - `ActivityFormPage` (form per tipo in QStackedWidget: **Evento "a domande"**/Riunione/Compito/Anniversario; modi Create/EditActivity/EditOccurrence). Il pannello **Evento NON chiede il tipo**: chiede titolo, data (slot separati), ora, durata e le checkbox **"Si ripete?"** e **"Tutto il giorno"**. Se si ripete: unita' (giorni/settimane/mesi/anno), "ogni N", per le **settimane** i **giorni della settimana** (pulsanti cliccabili Lun..Dom, si colorano) e la **fine** (radio: Mai / Fino al [data] / Dopo N occorrenze). La checkbox **"Tutto il giorno"** nasconde ora e durata e istanzia un `Event` dalle 00:00 di 24h (o, con "Si ripete", una serie che ricorre a giornate intere): la GUI mostra queste occorrenze nella striscia in alto. In base alle risposte istanzia un `Event` oppure uno o piu' `RecurrentEvent` (**uno per giorno della settimana** selezionato, "ogni lun e ven" = 2 serie settimanali). "Ogni N mesi" usa `MonthlyGenerator`; "fino a" imposta `end`, "dopo N" `setMaxOccurrences`. Il pannello Riunione ha Luogo + elenco Partecipanti (Aggiungi con Invio / Rimuovi con doppio clic); campi propri per pannello in QGridLayout etichetta a sinistra/box affiancata, titolo e data conservati al cambio tipo via `syncCommonFields` — niente widget condivisi tra i pannelli. `CalendarController::addActivities` aggiunge piu' serie in un colpo solo.
+    - `ActivityFormPage` (form per tipo in QStackedWidget: **Evento "a domande"**/Riunione/Compito/Anniversario; modi Create/EditActivity/EditOccurrence). Il pannello **Evento NON chiede il tipo**: chiede titolo, data (slot separati), ora, durata e le checkbox **"Si ripete?"** e **"Tutto il giorno"**. Se si ripete: unita' (giorni/settimane/mesi/anno), "ogni N", per le **settimane** i **giorni della settimana** (pulsanti cliccabili Lun..Dom, si colorano) e la **fine** (radio: Mai / Fino al [data] / Dopo N occorrenze). La checkbox **"Tutto il giorno"** nasconde ora e durata e istanzia un `Event` dalle 00:00 di 24h (o, con "Si ripete", una serie che ricorre a giornate intere): la GUI mostra queste occorrenze nella striscia in alto. In base alle risposte istanzia un `Event` oppure uno o piu' `RecurrentEvent` (**uno per giorno della settimana** selezionato, "ogni lun e ven" = 2 serie settimanali). "Ogni N mesi" usa `MonthlyGenerator`; "fino a" imposta `end`, "dopo N" `GeneratorBuilder::limitTo`. Il pannello Riunione ha Luogo + elenco Partecipanti (Aggiungi con Invio / Rimuovi con doppio clic); campi propri per pannello in QGridLayout etichetta a sinistra/box affiancata, titolo e data conservati al cambio tipo via `syncCommonFields` — niente widget condivisi tra i pannelli. `CalendarController::addActivities` aggiunge piu' serie in un colpo solo.
   - `app/tests/test_controller.cpp` — test Catch2 del controller (headless, in ctest).
   - `app/CMakeLists.txt` — Qt6 Widgets+Core, AUTOMOC; `add_subdirectory(../model)`; target `pao_core` (controller, testabile senza Widgets) + `pao_app` + `app_controller_tests` (solo se Catch2).
   - Build: `cmake -B build && cmake --build build -j && ctest --test-dir build` da `app/`. Compila nel container del professore (Qt 6.4.2): attenzione a NON usare API Qt ≥ 6.5 (es. `QTimeZone::UTC` non esiste lì — usare `QTimeZone(0)`); `QDateTime` UTC via `QTimeZone(0)` o `Qt::UTC` (deprecato solo su Qt recenti).
@@ -116,16 +119,16 @@ Activity (abstract)                         // root of the activity hierarchy (t
 ├── Meeting                                 // Riunione: interval + location + attendees
 └── Anniversary                             // annuale leap-aware (29/2→28/2)
 DateGenerator (abstract)                    // produces occurrence timestamps (Strategy)
-├── FixedIntervalGenerator                  // start, interval (giorni/settimane), end, maxOccurrences
-├── MonthlyGenerator                        // start, passi di MESI di calendario, end, maxOccurrences
-├── YearlyGenerator                         // yearly, leap-year aware, maxOccurrences
-└── NullGenerator                           // null object (always empty), header-only
+├── FixedIntervalGenerator                  // start, interval (giorni/settimane), end (mutabili)
+├── MonthlyGenerator                        // start, passi di MESI di calendario, end, months (mutabili)
+├── YearlyGenerator                         // yearly, leap-year aware
+└── MaxOccurrencesDecorator                 // limita le occorrenze (0 = illimitate)
 Calendar                                    // OWNS the polymorphic activities (vector<unique_ptr<Activity>>)
 ```
 
 The hierarchy has **5 concrete activity types** (course spec requires ≥3), each with genuinely different attributes/methods. Solo **Task** ha uno stato di completamento ("evaso/da fare", `isDone()/setDone()`); gli altri tipi non hanno stato. `RecurrentEvent::addException/truncateBefore`, `Task::isOverdue/priorityLabel`, `Meeting::addAttendee/removeAttendee`, `Event::getDuration/overlapsWith`.
 
-I generatori supportano un **limite di occorrenze** (`setMaxOccurrences(n)`, 0 = illimitate): `FixedIntervalGenerator` e `YearlyGenerator` lo serializzano, `MonthlyGenerator` fa passi di mesi CALENDARIALI (il 31 clampa all'ultimo giorno del mese, 31/1→28/2). "Dopo N occorrenze" nella GUI imposta questo limite sul generatore.
+Il **limite di occorrenze** ("Dopo N occorrenze", 0 = illimitate) vive nel `MaxOccurrencesDecorator` (`GeneratorBuilder::limitTo` / `ActivityBuilder::withMaxOccurrences`) e viene serializzato come `max_occurrences`. `MonthlyGenerator` fa passi di mesi CALENDARIALI (il 31 clampa all'ultimo giorno del mese, 31/1→28/2).
 
 > **Nota (all-day):** NON esiste piu' un tipo `AllDayEvent`. Un evento "tutto il giorno" e' un normale `Event` (o occorrenza di serie) che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno dopo). La GUI decide se mostrarlo nella **striscia in alto** in base a date e durate: `coversFullDay(occ)` (ViewShared.h) e' true se l'occorrenza copre almeno un giorno di calendario intero.
 
@@ -134,7 +137,7 @@ Abstract root: `m_title`, `getTitle()/setTitle()`, and the non-trivial polymorph
 - `occurrencesIn(from, to) -> vector<Occurrence>` — each type expands its own notion of "when it happens" (Event → 0/1, RecurrentEvent → recurrence minus exceptions, Task/Meeting → single block, Anniversary → yearly). **Range INCLUSIVE on both ends**, start-of-occurrence semantics.
 - `accept(ActivityVisitor&)` — double dispatch (Visitor pattern for persistence/GUI panels).
 - `describe() -> String` — per-type human summary (display only, allowed by spec vincolo 9).
-- `clone()` — Prototype via protected covariant `clone_impl()`.
+- `clone() -> unique_ptr<Activity>` — virtual, override diretta in `Task`/`Meeting` (Prototype; copia profonda del generatore e, per i Task, anche delle occorrenze evase).
 
 ### `Occurrence` (core/Occurrence.h)
 Value type: `{const Activity* source (non-owning), start, duration}`, `end()`, `overlaps(from,to)`. Lightweight timeline view; valid while the source activity is alive and unmodified.
@@ -152,16 +155,18 @@ Value type: `{const Activity* source (non-owning), start, duration}`, `end()`, `
 ### `Calendar` (domain/Calendar.h)
 Owns the heterogeneous activities. `add(unique_ptr<Activity>)` (throws on null), `remove(const Activity*)` (by identity), `clear()`, `size()/empty()`, `occurrencesIn(from,to)` (aggregates all types, sorted by start), `search(needle)` (case-insensitive title substring, empty = all), const `begin()/end()` iteration (for persistence).
 
-### `ActivityFactory` (domain/ActivityFactory.h)
-Sanctioned creation path (static methods, typed `unique_ptr` returns): `createSimpleEvent`, `createRecurrentEvent`, `createSimpleWeekly`, `createMeeting`, `createTask`, `createAnniversary`.
+### Builders (builders/)
+Percorso di creazione raccomandato (le factory sono state eliminate): `ActivityBuilder` (con `start` opzionale, fallback `SingleGenerator(now)`), `TaskBuilder`, `MeetingBuilder`, `GeneratorBuilder`.
 
 ### `Format` (core/Format.h)
 Header-only display helpers: `formatDateTime(TimePoint)` → "YYYY-MM-DD HH:MM" UTC, `formatDuration(Duration)` → "1g 2h 30m". Used by `describe()`.
 
-### Generators (generators/) — unchanged semantics
-- `FixedIntervalGenerator(start, interval, end = TimePoint::max())` — occurrences every `interval` from `start`; aligns the query window start to the interval grid via arithmetic, then walks `while (current <= to && current <= m_end)`.
-- `YearlyGenerator(start, end = TimePoint::max())` — one occurrence per year on the month/day of `start`; Feb 29 → Feb 28 fallback in non-leap years. `setInterval` is a documented no-op.
-- `NullGenerator` — generates nothing (null object), header-only, never instantiated by the app.
+### Generators (generators/) — limiti mutabili con setStart/setEnd
+- `SingleGenerator(point)` — un'unica data (`getPoint()`); `setStart`/`setEnd` spostano il punto.
+- `FixedIntervalGenerator(start, interval, end = TimePoint::max())` — occurrences every `interval` from `start`; `setStart`/`setEnd` per spostare/troncare (l'intervallo resta fisso).
+- `MonthlyGenerator(start, months = 1, end = TimePoint::max())` — passi di mesi CALENDARIALI con clamping (31/1→28/2); `setMonths` cambia il passo.
+- `YearlyGenerator(start, end = TimePoint::max())` — one occurrence per year on the month/day of `start`; Feb 29 → Feb 28 fallback in non-leap years.
+- `MaxOccurrencesDecorator(generator, maxOccurrences)` — limita a N occorrenze (0 = illimitate); `setStart`/`setEnd` delegati al generatore avvolto.
 - All generators implement `accept(DateGeneratorVisitor&)` (core/DateGeneratorVisitor.h): the persistence layer serializes the recurrence rule through a second Visitor (no `getType` strings in the model).
 
 ## Design decisions & invariants
@@ -171,7 +176,7 @@ Header-only display helpers: `formatDateTime(TimePoint)` → "YYYY-MM-DD HH:MM" 
 3. **`RecurrentEvent` accepts any `DateGenerator`** via `shared_ptr`; shared ownership means a caller holding a typed `shared_ptr` can mutate the generator after event creation.
 4. `Event::getEnd() == getStart() + getDuration()`; negative durations throw (same for negative `Reminder` repeat).
 5. **No `getType()`-style string dispatch**: type-dependent behavior goes through the Visitor (double dispatch) or virtual methods. Type strings may exist only for display.
-6. `Schedulable`, `GroupSchedulable<T>`, `Events` and `EventFactory` were **removed** in the Fase-1 restructure (absorbed/replaced by `Activity`, `Calendar`, `ActivityFactory`) — do not reintroduce them. The REST server still compiles because `Event`/`RecurrentEvent` keep their public APIs (incl. `getSchedulable`).
+6. `Schedulable`, `GroupSchedulable<T>`, `Events` and `EventFactory` were **removed** in the Fase-1 restructure (absorbed/replaced by `Activity`, `Calendar`, poi dai builder `ActivityBuilder`/`GeneratorBuilder`) — do not reintroduce them. The REST server still compiles because `Event`/`RecurrentEvent` keep their public APIs (incl. `getSchedulable`).
 7. JSON persistence (Fase 2) lives in `model/persistence/` (library `events_persistence`, namespace `persistence`, Qt Core only): the `events` library itself stays pure C++ and keeps compiling without Catch2 and without Qt Widgets. `Format.h` provides `formatIso8601/parseIso8601` (strict, exact 19-char `YYYY-MM-DDTHH:MM:SS`, used by persistence).
 
 

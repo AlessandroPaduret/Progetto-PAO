@@ -32,9 +32,6 @@ private:
     Priority m_priority;  ///< Priorita' del compito
     std::unordered_set<TimePoint, TimePointHasher> m_doneOccurrences;  ///< Occorrenze evase
 
-protected:
-    Task* clone_impl() const override;
-
 public:
     /** @brief Costruttore.
      *  @param title Titolo del compito
@@ -46,7 +43,7 @@ public:
                   const TimePoint due = std::chrono::time_point_cast<std::chrono::seconds>(
                       Clock::now()),
                   const Priority priority = Priority::Medium,
-                  std::shared_ptr<DateGenerator> generator = nullptr);
+                  std::unique_ptr<DateGenerator> generator = nullptr);
 
     /** @return L'istante di scadenza */
     TimePoint getDue() const;
@@ -108,7 +105,7 @@ public:
     void accept(ActivityVisitor& visitor) const override;
 
     /** @brief Crea una copia del compito */
-    std::unique_ptr<Task> clone() const;
+    std::unique_ptr<Activity> clone() const override;
 };
 
 } // namespace events

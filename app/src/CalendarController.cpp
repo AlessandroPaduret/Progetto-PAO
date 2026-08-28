@@ -10,7 +10,6 @@
 #include "persistence/JsonPersistence.h"
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
-#include "events/generators/MoveGeneratorVisitor.h"
 #include "events/generators/YearlyGenerator.h"
 
 namespace app {
@@ -24,7 +23,7 @@ events::TimePoint toTimePoint(const QDateTime& utc) {
 // La ricorrenza si deduce dal generatore: un'attivita' e' una serie se il suo
 // generatore produce piu' date (Fixed/Monthly/Yearly), non Single.
 bool isRecurrentActivity(const events::Activity* activity) {
-  const events::DateGenerator* gen = activity->getGenerator().get();
+  const events::DateGenerator* gen = &activity->getGenerator();
   return dynamic_cast<const events::FixedIntervalGenerator*>(gen) != nullptr ||
          dynamic_cast<const events::MonthlyGenerator*>(gen) != nullptr ||
          dynamic_cast<const events::YearlyGenerator*>(gen) != nullptr;
@@ -126,7 +125,7 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
 
   // 0) La data di scadenza ORIGINALE va salvata PRIMA del troncamento
   //    (truncateBefore la ridurrebbe a questa occorrenza)
-  const events::TimePoint originalEnd = series->getGenerator()->getEnd();
+  const events::TimePoint originalEnd = series->getGenerator().getEnd();
   const events::TimePoint target = toTimePoint(newStart);
 
   // 1) La serie attuale viene FERMATA prima dell'occorrenza interessata
@@ -134,14 +133,12 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
 
   // 2) Nasce una nuova serie con le stesse regole di ricorrenza (tipo e
   //    intervallo del generatore, durata dell'occorrenza) ma inizio diverso;
-  //    la data di scadenza rimane quella originale. MoveGeneratorVisitor
-  //    ricostruisce il generatore (immutabile) con il nuovo inizio e la fine
-  //    invariata.
-  events::MoveGeneratorVisitor mover(target, originalEnd);
-  series->getGenerator()->accept(mover);
-
+  //    la data di scadenza rimane quella originale. Il generatore e' mutabile:
+  //    si clona e si regolano start/end con i setter.
   auto replacement = std::make_unique<events::Activity>(
-      series->getTitle(), series->getDuration(), mover.result);
+      series->getTitle(), series->getDuration(), series->getGenerator().clone());
+  replacement->getGenerator().setStart(target);
+  replacement->getGenerator().setEnd(originalEnd);
   m_calendar.add(std::move(replacement));
   emit activitiesChanged();
   return true;

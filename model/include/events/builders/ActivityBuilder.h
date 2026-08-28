@@ -36,9 +36,14 @@ protected:
 public:
     /** @brief Costruttore.
      *  @param title Titolo dell'attivita'
-     *  @param start Istante di riferimento (inizio/scadenza)
+     *  @param start Istante di riferimento (inizio/scadenza). Opzionale: se si
+     *               aggiunge un generatore esplicito con addGenerator, l'inizio
+     *               arriva da quello; senza generatore si usa il fallback
+     *               SingleGenerator(start) (default: adesso).
      */
-    ActivityBuilder(String title, TimePoint start);
+    ActivityBuilder(String title,
+                    TimePoint start = std::chrono::time_point_cast<std::chrono::seconds>(
+                        Clock::now()));
 
     /** @brief Imposta la durata delle occorrenze */
     ActivityBuilder& withDuration(Duration duration);
@@ -77,6 +82,9 @@ public:
      */
     TaskBuilder(String title, TimePoint due);
 
+    /** @brief Imposta la durata delle occorrenze (mantiene il tipo derivato) */
+    TaskBuilder& withDuration(Duration duration);
+
     /** @brief Imposta la priorita' del compito */
     TaskBuilder& withPriority(Priority priority);
 
@@ -99,6 +107,9 @@ public:
      *  @param start Inizio
      */
     MeetingBuilder(String title, TimePoint start);
+
+    /** @brief Imposta la durata delle occorrenze (mantiene il tipo derivato) */
+    MeetingBuilder& withDuration(Duration duration);
 
     /** @brief Imposta il luogo o link della riunione */
     MeetingBuilder& withLocation(const String& location);

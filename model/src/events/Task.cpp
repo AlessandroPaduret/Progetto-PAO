@@ -12,16 +12,17 @@
 namespace events {
 
 Task::Task(const String &title, const TimePoint due, const Priority priority,
-           std::shared_ptr<DateGenerator> generator)
+           std::unique_ptr<DateGenerator> generator)
     : Activity(title, Duration::zero(),
                generator ? std::move(generator)
-                         : std::make_shared<SingleGenerator>(due)),
+                         : std::make_unique<SingleGenerator>(due)),
       m_priority(priority) {}
 
-Task *Task::clone_impl() const { return new Task(*this); }
-
-std::unique_ptr<Task> Task::clone() const {
-  return std::unique_ptr<Task>(clone_impl());
+std::unique_ptr<Activity> Task::clone() const {
+  auto copy = std::make_unique<Task>(getTitle(), getDue(), m_priority,
+                                     getGenerator().clone());
+  copy->m_doneOccurrences = m_doneOccurrences;
+  return copy;
 }
 
 TimePoint Task::getDue() const { return getStart(); }
@@ -47,7 +48,7 @@ void Task::setDone(const TimePoint tp, const bool done) {
 bool Task::isDone() const { return isDone(getStart()); }
 
 bool Task::setDone(const bool done) {
-  if (!getGenerator()->isIn(getStart())) {
+  if (!getGenerator().isIn(getStart())) {
     return false;
   }
   setDone(getStart(), done);

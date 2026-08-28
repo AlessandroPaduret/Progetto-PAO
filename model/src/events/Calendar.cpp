@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "events/core/CommonTypes.h"
+#include "events/core/DateGenerator.h"
 #include "events/domain/Calendar.h"
 
 namespace events {

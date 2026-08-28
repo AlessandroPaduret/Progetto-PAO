@@ -1,9 +1,10 @@
 #ifndef MONTHLY_GENERATOR_H
 #define MONTHLY_GENERATOR_H
 
-#include <cstddef>
-#include <vector>
 #include <chrono>
+#include <cstddef>
+#include <memory>
+#include <vector>
 
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
@@ -13,58 +14,99 @@ namespace events {
 
 /**
  * @class MonthlyGenerator
- * @brief Generatore mensile di date: un'occorrenza ogni N mesi CALENDARIALI,
- *        mantenendo lo stesso giorno del mese (con clampping: il 31 cade
- *        l'ultimo giorno del mese, es. 31/1 -> 28/2 negli anni non bisestili).
+ * @brief Generatore concreto per serie temporali con ricorrenza mensile di calendario.
  *
- * A differenza di FixedIntervalGenerator (che usa una durata fissa in secondi),
- * qui il passo avanza per mesi di calendario, quindi e' esatto anche per
- * "ogni 2 mesi". Supporta il limite di occorrenze (0 = illimitate).
+ * Genera un'occorrenza ogni N mesi di calendario, mantenendo lo stesso giorno del mese
+ * (con gestione del *clamping*: es. il 31 gennaio scivola all'ultimo giorno utile di febbraio,
+ * come il 28 febbraio negli anni non bisestili).
+ *
+ * @details
+ * - **Mutabilita'**: I limiti temporali (`m_start`, `m_end`) e il passo in mesi
+ *   (`m_months`) sono modificabili tramite @ref setStart/@ref setEnd e
+ *   @ref setMonths (spostamento, troncamento e cambio di frequenza della serie).
+ * - **Polimorfismo**: Supporta la clonazione profonda tramite @ref clone() e l'ispezione tramite Visitor.
  */
 class MonthlyGenerator : public DateGenerator {
 private:
-    TimePoint m_start;
-    int m_months;                 ///< Passo in mesi (>= 1)
-    TimePoint m_end;
-    std::size_t m_maxOccurrences;  ///< 0 = illimitate
+    TimePoint m_start;   ///< Istante temporale della prima occorrenza valida.
+    int m_months;        ///< Passo in mesi solari tra un'occorrenza e la successiva (deve essere >= 1).
+    TimePoint m_end;     ///< Istante temporale limite oltre il quale non vengono prodotte occorrenze.
 
 public:
-    /** @brief Costruttore (immutabile: configurazione solo da qui).
-     *  @param start Data/ora della prima occorrenza
-     *  @param months Passo in mesi (default: 1)
-     *  @param end Fine della ricorrenza (default: senza fine)
-     *  @param maxOccurrences Limite di occorrenze (0 = illimitate)
+
+    //@{
+    /** @name Implementazione di DateGenerator - Ciclo di Vita */
+
+    /** 
+     * @brief Costruttore principale con iniezione di tutti i parametri di configurazione.
+     * 
+     * @param start Data e ora della prima occorrenza della serie.
+     * @param months Passo in mesi di calendario (default: 1).
+     * @param end Limite temporale superiore (default: `TimePoint::max()` per serie illimitate).
      */
     MonthlyGenerator(TimePoint start, int months = 1,
-                     TimePoint end = TimePoint::max(),
-                     std::size_t maxOccurrences = 0);
+                     TimePoint end = TimePoint::max());
 
-    /** @return La data/ora della prima occorrenza */
+    /// @inheritdoc
+    [[nodiscard]] std::unique_ptr<DateGenerator> clone() const override;
+    
+    /// @inheritdoc
+    ~MonthlyGenerator() override = default;
+    //@}
+
+
+    //@{
+    /**
+     * @name Query dello Stato e Accessor Specifici
+     * Metodi di sola lettura per ispezionare il comportamento mensile.
+     */
+
+    /// @inheritdoc
     TimePoint getStart() const override;
 
-    /** @return Il passo in mesi */
+    /** 
+     * @brief Restituisce il passo in mesi solari della ricorrenza.
+     * @return int Rappresentante l'intervallo in mesi.
+     */
     int getMonths() const;
 
-    /** @return La fine della ricorrenza (TimePoint::max() = senza fine) */
+    /** 
+     * @brief Imposta il passo in mesi solari della ricorrenza.
+     * @param months Nuovo passo in mesi (deve essere >= 1).
+     */
+    void setMonths(int months);
+
+    /// @inheritdoc
     TimePoint getEnd() const override;
 
-    /** @return Il numero massimo di occorrenze (0 = illimitate) */
-    std::size_t getMaxOccurrences() const;
+    /** @brief Imposta l'inizio della serie (se supera la fine, la fine si allinea) */
+    void setStart(TimePoint start) override;
 
-    /// Implementazione dei metodi virtuali di DateGenerator
+    /** @brief Imposta la fine della serie (troncamento) */
+    void setEnd(TimePoint end) override;
+    //@}
 
-    /** @brief Genera le date mensili in [from, to] (inclusivo) */
+
+    //@{
+    /** @name Algoritmi di Generazione e Verifica Date */
+
+    /// @inheritdoc
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
-    /** @return true se `tp` e' una data generata dalla serie mensile */
+    /// @inheritdoc
     bool isIn(TimePoint tp) const override;
+    //@}
 
+    
+    //@{
+    /** @name Ispezione e Serializzazione */
 
-    /** @return Descrizione testuale (solo visualizzazione) */
+    /// @inheritdoc
     String describe() const override;
 
-    /** @brief Doppio dispatch verso DateGeneratorVisitor::visit(const MonthlyGenerator&) */
+    /// @inheritdoc
     void accept(DateGeneratorVisitor& visitor) const override;
+    //@}
 };
 
 } // namespace events

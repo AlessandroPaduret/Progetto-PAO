@@ -51,6 +51,11 @@ Activity ActivityBuilder::build() {
 TaskBuilder::TaskBuilder(String title, TimePoint due)
     : ActivityBuilder(std::move(title), due) {}
 
+TaskBuilder &TaskBuilder::withDuration(Duration duration) {
+  ActivityBuilder::withDuration(duration);
+  return *this;
+}
+
 TaskBuilder &TaskBuilder::withPriority(Priority priority) {
   m_priority = priority;
   return *this;
@@ -70,6 +75,11 @@ Task TaskBuilder::build() {
 
 MeetingBuilder::MeetingBuilder(String title, TimePoint start)
     : ActivityBuilder(std::move(title), start) {}
+
+MeetingBuilder &MeetingBuilder::withDuration(Duration duration) {
+  ActivityBuilder::withDuration(duration);
+  return *this;
+}
 
 MeetingBuilder &MeetingBuilder::withLocation(const String &location) {
   m_location = location;

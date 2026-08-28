@@ -12,22 +12,38 @@ using namespace std::chrono;
 
 namespace events {
 
-YearlyGenerator::YearlyGenerator(TimePoint start, TimePoint end,
-                                 std::size_t maxOccurrences)
-    : m_start(start), m_end(end), m_maxOccurrences(maxOccurrences) {}
+
+///Implementazione di DateGenerator - Ciclo di Vita
+
+YearlyGenerator::YearlyGenerator(TimePoint start, TimePoint end)
+    : m_start(start), m_end(end) {}
+
+std::unique_ptr<DateGenerator> YearlyGenerator::clone() const {
+  return std::make_unique<YearlyGenerator>(m_start, m_end);
+}
+
+
+/// Query dello Stato e Accessor Specifici
 
 TimePoint YearlyGenerator::getStart() const { return m_start; }
+
 TimePoint YearlyGenerator::getEnd() const { return m_end; }
 
-// Per un generatore annuale, l'intervallo non è fisso in secondi (causa bisestili)
-// ma possiamo restituire una stima media o 365 giorni se richiesto dall'interfaccia.
+void YearlyGenerator::setStart(TimePoint start) {
+  if (start > m_end) {
+    m_end = start;  // la fine non resta antecedente al nuovo inizio
+  }
+  m_start = start;
+}
+
+void YearlyGenerator::setEnd(TimePoint end) { m_end = end; }
+
 Duration YearlyGenerator::getInterval() const { 
     return duration_cast<Duration>(days{365}); 
 }
 
-std::size_t YearlyGenerator::getMaxOccurrences() const {
-  return m_maxOccurrences;
-}
+
+/// Algoritmi di Generazione e Verifica Date
 
 std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint to) const {
     std::vector<TimePoint> dates;
@@ -46,11 +62,7 @@ std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint 
     // 3. Iteriamo solo sugli anni del range
     const year base_year = year_month_day{floor<days>(m_start)}.year();
     for (year y = start_year; y <= end_year; ++y) {
-        // Limite di occorrenze: contate dall'anno di partenza del generatore
-        if (m_maxOccurrences > 0 &&
-            (y - base_year).count() >= static_cast<int>(m_maxOccurrences)) {
-            break;
-        }
+
         // Creiamo il candidato per l'anno corrente
         year_month_day candidate = y / month / day;
 
@@ -97,13 +109,12 @@ bool YearlyGenerator::isIn(TimePoint tp) const {
 
   const year base_year = original.year();
   const year tp_year = year_month_day{tp_ds}.year();
-  if (m_maxOccurrences > 0 &&
-      (tp_year - base_year).count() >= static_cast<int>(m_maxOccurrences)) {
-    return false;
-  }
 
   return sys_days{candidate} == tp_ds;
 }
+
+
+/// Ispezione e Serializzazione
 
 String YearlyGenerator::describe() const {
     std::ostringstream oss;
