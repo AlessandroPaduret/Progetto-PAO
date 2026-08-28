@@ -34,6 +34,9 @@ protected:
     std::unique_ptr<DateGenerator> resolveGenerator();
 
 public:
+    /** @brief Distruttore virtuale (build() virtual e' overridata dai derivati). */
+    virtual ~ActivityBuilder() = default;
+
     /** @brief Costruttore.
      *  @param title Titolo dell'attivita'
      *  @param start Istante di riferimento (inizio/scadenza). Opzionale: se si
@@ -62,8 +65,10 @@ public:
      */
     ActivityBuilder& withMaxOccurrences(std::size_t maxOccurrences);
 
-    // Rimosso const: consuma lo stato del builder via move
-    Activity build(); 
+    /** @brief Costruisce l'attivita' (ownership esclusiva via unique_ptr).
+     *  Virtual: TaskBuilder/MeetingBuilder la overridano restituendo sempre
+     *  std::unique_ptr<Activity> (il tipo dinamico resta quello concreto). */
+    virtual std::unique_ptr<Activity> build(); 
 };
 
 /**
@@ -88,8 +93,8 @@ public:
     /** @brief Imposta la priorita' del compito */
     TaskBuilder& withPriority(Priority priority);
 
-    // Rimosso const
-    Task build(); 
+    /** @brief Costruisce il compito (stesso valore di ritorno del base) */
+    std::unique_ptr<Activity> build() override; 
 };
 
 /**
@@ -117,8 +122,8 @@ public:
     /** @brief Aggiunge un partecipante (i duplicati sono rifiutati) */
     MeetingBuilder& addAttendee(const String& attendee);
 
-    // Rimosso const
-    Meeting build(); 
+    /** @brief Costruisce la riunione (stesso valore di ritorno del base) */
+    std::unique_ptr<Activity> build() override; 
 };
 
 } // namespace events

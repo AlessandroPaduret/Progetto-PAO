@@ -21,8 +21,7 @@ TimePoint make_date(int y, int m, int d) {
 
 TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
     TimePoint start = make_date(2026, 1, 8) + 10h;
-    auto event = std::make_unique<Activity>(
-        ActivityBuilder("Dentista", start).withDuration(1h).build());
+    auto event = ActivityBuilder("Dentista", start).withDuration(1h).build();
 
     QJsonObject json = persistence::activityToJson(*event);
     REQUIRE(json.value("type").toString() == "event");
@@ -42,14 +41,13 @@ TEST_CASE("Persistenza: Event round-trip", "[json][event]") {
 
 TEST_CASE("Persistenza: serie settimanale (fixed) round-trip", "[json][recurrent]") {
     TimePoint start = make_date(2026, 1, 1) + 9h;
-    auto event = std::make_unique<Activity>(
-        ActivityBuilder("Meeting")
+    auto event = ActivityBuilder("Meeting")
             .withDuration(1h)
             .addGenerator(GeneratorBuilder::from(start)
                               .repeatEvery(events::Days(7))
                               .until(make_date(2026, 3, 1))
                               .build())
-            .build());
+            .build();
     event->addException(make_date(2026, 1, 15) + 9h);
 
     QJsonObject json = persistence::activityToJson(*event);
@@ -76,9 +74,8 @@ TEST_CASE("Persistenza: serie settimanale (fixed) round-trip", "[json][recurrent
 
 TEST_CASE("Persistenza: Task round-trip (occorrenze evase)", "[json][task]") {
     TimePoint due = make_date(2026, 3, 10);
-    auto task = std::make_unique<Task>(
-        TaskBuilder("Consegna", due).withPriority(Priority::High).build());
-    task->setDone(due);
+    auto task = TaskBuilder("Consegna", due).withPriority(Priority::High).build();
+    dynamic_cast<Task*>(task.get())->setDone(due);
 
     QJsonObject json = persistence::activityToJson(*task);
     REQUIRE(json.value("type").toString() == "task");
@@ -98,12 +95,12 @@ TEST_CASE("Persistenza: Task round-trip (occorrenze evase)", "[json][task]") {
 
 TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meeting]") {
     TimePoint start = make_date(2026, 2, 1) + 10h;
-    auto meeting = std::make_unique<Meeting>(MeetingBuilder("Riunione", start)
-                                                 .withDuration(90min)
-                                                 .withLocation("Aula Magna")
-                                                 .build());
-    meeting->addAttendee("Mario");
-    meeting->addAttendee("Anna");
+    auto meeting = MeetingBuilder("Riunione", start)
+                     .withDuration(90min)
+                     .withLocation("Aula Magna")
+                     .build();
+    dynamic_cast<Meeting*>(meeting.get())->addAttendee("Mario");
+    dynamic_cast<Meeting*>(meeting.get())->addAttendee("Anna");
 
     QJsonObject json = persistence::activityToJson(*meeting);
     REQUIRE(json.value("type").toString() == "meeting");
@@ -121,13 +118,12 @@ TEST_CASE("Persistenza: Meeting round-trip (luogo + partecipanti)", "[json][meet
 }
 
 TEST_CASE("Persistenza: Anniversario round-trip (leap-aware)", "[json][anniversary]") {
-    auto anniversary = std::make_unique<Activity>(
-        ActivityBuilder("Mario")
+    auto anniversary = ActivityBuilder("Mario")
             .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
             .addGenerator(GeneratorBuilder::from(make_date(2028, 2, 29))
                               .repeatYearly()
                               .build())
-            .build());
+            .build();
 
     QJsonObject json = persistence::activityToJson(*anniversary);
     REQUIRE(json.value("type").toString() == "event");
@@ -151,33 +147,30 @@ TEST_CASE("Persistenza: Anniversario round-trip (leap-aware)", "[json][anniversa
 
 TEST_CASE("Persistenza: Calendar salva e ricarica da file", "[json][calendar][file]") {
     Calendar calendar;
-    calendar.add(std::make_unique<Activity>(
-        ActivityBuilder("Evento A", make_date(2026, 1, 1) + 9h).withDuration(1h).build()));
-    calendar.add(std::make_unique<Activity>(
-        ActivityBuilder("Riunione B")
+    calendar.add(ActivityBuilder("Evento A", make_date(2026, 1, 1) + 9h).withDuration(1h).build());
+    calendar.add(ActivityBuilder("Riunione B")
             .withDuration(30min)
             .addGenerator(GeneratorBuilder::from(make_date(2026, 1, 2) + 10h)
                               .repeatEvery(events::Days(7))
                               .until(make_date(2026, 3, 1))
                               .build())
-            .build()));
-    calendar.add(std::make_unique<Task>(
-        TaskBuilder("Compito C", make_date(2026, 2, 1)).withPriority(Priority::High).build()));
-    calendar.add(std::make_unique<Meeting>(MeetingBuilder("Riunione D", make_date(2026, 1, 3) + 8h)
-                                               .withDuration(1h)
-                                               .withLocation("Zoom")
-                                               .build()));
+            .build());
+    calendar.add(
+        TaskBuilder("Compito C", make_date(2026, 2, 1)).withPriority(Priority::High).build());
+    calendar.add(MeetingBuilder("Riunione D", make_date(2026, 1, 3) + 8h)
+                     .withDuration(1h)
+                     .withLocation("Zoom")
+                     .build());
     // Evento "tutto il giorno": dalle 00:00 con durata 24h
-    calendar.add(std::make_unique<Activity>(ActivityBuilder("Giornata E", make_date(2026, 1, 4))
-                                                .withDuration(std::chrono::seconds(86400))
-                                                .build()));
-    calendar.add(std::make_unique<Activity>(
-        ActivityBuilder("Anniversario F")
+    calendar.add(ActivityBuilder("Giornata E", make_date(2026, 1, 4))
+                     .withDuration(std::chrono::seconds(86400))
+                     .build());
+    calendar.add(ActivityBuilder("Anniversario F")
             .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
             .addGenerator(GeneratorBuilder::from(make_date(2000, 1, 6))
                               .repeatYearly()
                               .build())
-            .build()));
+            .build());
 
     QTemporaryDir dir;
     REQUIRE(dir.isValid());

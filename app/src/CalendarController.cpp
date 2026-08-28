@@ -122,30 +122,33 @@ bool CalendarController::moveActivity(const events::Activity* activity,
 
 bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
                                          const QDateTime& newStart) {
-  auto* series = const_cast<events::Activity*>(occurrence.source);
-  if (!isRecurrentActivity(series) || !newStart.isValid()) {
+  if (!occurrence.source || !isRecurrentActivity(occurrence.source) || !newStart.isValid()) {
     return false;
   }
 
-  // 0) La data di scadenza ORIGINALE va salvata PRIMA del troncamento
-  //    (setEnd la ridurrebbe a questa occorrenza)
-  const events::TimePoint originalEnd = series->getGenerator().getEnd();
+  // 1. Estrae l'attività dal calendario (trasferimento di ownership)
+  std::unique_ptr<events::Activity> originalSeries = m_calendar.pop(occurrence.source);
+  if (!originalSeries) {
+    return false; // L'attività non era presente nel calendario
+  }
+
   const events::TimePoint target = toTimePoint(newStart);
+  const events::TimePoint originalEnd = originalSeries->getEnd();
 
-  // 1) La serie attuale viene FERMATA prima dell'occorrenza interessata
-  series->setEnd(occurrence.start - events::Duration(1));
+  // 2. Clona l'attività estratta per creare la seconda serie (preserva sottoclassi come Meeting/Task)
+  std::unique_ptr<events::Activity> newSeries = originalSeries->clone();
 
-  // 2) Nasce una nuova serie con le stesse regole di ricorrenza (tipo e
-  //    intervallo del generatore, durata dell'occorrenza) ma inizio diverso;
-  //    la data di scadenza rimane quella originale. Il generatore e' mutabile:
-  //    si clona e si regolano start/end con i setter (il clone e' locale,
-  //    quindi non serve un accesso non-const a getGenerator()).
-  auto newGen = series->getGenerator().clone();
-  newGen->setStart(target);
-  newGen->setEnd(originalEnd);
-  auto replacement = std::make_unique<events::Activity>(
-      series->getTitle(), series->getDuration(), std::move(newGen));
-  m_calendar.add(std::move(replacement));
+  // 3. Modifica la prima serie (ora in nostro possesso esclusivo)
+  originalSeries->setEnd(occurrence.start - events::Duration(1));
+
+  // 4. Modifica la seconda serie
+  newSeries->setStart(target);
+  newSeries->setEnd(originalEnd);
+
+  // 5. Re-inserisce entrambe le serie nel calendario (trasferisce nuovamente l'ownership)
+  m_calendar.add(std::move(originalSeries));
+  m_calendar.add(std::move(newSeries));
+
   emit activitiesChanged();
   return true;
 }

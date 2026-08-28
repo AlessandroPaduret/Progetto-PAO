@@ -609,13 +609,12 @@ void MainWindow::onChoiceInstance() {
         // "Sposta solo questo evento": l'occorrenza esce dalla serie
         // (eccezione interna: buco in origine) e diventa un evento standard
         // alla data/ora di destinazione del trascinamento.
-        auto replacement = std::make_unique<events::Activity>(
-            events::ActivityBuilder(
+        auto replacement = events::ActivityBuilder(
                 occurrence.source->getTitle(),
                 events::TimePoint(std::chrono::seconds(
                     m_pendingDragTarget.toSecsSinceEpoch())))
                 .withDuration(occurrence.duration)
-                .build());
+                .build();
         m_controller->modifyOccurrence(occurrence, std::move(replacement));
         return;
     }

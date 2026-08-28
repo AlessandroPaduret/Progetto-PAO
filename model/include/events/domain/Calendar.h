@@ -35,6 +35,12 @@ public:
      */
     bool remove(const Activity* activity);
 
+    /** @brief Rimuove l'attivita' identificata dal puntatore e la ritorna
+     *  @param activity Puntatore a un'attivita' della collezione (confronto per identita')
+     * @return std::unique_ptr<Activity> L'attivita' estratta (nullptr se non trovata).
+     */
+    [[nodiscard]] std::unique_ptr<Activity> pop(const Activity* activity);
+
     /** @brief Rimuove tutte le attivita' */
     void clear();
 

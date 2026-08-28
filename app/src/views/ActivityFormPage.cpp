@@ -741,20 +741,18 @@ ActivityFormPage::buildEventActivities() const {
   if (allDay && !m_repeatCheck->isChecked()) {
     // Evento che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno
     // dopo): la striscia in alto lo riconosce perche' copre un giorno intero.
-    auto allday = std::make_unique<events::Activity>(
-        events::ActivityBuilder(title.toStdString(), start)
+    auto allday = events::ActivityBuilder(title.toStdString(), start)
             .withDuration(std::chrono::seconds(86400))
-            .build());
+            .build();
     result.push_back(std::move(allday));
     return result;
   }
 
   // Niente ripetizione -> un semplice Event
   if (!m_repeatCheck->isChecked()) {
-    auto event = std::make_unique<events::Activity>(
-        events::ActivityBuilder(title.toStdString(), start)
+    auto event = events::ActivityBuilder(title.toStdString(), start)
             .withDuration(duration)
-            .build());
+            .build();
     result.push_back(std::move(event));
     return result;
   }
@@ -867,14 +865,14 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   case kMeetingPanel: {
     const events::Duration duration = std::chrono::seconds(
         m_durationMt->time().msecsSinceStartOfDay() / 1000);
-    auto meeting = std::make_unique<events::Meeting>(
-        events::MeetingBuilder(title.toStdString(),
-                               toTimePoint(m_startMt->dateTime()))
-            .withDuration(duration)
-            .withLocation(m_locationMt->text().trimmed().toStdString())
-            .build());
+    auto meeting = events::MeetingBuilder(title.toStdString(),
+                                          toTimePoint(m_startMt->dateTime()))
+                       .withDuration(duration)
+                       .withLocation(m_locationMt->text().trimmed().toStdString())
+                       .build();
+    auto* meetingTyped = dynamic_cast<events::Meeting*>(meeting.get());
     for (int i = 0; i < m_attendeesList->count(); ++i) {
-      meeting->addAttendee(m_attendeesList->item(i)->text().toStdString());
+      meetingTyped->addAttendee(m_attendeesList->item(i)->text().toStdString());
     }
     return meeting;
   }
@@ -891,12 +889,11 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
     default:
       break;
     }
-    auto task = std::make_unique<events::Task>(
-        events::TaskBuilder(title.toStdString(), toTimePoint(m_dueT->dateTime()))
-            .withPriority(priority)
-            .build());
+    auto task = events::TaskBuilder(title.toStdString(), toTimePoint(m_dueT->dateTime()))
+                 .withPriority(priority)
+                 .build();
     if (m_doneCheck->isEnabled()) {
-      task->setDone(m_doneCheck->isChecked());
+      dynamic_cast<events::Task*>(task.get())->setDone(m_doneCheck->isChecked());
     }
     return task;
   }
@@ -904,12 +901,12 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   case kAnniversaryPanel: {
     const events::TimePoint date =
         toTimePoint(QDateTime(m_dateAn->date(), QTime(0, 0)));
-    return std::make_unique<events::Activity>(
+    return 
         events::ActivityBuilder(title.toStdString(), date)
             .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
             .addGenerator(
                 events::GeneratorBuilder::from(date).repeatYearly().build())
-            .build());
+            .build();
   }
 
   default:

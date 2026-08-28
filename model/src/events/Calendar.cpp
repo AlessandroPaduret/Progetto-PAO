@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -28,6 +29,22 @@ bool Calendar::remove(const Activity *activity) {
   }
   m_activities.erase(it);
   return true;
+}
+
+
+std::unique_ptr<Activity> Calendar::pop(const Activity *activity) {
+
+  if (!activity) return nullptr;
+
+  auto it = std::find_if(m_activities.begin(), m_activities.end(),
+                           [activity](const std::unique_ptr<Activity>& act) {
+                               return act.get() == activity;
+                           });
+
+  // Sposta l'unique_ptr fuori dal vettore e cancella l'elemento vuoto
+  std::unique_ptr<Activity> extracted = std::move(*it);
+  m_activities.erase(it);
+  return extracted;
 }
 
 void Calendar::clear() { m_activities.clear(); }

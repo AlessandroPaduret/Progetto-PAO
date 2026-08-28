@@ -38,10 +38,10 @@ ActivityBuilder &ActivityBuilder::withMaxOccurrences(std::size_t maxOccurrences)
   return *this;
 }
 
-Activity ActivityBuilder::build() {
-  Activity activity(m_title, m_duration, resolveGenerator());
+std::unique_ptr<Activity> ActivityBuilder::build() {
+  auto activity = std::make_unique<Activity>(m_title, m_duration, resolveGenerator());
   for (const TimePoint tp : m_exceptions) {
-    activity.addException(tp);
+    activity->addException(tp);
   }
   return activity;
 }
@@ -62,11 +62,11 @@ TaskBuilder &TaskBuilder::withPriority(Priority priority) {
 }
 
 
-Task TaskBuilder::build() {
-  Task task(m_title, m_start, m_priority, resolveGenerator());
-  task.setDone(m_done);
+std::unique_ptr<Activity> TaskBuilder::build() {
+  auto task = std::make_unique<Task>(m_title, m_start, m_priority, resolveGenerator());
+  task->setDone(m_done);
   for (const TimePoint tp : m_exceptions) {
-    task.addException(tp);
+    task->addException(tp);
   }
   return task;
 }
@@ -91,13 +91,13 @@ MeetingBuilder &MeetingBuilder::addAttendee(const String &attendee) {
   return *this;
 }
 
-Meeting MeetingBuilder::build() {
-  Meeting meeting(m_title, m_duration, m_location, resolveGenerator());
+std::unique_ptr<Activity> MeetingBuilder::build() {
+  auto meeting = std::make_unique<Meeting>(m_title, m_duration, m_location, resolveGenerator());
   for (const String &attendee : m_attendees) {
-    meeting.addAttendee(attendee);
+    meeting->addAttendee(attendee);
   }
   for (const TimePoint tp : m_exceptions) {
-    meeting.addException(tp);
+    meeting->addException(tp);
   }
   return meeting;
 }
