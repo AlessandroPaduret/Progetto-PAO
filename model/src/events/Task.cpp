@@ -27,7 +27,7 @@ std::unique_ptr<Activity> Task::clone() const {
 
 TimePoint Task::getDue() const { return getStart(); }
 
-void Task::setDue(const TimePoint due) { moveTo(due); }
+void Task::setDue(const TimePoint due) { setStart(due); }
 
 Priority Task::getPriority() const { return m_priority; }
 

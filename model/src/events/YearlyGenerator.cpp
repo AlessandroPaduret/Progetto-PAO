@@ -60,7 +60,6 @@ std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint 
     year end_year = year_month_day{floor<days>(to)}.year();
 
     // 3. Iteriamo solo sugli anni del range
-    const year base_year = year_month_day{floor<days>(m_start)}.year();
     for (year y = start_year; y <= end_year; ++y) {
 
         // Creiamo il candidato per l'anno corrente
@@ -106,9 +105,6 @@ bool YearlyGenerator::isIn(TimePoint tp) const {
   if (!candidate.ok()) {
     candidate = year_month_day{tp_ds}.year() / month / 28;
   }
-
-  const year base_year = original.year();
-  const year tp_year = year_month_day{tp_ds}.year();
 
   return sys_days{candidate} == tp_ds;
 }

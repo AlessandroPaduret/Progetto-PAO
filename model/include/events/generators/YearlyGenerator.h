@@ -42,27 +42,18 @@ public:
      */
     YearlyGenerator(TimePoint start, TimePoint end = TimePoint::max());
 
-    /** 
-     * @brief Crea una copia profonda polimorfica di questo generatore annuale.
-     * 
-     * @return std::unique_ptr<DateGenerator> Nuova istanza clonata di @ref YearlyGenerator.
-     */
+    /// @inheritdoc
     [[nodiscard]] std::unique_ptr<DateGenerator> clone() const override;
     
-    /** @brief Distruttore virtuale di default. */
+    /// @inheritdoc
     ~YearlyGenerator() override = default;
     //@}
 
 
     //@{
-    /**
-     * @name Query dello Stato e Accessor Specifici
-     * Metodi di sola lettura per ispezionare il comportamento mensile.
-     */
+    /** @name Query dello Stato e Accessor Specifici */
 
-    /** @brief Ritorna la data di inizio dell'intervallo
-    *  @return La data di inizio dell'intervallo
-    */
+    /// @inheritdoc
     TimePoint getStart() const override;
 
     /** @brief Ritorna l'intervallo di tempo tra le date generate
@@ -70,32 +61,24 @@ public:
     */    
    Duration getInterval() const;
 
-/** @brief Ritorna la data di fine dell'intervallo
-     *  @return La data di fine dell'intervallo
-     */
+    /// @inheritdoc
     TimePoint getEnd() const override;
 
-    /** @brief Imposta l'inizio della serie (se supera la fine, la fine si allinea) */
+    /// @inheritdoc
     void setStart(TimePoint start) override;
 
-    /** @brief Imposta la fine della serie (troncamento) */
+    /// @inheritdoc
     void setEnd(TimePoint end) override;
     //@}
     
 
     //@{
-    /**
-     * @name Algoritmi di Generazione e Verifica Date
-     */
+    /** @name Algoritmi di Generazione e Verifica Date */
 
-    /** @brief Genera le date comprese nell'intervallo [from, to] 
-     *  @param from Data di inizio dell'intervallo
-     *  @param to Data di fine dell'intervallo
-     *  @return Un vettore di TimePoint che rappresentano le date generate
-    */
+    /// @inheritdoc
     std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
 
-    /** @return true se `tp` e' una data generata dalla ricorrenza annuale */
+    /// @inheritdoc
     bool isIn(TimePoint tp) const override;
     //@}
 

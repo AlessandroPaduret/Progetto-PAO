@@ -79,10 +79,10 @@ public:
     /// @inheritdoc
     TimePoint getEnd() const override;
 
-    /** @brief Imposta l'inizio della serie (se supera la fine, la fine si allinea) */
+    /// @inheritdoc
     void setStart(TimePoint start) override;
 
-    /** @brief Imposta la fine della serie (troncamento) */
+    /// @inheritdoc
     void setEnd(TimePoint end) override;
     //@}
 

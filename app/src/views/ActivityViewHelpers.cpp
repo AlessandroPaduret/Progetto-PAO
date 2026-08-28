@@ -26,7 +26,7 @@ QString localDateTime(const events::Activity& activity,
 // --- Visitor: etichetta del tipo (solo per visualizzazione) -----------------
 // Il tipo e' il dispatch dinamico (Activity/Task/Meeting); la ricorrenza si
 // deduce dal generatore. Un anniversario e' un'Activity annuale "tutto il
-// giorno" (come ActivityFactory::createAnniversary).
+// giorno".
 class TypeLabelVisitor : public events::ActivityVisitor {
 public:
   QString label;
@@ -73,6 +73,12 @@ public:
   void visit(const events::SingleGenerator&) override {
     rule = QObject::tr("una volta");
   }
+
+  void visit(const events::MaxOccurrencesDecorator& generator) override {
+    // Il limite di occorrenze non cambia la regola: si delega al generatore
+    // avvolto.
+    generator.getWrappedGenerator().accept(*this);
+  }
 };
 
 // --- Visitor: riga descrittiva sintetica per tipo ----------------------------
@@ -90,7 +96,7 @@ public:
     }
     if (isRecurrent(&activity)) {
       RuleVisitor rule;
-      activity.getGenerator()->accept(rule);
+      activity.getGenerator().accept(rule);
       summary = QObject::tr("ogni %1, dal %2")
                     .arg(rule.rule, localDateTime(activity, activity.getStart()));
       return;
@@ -190,7 +196,7 @@ QStringList fieldLines(const events::Activity& activity) {
 
 QString recurrenceRuleLabel(const events::Activity& activity) {
   RuleVisitor visitor;
-  activity.getGenerator()->accept(visitor);
+  activity.getGenerator().accept(visitor);
   return visitor.rule;
 }
 

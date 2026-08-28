@@ -56,8 +56,8 @@ TEST_CASE("ActivityBuilder per un evento settimanale", "[ActivityBuilder][FixedI
 
     }
 
-    SECTION("truncateBefore esclude le occorrenze successive") {
-        event.truncateBefore(start + std::chrono::weeks(2));
+    SECTION("setEnd tronca le occorrenze successive") {
+        event.setEnd(start + std::chrono::weeks(2) - std::chrono::seconds(1));
         auto instances = event.occurrencesIn(start, start + 4_weeks);
         REQUIRE(instances.size() == 2);
         REQUIRE(instances[0].start == start);
@@ -602,13 +602,13 @@ TEST_CASE("Formattazione ISO-8601", "[iso][format]") {
     }
 }
 
-TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
+TEST_CASE("setStart sposta l'attivita' al nuovo istante", "[move]") {
     TimePoint start = make_date(2026, 1, 5);
     TimePoint target = make_date(2026, 2, 9) + 3h;
 
     SECTION("Evento singolo: cambia l'inizio, la durata resta") {
         Activity event("X", 1h, std::make_unique<SingleGenerator>(start));
-        event.moveTo(target);
+        event.setStart(target);
         REQUIRE(event.getStart() == target);
         REQUIRE(event.getDuration() == 1h);
     }
@@ -623,14 +623,14 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
                                   .build())
                 .build());
         const TimePoint earlier = start - 1_weeks + 9h;
-        event->moveTo(earlier);
+        event->setStart(earlier);
         REQUIRE(event->getStart() == earlier);
         REQUIRE(event->occurrencesIn(earlier, start + 3_weeks).size() == 4);
     }
 
     SECTION("Task: cambia la scadenza") {
         Task task("Consegna", start, Priority::High);
-        task.moveTo(target);
+        task.setStart(target);
         REQUIRE(task.getDue() == target);
     }
 
@@ -638,17 +638,17 @@ TEST_CASE("moveTo sposta l'attivita' al nuovo istante", "[move]") {
         Meeting meeting("Riunione", 1h, "Aula",
                         std::make_unique<SingleGenerator>(start));
         meeting.addAttendee("Mario");
-        meeting.moveTo(target);
+        meeting.setStart(target);
         REQUIRE(meeting.getStart() == target);
         REQUIRE(meeting.getDuration() == 1h);
         REQUIRE(meeting.getLocation() == "Aula");
         REQUIRE(meeting.attendeeCount() == 1);
     }
 
-    SECTION("Evento di 24h: moveTo sposta l'inizio, la durata resta") {
+    SECTION("Evento di 24h: setStart sposta l'inizio, la durata resta") {
         Activity allday("Giornata", std::chrono::seconds(86400),
                         std::make_unique<SingleGenerator>(start));
-        allday.moveTo(target);
+        allday.setStart(target);
         REQUIRE(allday.getStart() == target);
         REQUIRE(allday.getDuration() == std::chrono::seconds(86400));
         REQUIRE(allday.getEnd() == target);  // getEnd() = fine del generatore

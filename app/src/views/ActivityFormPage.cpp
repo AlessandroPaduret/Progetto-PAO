@@ -25,10 +25,12 @@
 #include <algorithm>
 
 #include "CalendarController.h"
-#include "events/domain/ActivityFactory.h"
+#include "events/builders/ActivityBuilder.h"
+#include "events/builders/GeneratorBuilder.h"
 #include "events/domain/Meeting.h"
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
+#include "events/generators/MaxOccurrencesDecorator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 #include "views/ViewShared.h"
@@ -602,13 +604,18 @@ void ActivityFormPage::populateEventLike(const events::Activity& activity) {
   }
   const int startDow = m_startDateE->date().dayOfWeek();
 
-  // Legge la regola dal generatore
+  // Legge la regola dal generatore (il limite di occorrenze vive nel
+  // MaxOccurrencesDecorator, che avvolge il generatore concreto).
   std::size_t maxOcc = 0;
   events::TimePoint end = events::TimePoint::max();
-  const events::DateGenerator* gen = activity.getGenerator().get();
+  const events::DateGenerator* gen = &activity.getGenerator();
+  if (const auto* decorator =
+          dynamic_cast<const events::MaxOccurrencesDecorator*>(gen)) {
+    maxOcc = decorator->getMaxOccurrences();
+    gen = &decorator->getWrappedGenerator();
+  }
   if (const auto* fixed =
           dynamic_cast<const events::FixedIntervalGenerator*>(gen)) {
-    maxOcc = fixed->getMaxOccurrences();
     end = fixed->getEnd();
     const qint64 intervalDays = fixed->getInterval().count() / 86400;
     if (intervalDays % 7 == 0) {
@@ -621,13 +628,11 @@ void ActivityFormPage::populateEventLike(const events::Activity& activity) {
     }
   } else if (const auto* monthly =
                  dynamic_cast<const events::MonthlyGenerator*>(gen)) {
-    maxOcc = monthly->getMaxOccurrences();
     end = monthly->getEnd();
     m_unitCombo->setCurrentIndex(kUnitMonths);
     m_everySpin->setValue(monthly->getMonths());
   } else if (const auto* yearly =
                  dynamic_cast<const events::YearlyGenerator*>(gen)) {
-    maxOcc = yearly->getMaxOccurrences();
     end = yearly->getEnd();
     m_unitCombo->setCurrentIndex(kUnitYears);
     m_everySpin->setValue(1);
@@ -736,16 +741,20 @@ ActivityFormPage::buildEventActivities() const {
   if (allDay && !m_repeatCheck->isChecked()) {
     // Evento che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno
     // dopo): la striscia in alto lo riconosce perche' copre un giorno intero.
-    auto allday = events::ActivityFactory::createSimpleEvent(
-        title.toStdString(), start, std::chrono::seconds(86400));
+    auto allday = std::make_unique<events::Activity>(
+        events::ActivityBuilder(title.toStdString(), start)
+            .withDuration(std::chrono::seconds(86400))
+            .build());
     result.push_back(std::move(allday));
     return result;
   }
 
   // Niente ripetizione -> un semplice Event
   if (!m_repeatCheck->isChecked()) {
-    auto event =
-        events::ActivityFactory::createSimpleEvent(title.toStdString(), start, duration);
+    auto event = std::make_unique<events::Activity>(
+        events::ActivityBuilder(title.toStdString(), start)
+            .withDuration(duration)
+            .build());
     result.push_back(std::move(event));
     return result;
   }
@@ -760,7 +769,7 @@ ActivityFormPage::buildEventActivities() const {
     maxOcc = static_cast<std::size_t>(m_countSpin->value());
   }
 
-  auto pushRecurrent = [&](std::shared_ptr<events::DateGenerator> generator) {
+  auto pushRecurrent = [&](std::unique_ptr<events::DateGenerator> generator) {
     result.push_back(std::make_unique<events::Activity>(
         title.toStdString(), duration, std::move(generator)));
   };
@@ -768,9 +777,12 @@ ActivityFormPage::buildEventActivities() const {
   const int unit = m_unitCombo->currentIndex();
   const int every = m_everySpin->value();
   if (unit == kUnitDays) {
-    auto gen = std::make_shared<events::FixedIntervalGenerator>(
-        start, events::Days(every), end, maxOcc);
-    pushRecurrent(gen);
+    auto gen = events::GeneratorBuilder::from(start)
+                   .repeatEvery(events::Days(every))
+                   .until(end)
+                   .limitTo(maxOcc)
+                   .build();
+    pushRecurrent(std::move(gen));
   } else if (unit == kUnitWeeks) {
     // Una o piu' serie ricorrenti, una per giorno della settimana scelto.
     // Il limite "dopo N occorrenze" vale sul CALENDARIO COMBINATO, non per
@@ -819,17 +831,27 @@ ActivityFormPage::buildEventActivities() const {
           allDay ? toTimePoint(QDateTime(startDate.addDays(offset), QTime(0, 0),
                                          QTimeZone(0)))
                  : toTimePoint(QDateTime(startDate.addDays(offset), time));
-      auto gen = std::make_shared<events::FixedIntervalGenerator>(
-          anchor, events::Days(7 * every), effectiveEnd, effectiveMax);
-      pushRecurrent(gen);
+      auto gen = events::GeneratorBuilder::from(anchor)
+                     .repeatEvery(events::Days(7 * every))
+                     .until(effectiveEnd)
+                     .limitTo(effectiveMax)
+                     .build();
+      pushRecurrent(std::move(gen));
     }
   } else if (unit == kUnitMonths) {
-    auto gen = std::make_shared<events::MonthlyGenerator>(
-        start, every, end, maxOcc);
-    pushRecurrent(gen);
+    auto gen = events::GeneratorBuilder::from(start)
+                   .repeatMonthly(every)
+                   .until(end)
+                   .limitTo(maxOcc)
+                   .build();
+    pushRecurrent(std::move(gen));
   } else {  // anno
-    auto gen = std::make_shared<events::YearlyGenerator>(start, end, maxOcc);
-    pushRecurrent(gen);
+    auto gen = events::GeneratorBuilder::from(start)
+                   .repeatYearly()
+                   .until(end)
+                   .limitTo(maxOcc)
+                   .build();
+    pushRecurrent(std::move(gen));
   }
   return result;
 }
@@ -845,9 +867,12 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   case kMeetingPanel: {
     const events::Duration duration = std::chrono::seconds(
         m_durationMt->time().msecsSinceStartOfDay() / 1000);
-    auto meeting = events::ActivityFactory::createMeeting(
-        title.toStdString(), toTimePoint(m_startMt->dateTime()), duration,
-        m_locationMt->text().trimmed().toStdString());
+    auto meeting = std::make_unique<events::Meeting>(
+        events::MeetingBuilder(title.toStdString(),
+                               toTimePoint(m_startMt->dateTime()))
+            .withDuration(duration)
+            .withLocation(m_locationMt->text().trimmed().toStdString())
+            .build());
     for (int i = 0; i < m_attendeesList->count(); ++i) {
       meeting->addAttendee(m_attendeesList->item(i)->text().toStdString());
     }
@@ -866,8 +891,10 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
     default:
       break;
     }
-    auto task = events::ActivityFactory::createTask(
-        title.toStdString(), toTimePoint(m_dueT->dateTime()), priority);
+    auto task = std::make_unique<events::Task>(
+        events::TaskBuilder(title.toStdString(), toTimePoint(m_dueT->dateTime()))
+            .withPriority(priority)
+            .build());
     if (m_doneCheck->isEnabled()) {
       task->setDone(m_doneCheck->isChecked());
     }
@@ -877,7 +904,12 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   case kAnniversaryPanel: {
     const events::TimePoint date =
         toTimePoint(QDateTime(m_dateAn->date(), QTime(0, 0)));
-    return events::ActivityFactory::createAnniversary(title.toStdString(), date);
+    return std::make_unique<events::Activity>(
+        events::ActivityBuilder(title.toStdString(), date)
+            .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
+            .addGenerator(
+                events::GeneratorBuilder::from(date).repeatYearly().build())
+            .build());
   }
 
   default:

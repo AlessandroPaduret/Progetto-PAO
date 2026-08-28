@@ -105,8 +105,7 @@ bool MonthlyGenerator::isIn(TimePoint tp) const {
   if (monthsBetween < 0 || monthsBetween % m_months != 0) {
     return false;
   }
-  const std::size_t k = static_cast<std::size_t>(monthsBetween / m_months);
-
+  
   // Il candidato per quel passo (con clamping del giorno) deve coincidere con tp.
   const auto shiftedYm = baseYm + std::chrono::months{monthsBetween};
   std::chrono::year_month_day candidate = shiftedYm / base.day();

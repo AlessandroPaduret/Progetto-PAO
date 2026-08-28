@@ -15,17 +15,17 @@ namespace app {
 /** @brief true se l'attivita' e' una serie ricorrente: la ricorrenza si deduce
  *  dal generatore (Single = evento singolo; Fixed/Monthly/Yearly = serie). */
 inline bool isRecurrent(const events::Activity* activity) {
-    const events::DateGenerator* gen = activity->getGenerator().get();
+    const events::DateGenerator* gen = &activity->getGenerator();
     return dynamic_cast<const events::FixedIntervalGenerator*>(gen) != nullptr ||
            dynamic_cast<const events::MonthlyGenerator*>(gen) != nullptr ||
            dynamic_cast<const events::YearlyGenerator*>(gen) != nullptr;
 }
 
 /** @brief true se l'attivita' e' un anniversario: generatore annuale e durata
- *  "tutto il giorno" (come ActivityFactory::createAnniversary). */
+ *  "tutto il giorno" (attivita' con YearlyGenerator, come dal builder). */
 inline bool isAnniversary(const events::Activity* activity) {
     return dynamic_cast<const events::YearlyGenerator*>(
-               activity->getGenerator().get()) != nullptr &&
+               &activity->getGenerator()) != nullptr &&
            activity->getDuration() >=
                std::chrono::hours(24) - std::chrono::seconds(1);
 }
