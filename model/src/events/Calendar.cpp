@@ -31,6 +31,28 @@ bool Calendar::remove(const Activity *activity) {
   return true;
 }
 
+Activity* Calendar::find(const Activity* target) {
+    if (!target) return nullptr;
+
+    auto it = std::find_if(m_activities.begin(), m_activities.end(),
+        [target](const std::unique_ptr<Activity>& ptr) {
+            return ptr.get() == target;
+        });
+
+    return (it != m_activities.end()) ? it->get() : nullptr;
+}
+
+const Activity* Calendar::find(const Activity* target) const {
+    if (!target) return nullptr;
+
+    auto it = std::find_if(m_activities.begin(), m_activities.end(),
+        [target](const std::unique_ptr<Activity>& ptr) {
+            return ptr.get() == target;
+        });
+
+    return (it != m_activities.end()) ? it->get() : nullptr;
+}
+
 
 std::unique_ptr<Activity> Calendar::pop(const Activity *activity) {
 

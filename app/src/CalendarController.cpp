@@ -108,14 +108,20 @@ std::vector<events::Occurrence> CalendarController::occurrencesIn(
 
 bool CalendarController::moveActivity(const events::Activity* activity,
                                       const QDateTime& newStart) {
+
   if (!activity || !newStart.isValid()) {
-    return false;
+    return false; // Parametri invalidi
   }
-  auto* mutableActivity = const_cast<events::Activity*>(activity);
-  mutableActivity->setStart(toTimePoint(newStart));
-  // Le eccezioni sono date assolute che non seguono la serie spostata:
-  // la serie traslata resta INTONSA.
-  mutableActivity->clearExceptions();
+
+  events::Activity* foundActivity = m_calendar.find(activity);
+
+  if (!foundActivity) {
+    return false; // L'attività non è presente nel calendario
+  }
+  
+  foundActivity->setStart(toTimePoint(newStart));
+  foundActivity->clearExceptions();
+
   emit activitiesChanged();
   return true;
 }
@@ -126,28 +132,26 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
     return false;
   }
 
-  // 1. Estrae l'attività dal calendario (trasferimento di ownership)
-  std::unique_ptr<events::Activity> originalSeries = m_calendar.pop(occurrence.source);
-  if (!originalSeries) {
-    return false; // L'attività non era presente nel calendario
+  events::Activity* foundActivity = m_calendar.find(occurrence.source);
+  if (!foundActivity) {
+    return false; // L'attività non è presente nel calendario
   }
 
   const events::TimePoint target = toTimePoint(newStart);
-  const events::TimePoint originalEnd = originalSeries->getEnd();
+  const events::TimePoint originalEnd = foundActivity->getEnd();
 
-  // 2. Clona l'attività estratta per creare la seconda serie (preserva sottoclassi come Meeting/Task)
-  std::unique_ptr<events::Activity> newSeries = originalSeries->clone();
+  // 2. Clona l'attività originale per creare la nuova serie (restituisce std::unique_ptr)
+  auto newActivity = foundActivity->clone();
 
-  // 3. Modifica la prima serie (ora in nostro possesso esclusivo)
-  originalSeries->setEnd(occurrence.start - events::Duration(1));
+  // 3. Modifica la prima serie direttamente in-place (è ancora dentro m_calendar!)
+  foundActivity->setEnd(occurrence.start - events::Duration(1));
 
-  // 4. Modifica la seconda serie
-  newSeries->setStart(target);
-  newSeries->setEnd(originalEnd);
+  // 4. Configura la nuova serie clonata
+  newActivity->setStart(target);
+  newActivity->setEnd(originalEnd);
 
-  // 5. Re-inserisce entrambe le serie nel calendario (trasferisce nuovamente l'ownership)
-  m_calendar.add(std::move(originalSeries));
-  m_calendar.add(std::move(newSeries));
+  // 5. Inserisce la seconda serie nel calendario (trasferendone l'ownership)
+  m_calendar.add(std::move(newActivity));
 
   emit activitiesChanged();
   return true;
@@ -155,11 +159,15 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
 
 bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
                                           bool andFollowing) {
-  auto* activity = const_cast<events::Activity*>(occurrence.source);
-  if (isRecurrentActivity(activity) && !andFollowing) {
-    activity->addException(occurrence.start);  // EXDATE: solo questa
-  } else if (isRecurrentActivity(activity)) {
-    activity->setEnd(occurrence.start - events::Duration(1));  // questa e le successive
+  events::Activity* foundActivity = m_calendar.find(occurrence.source);
+  if (!foundActivity) {
+    return false; // L'attività non è presente nel calendario
+  }
+
+  if (isRecurrentActivity(occurrence.source) && !andFollowing) {
+    foundActivity->addException(occurrence.start);  // EXDATE: solo questa
+  } else if (isRecurrentActivity(occurrence.source)) {
+    foundActivity->setEnd(occurrence.start - events::Duration(1));  // questa e le successive
   } else {
     m_calendar.remove(occurrence.source);
   }
@@ -173,11 +181,16 @@ bool CalendarController::modifyOccurrence(
   if (!replacement) {
     return false;
   }
-  auto* activity = const_cast<events::Activity*>(occurrence.source);
-  if (isRecurrentActivity(activity)) {
-    activity->addException(occurrence.start);  // scarta l'istanza originale
+
+  events::Activity* foundActivity = m_calendar.find(occurrence.source);
+  
+  if (!foundActivity) return false; // L'attività non è presente nel calendario
+  
+
+  if (isRecurrentActivity(foundActivity)) {
+    foundActivity->addException(occurrence.start);  // Togli l'occorrenza dall'attività
   } else {
-    m_calendar.remove(occurrence.source);
+    m_calendar.remove(foundActivity);
   }
   m_calendar.add(std::move(replacement));
   emit activitiesChanged();
@@ -185,14 +198,19 @@ bool CalendarController::modifyOccurrence(
 }
 
 bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
-  auto* task =
-      dynamic_cast<events::Task*>(const_cast<events::Activity*>(occurrence.source));
-  if (!task) {
-    return false;
+
+  events::Activity* foundActivity = m_calendar.find(occurrence.source);
+  if (!foundActivity) {
+    return false; // L'attività non è presente nel calendario
   }
-  task->setDone(!task->isDone());
-  emit activitiesChanged();
-  return true;
+
+  if (auto* task = dynamic_cast<events::Task*>(foundActivity)) {
+    task->setDone(!task->isDone());
+    emit activitiesChanged();
+    return true;
+  }
+
+  return false;
 }
 
 bool CalendarController::saveToFile(const QString& filePath, QString* error) {

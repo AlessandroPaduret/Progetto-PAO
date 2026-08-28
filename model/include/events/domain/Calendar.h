@@ -35,6 +35,20 @@ public:
      */
     bool remove(const Activity* activity);
 
+    /** 
+     * @brief Cerca un'attività e la restituisce per puntatore modificabile.
+     * @param target Puntatore all'attività da cercare.
+     * @return Activity* che punta all'evento 
+     */
+    Activity* find(const Activity* target);
+
+    /** 
+     * @brief Cerca un'attività e la restituisce per puntatore modificabile.
+     * @param target Puntatore all'attività da cercare.
+     * @return const Activity* che punta all'evento 
+     */
+    const Activity* find(const Activity* target) const;
+
     /** @brief Rimuove l'attivita' identificata dal puntatore e la ritorna
      *  @param activity Puntatore a un'attivita' della collezione (confronto per identita')
      * @return std::unique_ptr<Activity> L'attivita' estratta (nullptr se non trovata).
