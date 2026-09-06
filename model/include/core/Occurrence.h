@@ -1,7 +1,6 @@
-#ifndef OCCURRENCE_H
-#define OCCURRENCE_H
+#pragma once
 
-#include "events/core/CommonTypes.h"
+#include "core/CommonTypes.h"
 
 namespace events {
 
@@ -29,5 +28,3 @@ struct Occurrence {
 };
 
 } // namespace events
-
-#endif // OCCURRENCE_H

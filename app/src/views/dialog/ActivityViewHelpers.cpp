@@ -2,14 +2,14 @@
 
 #include <QDateTime>
 
-#include "events/core/ActivityVisitor.h"
-#include "events/core/DateGeneratorVisitor.h"
-#include "events/domain/Meeting.h"
-#include "events/domain/Task.h"
-#include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MonthlyGenerator.h"
-#include "events/generators/SingleGenerator.h"
-#include "events/generators/YearlyGenerator.h"
+#include "core/ActivityVisitor.h"
+#include "core/DateGeneratorVisitor.h"
+#include "domain/Meeting.h"
+#include "domain/Task.h"
+#include "generators/FixedIntervalGenerator.h"
+#include "generators/MonthlyGenerator.h"
+#include "generators/SingleGenerator.h"
+#include "generators/YearlyGenerator.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {

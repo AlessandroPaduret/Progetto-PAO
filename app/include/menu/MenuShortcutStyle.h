@@ -1,5 +1,4 @@
-#ifndef APP_MENU_SHORTCUT_STYLE_H
-#define APP_MENU_SHORTCUT_STYLE_H
+#pragma once
 
 #include <QColor>
 #include <QPainter>
@@ -75,5 +74,3 @@ public:
 };
 
 } // namespace app
-
-#endif // APP_MENU_SHORTCUT_STYLE_H

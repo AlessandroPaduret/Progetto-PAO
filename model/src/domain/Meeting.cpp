@@ -1,10 +1,10 @@
-#include "events/domain/Meeting.h"
+#include "domain/Meeting.h"
 
 #include <algorithm>
 #include <utility>
 
-#include "events/core/ActivityVisitor.h"
-#include "events/core/Format.h"
+#include "core/ActivityVisitor.h"
+#include "core/Format.h"
 
 namespace events {
 

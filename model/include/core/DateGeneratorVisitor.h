@@ -1,5 +1,4 @@
-#ifndef DATEGENERATOR_VISITOR_H
-#define DATEGENERATOR_VISITOR_H
+#pragma once
 
 namespace events {
 
@@ -25,5 +24,3 @@ public:
 };
 
 } // namespace events
-
-#endif // DATEGENERATOR_VISITOR_H

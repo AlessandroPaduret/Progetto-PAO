@@ -1,9 +1,8 @@
-#ifndef APP_ACTIVITY_DETAIL_DIALOG_H
-#define APP_ACTIVITY_DETAIL_DIALOG_H
+#pragma once
 
 #include <QFrame>
 
-#include "events/events.h"
+#include "events.h"
 
 class QLabel;
 class QToolButton;
@@ -52,5 +51,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_ACTIVITY_DETAIL_DIALOG_H

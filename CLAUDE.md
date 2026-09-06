@@ -22,7 +22,7 @@ C++23 library for calendar/personal activities (domain model). Namespace `events
   - Classi concrete: `SingleGenerator()` (stateless, `next` restituisce `TimePoint::max()`), `FixedIntervalGenerator(interval)`, `MonthlyGenerator(months = 1)` (leap/end-of-month clamping aware), `YearlyGenerator(years = 1)` (29/2→28/2 fallback).
 - [ ] **NON implementato: deduplicazione via Flyweight (`GeneratorPool`)**: nessun file `GeneratorPool`/`WeakCacheableHash`/`WeakCacheableEqual` esiste in `model/`. `utils::Cacheable.h` fornisce solo i functor non-weak `CacheableHash`/`CacheableEqual`, non ancora usati per una pool condivisa.
 - [x] **Costruzione via Config + factory (non Builder)**:
-  - Le classi `ActivityBuilder`/`TaskBuilder`/`MeetingBuilder`/`GeneratorBuilder` descritte in versioni precedenti **non esistono**: sostituite da struct aggregate in `events/builders/ActivityConfig.h` (`ActivityConfig`, `TaskConfig : ActivityConfig`, `MeetingConfig : ActivityConfig`) e da funzioni libere `makeActivity(ActivityConfig)`, `makeTask(TaskConfig)`, `makeMeeting(MeetingConfig)` che restituiscono l'`unique_ptr` corrispondente. Fallback generatore: `nullptr` → `SingleGenerator` condiviso statico (gestito nel costruttore di `Activity`). Non esistono `withMaxOccurrences`/`limitTo`/`MaxOccurrencesDecorator`.
+  - Le classi `ActivityBuilder`/`TaskBuilder`/`MeetingBuilder`/`GeneratorBuilder` descritte in versioni precedenti **non esistono**: sostituite da struct aggregate in `builders/ActivityConfig.h` (`ActivityConfig`, `TaskConfig : ActivityConfig`, `MeetingConfig : ActivityConfig`) e da funzioni libere `makeActivity(ActivityConfig)`, `makeTask(TaskConfig)`, `makeMeeting(MeetingConfig)` che restituiscono l'`unique_ptr` corrispondente. Fallback generatore: `nullptr` → `SingleGenerator` condiviso statico (gestito nel costruttore di `Activity`). Non esistono `withMaxOccurrences`/`limitTo`/`MaxOccurrencesDecorator`.
 - [x] **Persistenza JSON (`JsonPersistence`)** — aggiornata e funzionante:
   - Discriminatore `"type"` con **soli 3 valori**: `event | task | meeting` (non `recurrent`/`anniversary`, che non esistono più).
   - I generatori serializzano solo `type` (`single|fixed|monthly|yearly`) + la propria frequenza (`interval_seconds`/`interval_months`/`interval_years`); `title`, `start`, `duration_seconds`, `end` (opzionale), `exceptions` sono a livello di `Activity`. **Non esiste `max_occurrences`** nel formato JSON.
@@ -48,8 +48,9 @@ docker compose up --build model
 ## Layout
 
 - `model/` — the entire logical model (the `events` library + its tests):
-  - `model/include/events/` — public headers; code includes them as `events/events.h` (require `-Iinclude`).
-  - `model/src/events/` — implementation (matches headers 1:1).
+  - `model/include/{core,domain,generators,builders,utils}/` — public headers, code includes them as `"core/Activity.h"` etc. (require `-Iinclude`); entry point `model/include/events.h` (all-in-one, `#include "events.h"`). No extra `events/` folder level: the namespace is `events`, but nothing in the path repeats it (removed as redundant — the include root already IS `model/include`).
+  - `model/src/{core,domain,generators}/` — implementation, mirrors `include/` 1:1 (no `builders/`/`utils/` under `src/`: `ActivityConfig.h`/`Cacheable.h` are header-only). Picked up by `file(GLOB_RECURSE ... src/*.cpp)` in `model/CMakeLists.txt`, recursive so new subfolders need no CMake change.
+  - All headers use `#pragma once` (no `#ifndef`/`#define` guards) — same convention repo-wide (`model/` and `app/`).
   - `model/tests/test.cpp` + `model/tests/test_persistence.cpp` — the test files. **QTest** (`QObject`-derived `TestModel`, `private slots:`, `QCOMPARE`/`QVERIFY`), NOT Catch2 — model tests no longer use Catch2 at all.
   - `model/persistence/` — JSON persistence module, library `events_persistence` (Qt Core ONLY, no Widgets): `persistence::activityToJson/calendarToJson/activityFromJson/calendarFromJsonArray/saveToFile/loadFromFile`. Serialization uses the Visitor pattern (`JsonActivityVisitor` + `JsonGeneratorVisitor`); deserialization is a discriminator-based factory ("type" field `event|task|meeting`, validated strictly — only 3 activity types exist). File format: `{"version":1, "activities":[...]}`, times as ISO-8601 UTC `YYYY-MM-DDTHH:MM:SS`. Solo il **Task** serializza il flag `done` (per-occorrenza, `done_occurrences`); Meeting `location`+`attendees`, Task `priority`. Built only when Qt6 Core is found.
   - `model/Doxyfile` + `model/docs/` — Doxygen config (docs/ is gitignored).
@@ -97,7 +98,7 @@ docker compose up --build model
 
 # Current Model Logic (implemented)
 
-Namespace `events`. Abstractions in `model/include/events/core/`, concrete classes in `model/include/events/domain/` and `model/include/events/generators/`, implementations 1:1 in `model/src/events/`. Entry point: `events/events.h` (relative to `model/include/`).
+Namespace `events`. Abstractions in `model/include/core/`, concrete classes in `model/include/domain/` and `model/include/generators/`, implementations 1:1 in `model/src/{core,domain,generators}/`. Entry point: `events.h` (relative to `model/include/`).
 
 ## Class hierarchy
 

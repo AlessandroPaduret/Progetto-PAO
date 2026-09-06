@@ -1,10 +1,9 @@
-#ifndef APP_OCCURRENCE_WIDGET_H
-#define APP_OCCURRENCE_WIDGET_H
+#pragma once
 
 #include <QPoint>
 #include <QWidget>
 
-#include "events/core/Occurrence.h"
+#include "core/Occurrence.h"
 
 class QCheckBox;
 class QLabel;
@@ -72,5 +71,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_OCCURRENCE_WIDGET_H

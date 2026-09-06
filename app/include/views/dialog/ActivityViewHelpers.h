@@ -1,10 +1,9 @@
-#ifndef APP_ACTIVITY_VIEW_HELPERS_H
-#define APP_ACTIVITY_VIEW_HELPERS_H
+#pragma once
 
 #include <QString>
 #include <QStringList>
 
-#include "events/events.h"
+#include "events.h"
 
 namespace app {
 
@@ -31,5 +30,3 @@ QStringList fieldLines(const events::Activity& activity);
 } // namespace ActivityViewHelpers
 
 } // namespace app
-
-#endif // APP_ACTIVITY_VIEW_HELPERS_H

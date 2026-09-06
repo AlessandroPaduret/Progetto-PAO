@@ -13,7 +13,7 @@
 #include <QVBoxLayout>
 
 #include "controller/CalendarController.h"
-#include "events/builders/ActivityConfig.h"
+#include "builders/ActivityConfig.h"
 #include "views/dialog/ActivityDetailDialog.h"
 #include "views/dialog/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"

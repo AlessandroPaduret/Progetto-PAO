@@ -1,5 +1,4 @@
-#ifndef APP_YEARVIEW_H
-#define APP_YEARVIEW_H
+#pragma once
 
 #include <QDate>
 #include <QWidget>
@@ -7,7 +6,7 @@
 #include <array>
 #include <vector>
 
-#include "events/events.h"
+#include "events.h"
 
 class QCalendarWidget;
 class QGridLayout;
@@ -54,5 +53,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_YEARVIEW_H

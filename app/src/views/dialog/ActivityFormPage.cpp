@@ -25,12 +25,12 @@
 #include <algorithm>
 
 #include "controller/CalendarController.h"
-#include "events/builders/ActivityConfig.h"
-#include "events/domain/Meeting.h"
-#include "events/domain/Task.h"
-#include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MonthlyGenerator.h"
-#include "events/generators/YearlyGenerator.h"
+#include "builders/ActivityConfig.h"
+#include "domain/Meeting.h"
+#include "domain/Task.h"
+#include "generators/FixedIntervalGenerator.h"
+#include "generators/MonthlyGenerator.h"
+#include "generators/YearlyGenerator.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {

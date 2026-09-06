@@ -1,12 +1,11 @@
-#ifndef APP_WEEK_GRID_LAYOUT_H
-#define APP_WEEK_GRID_LAYOUT_H
+#pragma once
 
 #include <QDate>
 #include <QRect>
 
 #include <vector>
 
-#include "events/core/Occurrence.h"
+#include "core/Occurrence.h"
 
 namespace app {
 
@@ -53,5 +52,3 @@ WeekGridResult place(const std::vector<events::Occurrence>& occurrences,
 } // namespace WeekGridLayout
 
 } // namespace app
-
-#endif // APP_WEEK_GRID_LAYOUT_H

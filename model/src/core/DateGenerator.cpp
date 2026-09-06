@@ -1,7 +1,7 @@
 #include <generator>
 
-#include "events/core/DateGenerator.h"
-#include "events/core/CommonTypes.h"
+#include "core/DateGenerator.h"
+#include "core/CommonTypes.h"
 
 namespace events {
 

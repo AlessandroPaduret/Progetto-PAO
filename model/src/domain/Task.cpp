@@ -1,9 +1,9 @@
-#include "events/domain/Task.h"
+#include "domain/Task.h"
 
 #include <utility>
 
-#include "events/core/ActivityVisitor.h"
-#include "events/core/Format.h"
+#include "core/ActivityVisitor.h"
+#include "core/Format.h"
 
 namespace events {
 

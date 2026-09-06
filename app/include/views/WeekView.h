@@ -1,5 +1,4 @@
-#ifndef APP_WEEKVIEW_H
-#define APP_WEEKVIEW_H
+#pragma once
 
 #include <QDate>
 #include <QDateTime>
@@ -8,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-#include "events/core/Occurrence.h"
+#include "core/Occurrence.h"
 #include "views/utils/WeekGridLayout.h"
 
 class QRubberBand;
@@ -163,5 +162,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_WEEKVIEW_H

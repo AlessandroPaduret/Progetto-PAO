@@ -3,12 +3,12 @@
 #include <chrono>
 #include <memory>
 
-#include "events/core/Activity.h"
-#include "events/domain/Task.h"
-#include "events/domain/Meeting.h"
-#include "events/builders/ActivityConfig.h"
-#include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MonthlyGenerator.h"
+#include "core/Activity.h"
+#include "domain/Task.h"
+#include "domain/Meeting.h"
+#include "builders/ActivityConfig.h"
+#include "generators/FixedIntervalGenerator.h"
+#include "generators/MonthlyGenerator.h"
 
 using namespace events;
 using namespace std::chrono_literals;

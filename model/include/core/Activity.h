@@ -1,5 +1,4 @@
-#ifndef ACTIVITY_H
-#define ACTIVITY_H
+#pragma once
 
 #include <chrono>
 #include <memory>
@@ -7,9 +6,9 @@
 #include <vector>
 #include <cstddef>
 
-#include "events/core/CommonTypes.h"
-#include "events/core/Occurrence.h"
-#include "events/core/DateGenerator.h"
+#include "core/CommonTypes.h"
+#include "core/Occurrence.h"
+#include "core/DateGenerator.h"
 
 namespace events {
 
@@ -96,5 +95,3 @@ public:
 };
 
 } // namespace events
-
-#endif // ACTIVITY_H

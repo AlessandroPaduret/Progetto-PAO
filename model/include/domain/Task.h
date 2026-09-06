@@ -6,9 +6,9 @@
 #include <vector>
 #include <cstddef>
 
-#include "events/core/Activity.h"
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGenerator.h"
+#include "core/Activity.h"
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
 
 namespace events {
 

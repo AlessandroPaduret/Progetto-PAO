@@ -1,5 +1,4 @@
-#ifndef APP_MAINWINDOW_H
-#define APP_MAINWINDOW_H
+#pragma once
 
 #include <QDate>
 #include <QMainWindow>
@@ -7,7 +6,7 @@
 
 #include <optional>
 
-#include "events/events.h"
+#include "events.h"
 #include "menu/AppMenuBar.h"
 
 class QLabel;
@@ -133,5 +132,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_MAINWINDOW_H

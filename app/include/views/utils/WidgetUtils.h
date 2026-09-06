@@ -1,5 +1,4 @@
-#ifndef APP_WIDGET_UTILS_H
-#define APP_WIDGET_UTILS_H
+#pragma once
 
 #include <QStyle>
 #include <QWidget>
@@ -22,5 +21,3 @@ inline void repolish(QWidget* widget) {
 }
 
 } // namespace app
-
-#endif // APP_WIDGET_UTILS_H

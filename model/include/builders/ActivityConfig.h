@@ -5,12 +5,12 @@
 #include <vector>
 #include <utility>
 
-#include "events/core/Activity.h"
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGenerator.h"
-#include "events/generators/SingleGenerator.h"
-#include "events/domain/Meeting.h"
-#include "events/domain/Task.h"
+#include "core/Activity.h"
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
+#include "generators/SingleGenerator.h"
+#include "domain/Meeting.h"
+#include "domain/Task.h"
 
 namespace events {
 

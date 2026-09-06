@@ -1,4 +1,4 @@
-#include "events/generators/SingleGenerator.h"
+#include "generators/SingleGenerator.h"
 
 namespace events {
 

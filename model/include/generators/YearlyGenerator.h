@@ -1,9 +1,8 @@
-#ifndef YEARLY_GENERATOR_H
-#define YEARLY_GENERATOR_H
+#pragma once
 
 #include <chrono>
 #include <cstddef>
-#include "events/core/DateGenerator.h"
+#include "core/DateGenerator.h"
 
 namespace events {
 
@@ -43,5 +42,3 @@ protected:
 };
 
 } // namespace events
-
-#endif // YEARLY_GENERATOR_H

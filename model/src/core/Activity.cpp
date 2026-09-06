@@ -1,11 +1,11 @@
-#include "events/core/Activity.h"
+#include "core/Activity.h"
 
 #include <stdexcept>
 #include <utility>
 #include <algorithm>
 
-#include "events/core/ActivityVisitor.h"
-#include "events/generators/SingleGenerator.h"
+#include "core/ActivityVisitor.h"
+#include "generators/SingleGenerator.h"
 
 namespace events {
 

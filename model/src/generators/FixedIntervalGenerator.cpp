@@ -1,4 +1,4 @@
-#include "events/generators/FixedIntervalGenerator.h"
+#include "generators/FixedIntervalGenerator.h"
 #include <algorithm>
 
 namespace events {

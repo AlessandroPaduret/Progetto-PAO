@@ -1,5 +1,4 @@
-#ifndef APP_THEME_H
-#define APP_THEME_H
+#pragma once
 
 #include <QColor>
 
@@ -23,5 +22,3 @@ inline const QColor kDoneGray(QStringLiteral("#bdc1c6"));        // Compito evas
 inline const QColor kBlack(QStringLiteral("#000000"));           // testo nero forzato (elenco)
 
 } // namespace app::theme
-
-#endif // APP_THEME_H

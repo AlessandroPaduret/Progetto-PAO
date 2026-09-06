@@ -1,11 +1,10 @@
-#ifndef EVENTS_FORMAT_H
-#define EVENTS_FORMAT_H
+#pragma once
 
 #include <chrono>
 #include <cstdio>
 #include <cstring>
 
-#include "events/core/CommonTypes.h"
+#include "core/CommonTypes.h"
 
 namespace events {
 
@@ -85,5 +84,3 @@ inline bool parseIso8601(const String& text, TimePoint& out) {
 }
 
 } // namespace events
-
-#endif // EVENTS_FORMAT_H

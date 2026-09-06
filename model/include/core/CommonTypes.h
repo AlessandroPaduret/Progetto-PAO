@@ -1,6 +1,5 @@
 
-#ifndef COMMONTYPES_H
-#define COMMONTYPES_H
+#pragma once
 
 #include <string>
 #include <chrono>
@@ -34,5 +33,3 @@ struct std::hash<events::TimePoint> {
         return std::hash<long long>{}(tp.time_since_epoch().count());
     }
 };
-
-#endif  // COMMONTYPES_H

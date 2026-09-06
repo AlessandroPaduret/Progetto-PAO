@@ -8,9 +8,9 @@
 #include <utility>
 
 #include "persistence/JsonPersistence.h"
-#include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MonthlyGenerator.h"
-#include "events/generators/YearlyGenerator.h"
+#include "generators/FixedIntervalGenerator.h"
+#include "generators/MonthlyGenerator.h"
+#include "generators/YearlyGenerator.h"
 
 namespace app {
 

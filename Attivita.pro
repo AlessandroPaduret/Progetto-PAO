@@ -30,17 +30,18 @@ SOURCES += \
     app/src/views/OccurrenceWidget.cpp \
     app/src/views/utils/WeekGridLayout.cpp \
     app/src/views/utils/WeekGridPainter.cpp \
-    model/src/events/Activity.cpp \
+    model/src/core/Activity.cpp \
+    model/src/core/DateGenerator.cpp \
     model/src/events/ActivityBuilder.cpp \
-    model/src/events/Calendar.cpp \
-    model/src/events/FixedIntervalGenerator.cpp \
+    model/src/domain/Calendar.cpp \
+    model/src/generators/FixedIntervalGenerator.cpp \
     model/src/events/GeneratorBuilder.cpp \
     model/src/events/MaxOccurencesDecorator.cpp \
-    model/src/events/Meeting.cpp \
-    model/src/events/MonthlyGenerator.cpp \
-    model/src/events/SingleGenerator.cpp \
-    model/src/events/Task.cpp \
-    model/src/events/YearlyGenerator.cpp \
+    model/src/domain/Meeting.cpp \
+    model/src/generators/MonthlyGenerator.cpp \
+    model/src/generators/SingleGenerator.cpp \
+    model/src/domain/Task.cpp \
+    model/src/generators/YearlyGenerator.cpp \
     model/persistence/src/persistence/JsonPersistence.cpp
 
 HEADERS += \
@@ -64,22 +65,22 @@ HEADERS += \
     app/include/views/utils/WidgetUtils.h \
     app/include/views/utils/WeekGridLayout.h \
     app/include/views/utils/WeekGridPainter.h \
-    model/include/events/events.h \
-    model/include/events/builders/ActivityBuilder.h \
-    model/include/events/builders/GeneratorBuilder.h \
-    model/include/events/core/Activity.h \
-    model/include/events/core/ActivityVisitor.h \
-    model/include/events/core/CommonTypes.h \
-    model/include/events/core/DateGenerator.h \
-    model/include/events/core/DateGeneratorVisitor.h \
-    model/include/events/core/Format.h \
-    model/include/events/core/Occurrence.h \
-    model/include/events/domain/Calendar.h \
-    model/include/events/domain/Meeting.h \
-    model/include/events/domain/Task.h \
-    model/include/events/generators/FixedIntervalGenerator.h \
-    model/include/events/generators/MaxOccurrencesDecorator.h \
-    model/include/events/generators/MonthlyGenerator.h \
-    model/include/events/generators/SingleGenerator.h \
-    model/include/events/generators/YearlyGenerator.h \
+    model/include/events.h \
+    model/include/builders/ActivityBuilder.h \
+    model/include/builders/GeneratorBuilder.h \
+    model/include/core/Activity.h \
+    model/include/core/ActivityVisitor.h \
+    model/include/core/CommonTypes.h \
+    model/include/core/DateGenerator.h \
+    model/include/core/DateGeneratorVisitor.h \
+    model/include/core/Format.h \
+    model/include/core/Occurrence.h \
+    model/include/domain/Calendar.h \
+    model/include/domain/Meeting.h \
+    model/include/domain/Task.h \
+    model/include/generators/FixedIntervalGenerator.h \
+    model/include/generators/MaxOccurrencesDecorator.h \
+    model/include/generators/MonthlyGenerator.h \
+    model/include/generators/SingleGenerator.h \
+    model/include/generators/YearlyGenerator.h \
     model/persistence/include/persistence/JsonPersistence.h

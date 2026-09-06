@@ -9,9 +9,9 @@
 #include <memory>
 
 #include "controller/CalendarController.h"
-#include "events/builders/ActivityConfig.h"
-#include "events/domain/Task.h"
-#include "events/generators/FixedIntervalGenerator.h"
+#include "builders/ActivityConfig.h"
+#include "domain/Task.h"
+#include "generators/FixedIntervalGenerator.h"
 #include "views/utils/ViewShared.h"
 
 using namespace std::chrono_literals;

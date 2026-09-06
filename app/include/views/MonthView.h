@@ -1,5 +1,4 @@
-#ifndef APP_MONTHVIEW_H
-#define APP_MONTHVIEW_H
+#pragma once
 
 #include <QDate>
 #include <QDateTime>
@@ -8,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-#include "events/events.h"
+#include "events.h"
 
 class QGridLayout;
 
@@ -81,5 +80,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_MONTHVIEW_H

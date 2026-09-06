@@ -4,9 +4,9 @@
 #include <chrono>
 
 #include "persistence/JsonPersistence.h"
-#include "events/builders/ActivityConfig.h" // Sostituito ActivityBuilder con ActivityConfig
-#include "events/domain/Task.h"
-#include "events/generators/MonthlyGenerator.h"
+#include "builders/ActivityConfig.h" // Sostituito ActivityBuilder con ActivityConfig
+#include "domain/Task.h"
+#include "generators/MonthlyGenerator.h"
 
 using namespace events;
 using namespace std::chrono_literals;

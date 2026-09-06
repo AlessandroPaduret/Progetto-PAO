@@ -1,5 +1,4 @@
-#ifndef APP_DAYVIEW_H
-#define APP_DAYVIEW_H
+#pragma once
 
 #include "views/WeekView.h"
 
@@ -15,5 +14,3 @@ public:
 };
 
 } // namespace app
-
-#endif // APP_DAYVIEW_H

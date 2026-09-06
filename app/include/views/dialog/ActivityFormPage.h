@@ -1,5 +1,4 @@
-#ifndef APP_ACTIVITY_FORM_PAGE_H
-#define APP_ACTIVITY_FORM_PAGE_H
+#pragma once
 
 #include <QDateTime>
 #include <QList>
@@ -9,7 +8,7 @@
 #include <optional>
 #include <vector>
 
-#include "events/events.h"
+#include "events.h"
 
 class QButtonGroup;
 class QCheckBox;
@@ -168,5 +167,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_ACTIVITY_FORM_PAGE_H

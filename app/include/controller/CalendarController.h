@@ -1,5 +1,4 @@
-#ifndef APP_CALENDAR_CONTROLLER_H
-#define APP_CALENDAR_CONTROLLER_H
+#pragma once
 
 #include <QDateTime>
 #include <QObject>
@@ -9,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-#include "events/events.h"
+#include "events.h"
 
 namespace app {
 
@@ -111,5 +110,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_CALENDAR_CONTROLLER_H

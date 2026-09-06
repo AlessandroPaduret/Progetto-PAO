@@ -4,9 +4,9 @@
 #include <cstddef>
 #include <generator>
 
-#include "events/utils/Cacheable.h"
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGeneratorVisitor.h"
+#include "utils/Cacheable.h"
+#include "core/CommonTypes.h"
+#include "core/DateGeneratorVisitor.h"
 
 namespace events {
 

@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "events/events.h"
+#include "events.h"
 
 using events::Duration;
 using events::TimePoint;

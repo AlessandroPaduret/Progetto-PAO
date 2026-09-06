@@ -1,12 +1,11 @@
-#ifndef CALENDAR_H
-#define CALENDAR_H
+#pragma once
 
 #include <memory>
 #include <vector>
 
-#include "events/core/Activity.h"
-#include "events/core/CommonTypes.h"
-#include "events/core/Occurrence.h"
+#include "core/Activity.h"
+#include "core/CommonTypes.h"
+#include "core/Occurrence.h"
 
 namespace events {
 
@@ -85,5 +84,3 @@ public:
 };
 
 } // namespace events
-
-#endif // CALENDAR_H

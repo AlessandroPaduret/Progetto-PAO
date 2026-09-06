@@ -5,9 +5,9 @@
 #include <stdexcept>
 #include <vector>
 
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGenerator.h"
-#include "events/domain/Calendar.h"
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
+#include "domain/Calendar.h"
 
 namespace events {
 

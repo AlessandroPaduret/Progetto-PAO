@@ -1,5 +1,4 @@
-#ifndef JSON_PERSISTENCE_H
-#define JSON_PERSISTENCE_H
+#pragma once
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -7,7 +6,7 @@
 
 #include <memory>
 
-#include "events/events.h"
+#include "events.h"
 
 namespace persistence {
 
@@ -56,5 +55,3 @@ bool saveToFile(const events::Calendar& calendar, const QString& filePath, QStri
 bool loadFromFile(events::Calendar& calendar, const QString& filePath, QString* error = nullptr);
 
 } // namespace persistence
-
-#endif // JSON_PERSISTENCE_H

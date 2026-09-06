@@ -1,5 +1,4 @@
-#ifndef APP_WEEK_GRID_PAINTER_H
-#define APP_WEEK_GRID_PAINTER_H
+#pragma once
 
 #include <QDate>
 #include <QRect>
@@ -27,5 +26,3 @@ void paint(QPainter& painter, const QRect& viewport, const QDate& viewStart,
 } // namespace WeekGridPainter
 
 } // namespace app
-
-#endif // APP_WEEK_GRID_PAINTER_H

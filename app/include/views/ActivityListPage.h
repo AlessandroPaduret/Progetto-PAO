@@ -1,9 +1,8 @@
-#ifndef APP_ACTIVITY_LIST_PAGE_H
-#define APP_ACTIVITY_LIST_PAGE_H
+#pragma once
 
 #include <QWidget>
 
-#include "events/events.h"
+#include "events.h"
 
 class QComboBox;
 class QCheckBox;
@@ -75,5 +74,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_ACTIVITY_LIST_PAGE_H

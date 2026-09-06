@@ -1,14 +1,13 @@
-#ifndef APP_VIEW_SHARED_H
-#define APP_VIEW_SHARED_H
+#pragma once
 
 #include <QColor>
 #include <QDateTime>
 #include <QTimeZone>
 
-#include "events/events.h"
-#include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MonthlyGenerator.h"
-#include "events/generators/YearlyGenerator.h"
+#include "events.h"
+#include "generators/FixedIntervalGenerator.h"
+#include "generators/MonthlyGenerator.h"
+#include "generators/YearlyGenerator.h"
 
 namespace app {
 
@@ -118,5 +117,3 @@ inline const char* shortDayName(int dayOfWeek) {
 }
 
 } // namespace app
-
-#endif // APP_VIEW_SHARED_H

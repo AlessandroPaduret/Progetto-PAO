@@ -1,14 +1,13 @@
-#ifndef MEETING_H
-#define MEETING_H
+#pragma once
 
 #include <chrono>
 #include <memory>
 #include <vector>
 #include <cstddef>
 
-#include "events/core/Activity.h"
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGenerator.h"
+#include "core/Activity.h"
+#include "core/CommonTypes.h"
+#include "core/DateGenerator.h"
 
 namespace events {
 
@@ -76,5 +75,3 @@ public:
 };
 
 } // namespace events
-
-#endif // MEETING_H

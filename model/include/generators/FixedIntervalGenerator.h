@@ -1,9 +1,8 @@
-#ifndef FIXED_INTERVAL_GENERATOR_H
-#define FIXED_INTERVAL_GENERATOR_H
+#pragma once
 
 #include <chrono>
 #include <cstddef>
-#include "events/core/DateGenerator.h"
+#include "core/DateGenerator.h"
 
 namespace events {
 
@@ -40,5 +39,3 @@ protected:
 };
 
 } // namespace events
-
-#endif // FIXED_INTERVAL_GENERATOR_H

@@ -1,5 +1,4 @@
-#ifndef APP_RECURRENCE_CHOICE_DIALOG_H
-#define APP_RECURRENCE_CHOICE_DIALOG_H
+#pragma once
 
 #include <QFrame>
 
@@ -41,5 +40,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_RECURRENCE_CHOICE_DIALOG_H

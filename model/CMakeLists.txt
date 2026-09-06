@@ -19,9 +19,9 @@ endif()
 add_compile_options(-Wall -Wextra)
 
 # --- Sorgenti del Dominio e Utility -----------------------------------------
-file(GLOB_RECURSE EVENTS_SOURCES CONFIGURE_DEPENDS 
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/events/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/utils/*.cpp"
+# Ricorsivo su tutto src/ (core/domain/generators), a specchio di include/.
+file(GLOB_RECURSE EVENTS_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
 add_library(events STATIC ${EVENTS_SOURCES})
