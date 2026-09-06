@@ -10,9 +10,6 @@ namespace app {
 RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
     : QFrame(parent) {
     setObjectName(QStringLiteral("choiceDialog"));
-    setStyleSheet(QStringLiteral(
-        "#choiceDialog { background: palette(base);"
-        " border: 1px solid palette(mid); }"));
     // Finestra piu' grande: le scritte nei pulsanti devono stare per intero
     resize(620, 320);
 

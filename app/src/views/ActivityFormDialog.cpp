@@ -14,9 +14,6 @@ ActivityFormDialog::ActivityFormDialog(CalendarController* controller,
                                        QWidget* parent)
     : QFrame(parent) {
     setObjectName(QStringLiteral("formDialog"));
-    setStyleSheet(QStringLiteral(
-        "#formDialog { background: palette(base);"
-        " border: 1px solid palette(mid); }"));
     // Pannello ridotto: piu' piccolo della finestra principale; la
     // dimensione viene adattata al contenitore in showCentered().
     resize(460, 620);

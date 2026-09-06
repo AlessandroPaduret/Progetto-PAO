@@ -17,9 +17,6 @@ ActivityDetailDialog::ActivityDetailDialog(CalendarController* controller,
                                            QWidget* parent)
     : QFrame(parent), m_controller(controller) {
     setObjectName(QStringLiteral("detailDialog"));
-    setStyleSheet(QStringLiteral(
-        "#detailDialog { background: palette(base);"
-        " border: 1px solid palette(mid); }"));
     // Pannello ridotto: piu' piccolo della finestra principale; la
     // dimensione viene adattata al contenitore in showCentered().
     resize(560, 480);

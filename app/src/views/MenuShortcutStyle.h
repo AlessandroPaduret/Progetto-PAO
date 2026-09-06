@@ -3,14 +3,18 @@
 
 #include <QColor>
 #include <QPainter>
+#include <QPalette>
 #include <QProxyStyle>
 #include <QStyleOptionMenuItem>
 
 namespace app {
 
 /** @brief Stile dei menu: la scorciatoia (es. Ctrl+O) viene disegnata a
- *  DESTRA della voce (posizione standard) ma in un grigio piu' marcato del
- *  testo normale, per restare leggibile senza competere con l'etichetta.
+ *  DESTRA della voce (posizione standard) ma piu' attenuata del testo
+ *  normale, per restare leggibile senza competere con l'etichetta. Il
+ *  colore non e' un grigio fisso: e' il ruolo "testo disabilitato" della
+ *  QPalette corrente (item->palette), che segue automaticamente il tema
+ *  di sistema (incluso il tema scuro) invece di un valore scritto a mano.
  *  Qt6 passa la scorciatoia dentro `QStyleOptionMenuItem::text` dopo un tab
  *  ("testo\tCtrl+O"). */
 class MenuShortcutStyle : public QProxyStyle {
@@ -41,8 +45,13 @@ public:
                     const QRect shortcutRect(
                         item->rect.right() - shortcutW, item->rect.top(),
                         shortcutW - 8, item->rect.height());
-                    painter->setPen(selected ? QColor(255, 255, 255, 200)
-                                             : QColor(90, 90, 90));
+                    QColor shortcutColor =
+                        selected ? item->palette.color(QPalette::Active,
+                                                       QPalette::HighlightedText)
+                                : item->palette.color(QPalette::Disabled,
+                                                      QPalette::Text);
+                    shortcutColor.setAlpha(selected ? 200 : 255);
+                    painter->setPen(shortcutColor);
                     painter->drawText(shortcutRect,
                                       Qt::AlignRight | Qt::AlignVCenter, shortcut);
                     // Etichetta a sinistra, elisa se non ci sta prima della scorciatoia

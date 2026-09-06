@@ -10,10 +10,13 @@ TARGET = attivita
 
 INCLUDEPATH += model/include model/persistence/include app/src
 
+RESOURCES += app/resources/app.qrc
+
 SOURCES += \
     app/src/main.cpp \
     app/src/CalendarController.cpp \
     app/src/views/ActivityDetailDialog.cpp \
+    app/src/views/AppMenuBar.cpp \
     app/src/views/ActivityFormPage.cpp \
     app/src/views/ActivityFormDialog.cpp \
     app/src/views/ActivityListPage.cpp \
@@ -40,6 +43,10 @@ SOURCES += \
 HEADERS += \
     app/src/CalendarController.h \
     app/src/views/ActivityDetailDialog.h \
+    app/src/views/AppMenuBar.h \
+    app/src/views/MenuShortcutStyle.h \
+    app/src/views/OccurrenceWidget.h \
+    app/src/views/Theme.h \
     app/src/views/ActivityFormPage.h \
     app/src/views/ActivityFormDialog.h \
     app/src/views/ActivityListPage.h \

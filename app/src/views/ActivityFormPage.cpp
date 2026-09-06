@@ -110,8 +110,8 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     m_deleteButton->setVisible(false);
 
     m_errorLabel = new QLabel(this);
+    m_errorLabel->setObjectName(QStringLiteral("formErrorLabel"));
     m_errorLabel->setWordWrap(true);
-    m_errorLabel->setStyleSheet(QStringLiteral("color: #c5221f;"));
 
     auto* layout = new QVBoxLayout(this);
     layout->addWidget(m_typeCombo);

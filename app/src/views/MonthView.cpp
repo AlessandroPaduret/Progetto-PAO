@@ -1,12 +1,14 @@
 #include "views/MonthView.h"
 
 #include <QDate>
+#include <QFont>
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QVBoxLayout>
+#include <QVariant>
 
 #include <algorithm>
 
@@ -31,6 +33,10 @@ public:
         setAttribute(Qt::WA_StyledBackground, true);
 
         m_dayLabel = new QLabel(this);
+        m_dayLabel->setObjectName(QStringLiteral("monthDayLabel"));
+        QFont dayFont = m_dayLabel->font();
+        dayFont.setPointSize(10);
+        m_dayLabel->setFont(dayFont);
 
         m_chipsBox = new QWidget(this);
         m_chipsLayout = new QVBoxLayout(m_chipsBox);
@@ -38,11 +44,7 @@ public:
         m_chipsLayout->setSpacing(2);
 
         m_moreLabel = new QLabel(this);
-        m_moreLabel->setStyleSheet(
-            QStringLiteral("color: #9aa0a6; background: transparent; border: none;"));
-        QFont moreFont = m_moreLabel->font();
-        moreFont.setPointSize(8);
-        m_moreLabel->setFont(moreFont);
+        m_moreLabel->setObjectName(QStringLiteral("monthMoreLabel"));
         m_moreLabel->hide();
 
         auto* layout = new QVBoxLayout(this);
@@ -58,18 +60,16 @@ public:
         m_date = date;
         const bool isToday = date == QDate::currentDate();
         m_dayLabel->setText(QString::number(date.day()));
-        QFont f = m_dayLabel->font();
-        f.setBold(isToday);
-        f.setPointSize(10);
-        m_dayLabel->setFont(f);
-        const QString color = isToday ? QStringLiteral("#1a73e8")
-                                      : (inMonth ? QStringLiteral("#202124")
-                                                 : QStringLiteral("#9aa0a6"));
-        m_dayLabel->setStyleSheet(
-            QStringLiteral("color: %1; background: transparent; border: none;").arg(color));
-        setStyleSheet(QStringLiteral("app--MonthDayCell { background: %1;"
-                                     " border: 1px solid #dadce0; }")
-                          .arg(inMonth ? QStringLiteral("white") : QStringLiteral("#f8f9fa")));
+        QVariant dayState;
+        if (isToday) {
+            dayState = QStringLiteral("today");
+        } else if (!inMonth) {
+            dayState = QStringLiteral("outMonth");
+        }
+        m_dayLabel->setProperty("dayState", dayState);
+        repolish(m_dayLabel);
+        setProperty("inMonth", inMonth);
+        repolish(this);
         setToolTip(tr("Giorno del %1").arg(date.toString(QStringLiteral("dd/MM/yyyy"))));
     }
 
@@ -174,10 +174,8 @@ MonthView::MonthView(QWidget* parent) : QWidget(parent) {
 
     for (int d = 0; d < kCols; ++d) {
         auto* header = new QLabel(QString::fromLatin1(shortDayName(d + 1)), this);
+        header->setObjectName(QStringLiteral("monthDayHeader"));
         header->setAlignment(Qt::AlignCenter);
-        header->setStyleSheet(QStringLiteral(
-            "font-weight: bold; color: #5f6368; background: #f8f9fa;"
-            " border-bottom: 1px solid #dadce0;"));
         m_grid->addWidget(header, 0, d);
         m_grid->setColumnStretch(d, 1);
     }

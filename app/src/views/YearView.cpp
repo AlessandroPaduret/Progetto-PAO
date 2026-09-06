@@ -9,6 +9,7 @@
 
 #include <optional>
 
+#include "views/Theme.h"
 #include "views/ViewShared.h"
 
 namespace app {
@@ -26,9 +27,6 @@ YearView::YearView(QWidget* parent) : QWidget(parent) {
         calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
         calendar->setHorizontalHeaderFormat(QCalendarWidget::SingleLetterDayNames);
         calendar->setGridVisible(false);
-        calendar->setStyleSheet(QStringLiteral(
-            "QCalendarWidget QAbstractItemView { font-size: 8pt; }"
-            "QCalendarWidget QWidget#qt_calendar_navigationbar { background: white; }"));
 
         // I pannelli sono fissi (un mese ciascuno): se l'utente naviga da un
         // giorno "fuori mese" ai margini della griglia, il pannello torna
@@ -92,8 +90,8 @@ void YearView::setOccurrences(const std::vector<events::Occurrence>& occurrences
         }
         const bool done = isTaskDone(occ.source);
         auto& slot = colorByDay[date.dayOfYear()];
-        if (!slot || (slot == QColor("#bdc1c6") && !done)) {
-            slot = done ? QColor("#bdc1c6") : activityColor(occ.source);
+        if (!slot || (slot == theme::kDoneGray && !done)) {
+            slot = done ? theme::kDoneGray : activityColor(occ.source);
         }
     }
 

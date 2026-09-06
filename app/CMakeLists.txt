@@ -13,6 +13,7 @@ endif()
 add_compile_options(-Wall -Wextra)
 
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
 # --- Dipendenze -------------------------------------------------------------
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
@@ -27,7 +28,9 @@ target_link_libraries(pao_core PUBLIC events events_persistence Qt6::Core)
 
 # --- Applicazione Qt (views + main) -----------------------------------------
 add_executable(pao_app
+    resources/app.qrc
     src/main.cpp
+    src/views/AppMenuBar.cpp
     src/views/MainWindow.cpp
     src/views/WeekView.cpp
     src/views/DayView.cpp

@@ -15,6 +15,7 @@
 #include <algorithm>
 
 #include "views/OccurrenceWidget.h"
+#include "views/Theme.h"
 #include "views/ViewShared.h"
 
 namespace app {
@@ -31,11 +32,9 @@ WeekView::WeekView(QWidget* parent) : QWidget(parent) {
     // Anteprima live: un widget vero (non un rettangolo disegnato a mano),
     // nascosto finche' non c'e' un'anteprima da mostrare.
     m_previewLabel = new QLabel(this);
+    m_previewLabel->setObjectName(QStringLiteral("weekPreviewLabel"));
     m_previewLabel->setWordWrap(true);
     m_previewLabel->setAttribute(Qt::WA_StyledBackground, true);
-    m_previewLabel->setStyleSheet(QStringLiteral(
-        "background: rgba(26, 115, 232, 55); border: 1px dashed #1a73e8;"
-        " color: #202124; padding: 3px; border-radius: 3px;"));
     m_previewLabel->hide();
 
     // Evidenzia la cella di destinazione durante il drag&drop nativo:
@@ -390,7 +389,7 @@ void WeekView::paintEvent(QPaintEvent*) {
 
         const QDate date = m_monday.addDays(day);
         const bool isToday = date == QDate::currentDate();
-        painter.setPen(isToday ? QColor("#1a73e8") : QColor("#5f6368"));
+        painter.setPen(isToday ? theme::kAccentBlue : theme::kSecondaryText);
         QFont font = painter.font();
         font.setBold(isToday);
         font.setPointSize(headerFontSize);
@@ -404,8 +403,8 @@ void WeekView::paintEvent(QPaintEvent*) {
     // --- Striscia "tutto il giorno" (sfondo + separatori) ---
     painter.fillRect(QRect(kGutterWidth, kHeaderHeight, width() - kGutterWidth,
                            m_allDayHeight),
-                     QColor("#f8f9fa"));
-    painter.setPen(QColor("#dadce0"));
+                     theme::kPanelBackground);
+    painter.setPen(theme::kBorderGray);
     painter.drawLine(kGutterWidth, kHeaderHeight, width(), kHeaderHeight);
     painter.drawLine(kGutterWidth, gridTop(), width(), gridTop());
     for (int day = 0; day <= m_dayCount; ++day) {
@@ -414,7 +413,7 @@ void WeekView::paintEvent(QPaintEvent*) {
     }
 
     // --- Linee della griglia ---
-    painter.setPen(QColor("#dadce0"));
+    painter.setPen(theme::kBorderGray);
     for (int day = 0; day <= m_dayCount; ++day) {
         const int x = kGutterWidth + day * dayWidth();
         painter.drawLine(x, gridTop(), x, height());
@@ -426,9 +425,9 @@ void WeekView::paintEvent(QPaintEvent*) {
     painter.setFont(hourFont);
     for (int hour = 0; hour < 24; ++hour) {
         const int y = gridTop() + hour * hourHeight();
-        painter.setPen(QColor("#dadce0"));
+        painter.setPen(theme::kBorderGray);
         painter.drawLine(kGutterWidth, y, width(), y);
-        painter.setPen(QColor("#5f6368"));
+        painter.setPen(theme::kSecondaryText);
         painter.drawText(QRect(0, y - smallFontSize, kGutterWidth - 8,
                                smallFontSize * 2),
                          Qt::AlignRight | Qt::AlignVCenter,

@@ -1,19 +1,13 @@
 #include "views/MainWindow.h"
 
-#include <QAction>
-#include <QActionGroup>
-#include <QApplication>
 #include <QDate>
 #include <QDateTime>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMenu>
-#include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QShortcut>
 #include <QStackedWidget>
 #include <QTimeZone>
 #include <QVBoxLayout>
@@ -24,7 +18,6 @@
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
-#include "views/MenuShortcutStyle.h"
 #include "views/MonthView.h"
 #include "views/RecurrenceChoiceDialog.h"
 #include "views/ViewShared.h"
@@ -117,66 +110,17 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     centralLayout->addWidget(m_pages, 1);
     setCentralWidget(central);
 
-    // --- Menu bar (GUI tipica) --------------------------------------------------
-    auto* menuBar = this->menuBar();
-
-    // Menu "File": Salva / Salva con nome / Carica calendario (con scorciatoie)
-    QMenu* fileMenu = menuBar->addMenu(tr("File"));
-    QAction* saveAction =
-        fileMenu->addAction(tr("Salva calendario"), this, &MainWindow::onSave);
-    saveAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
-    QAction* saveAsAction =
-        fileMenu->addAction(tr("Salva con nome"), this, &MainWindow::onSaveAs);
-    saveAsAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
-    fileMenu->addSeparator();
-    QAction* loadAction =
-        fileMenu->addAction(tr("Carica calendario"), this, &MainWindow::onLoad);
-    loadAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
-
-    // Stile dei menu: la scorciatoia va a sinistra, in grigio/trasparente.
-    // La MainWindow possiede lo stile; il menu (figlio) lo usa per il paint.
-    m_menuStyle = std::make_unique<MenuShortcutStyle>(QApplication::style());
-    fileMenu->setStyle(m_menuStyle.get());
-
-    // Ctrl+N: nuova attivita' (form con tipo predefinito Evento)
-    auto* newShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_N), this);
-    connect(newShortcut, &QShortcut::activated, this,
-            [this] { openNewActivityType(0); });
-
-    // Menu "Visualizza": le 5 viste (l'azione attiva resta spuntata)
-    m_viewMenu = menuBar->addMenu(tr("Visualizza"));
-    m_viewListAction = m_viewMenu->addAction(tr("Elenco"), this,
-                                             &MainWindow::showListPage);
-    m_viewDayAction = m_viewMenu->addAction(tr("Giorno"), this,
-                                            &MainWindow::showDayPage);
-    m_viewWeekAction = m_viewMenu->addAction(tr("Settimana"), this,
-                                             &MainWindow::showWeekPage);
-    m_viewMonthAction = m_viewMenu->addAction(tr("Mese"), this,
-                                              &MainWindow::showMonthPage);
-    m_viewYearAction = m_viewMenu->addAction(tr("Anno"), this,
-                                             &MainWindow::showYearPage);
-    for (QAction* action :
-         {m_viewListAction, m_viewDayAction, m_viewWeekAction,
-          m_viewMonthAction, m_viewYearAction}) {
-        action->setCheckable(true);
-    }
-    auto* viewGroup = new QActionGroup(this);
-    viewGroup->addAction(m_viewListAction);
-    viewGroup->addAction(m_viewDayAction);
-    viewGroup->addAction(m_viewWeekAction);
-    viewGroup->addAction(m_viewMonthAction);
-    viewGroup->addAction(m_viewYearAction);
-
-    // Menu "Nuova attivita'": i tipi creabili dal form
-    QMenu* newMenu = menuBar->addMenu(tr("Nuova attivita'"));
-    newMenu->addAction(tr("Evento"), this,
-                       [this] { openNewActivityType(0); });
-    newMenu->addAction(tr("Riunione"), this,
-                       [this] { openNewActivityType(1); });
-    newMenu->addAction(tr("Compito"), this,
-                       [this] { openNewActivityType(2); });
-    newMenu->addAction(tr("Anniversario"), this,
-                       [this] { openNewActivityType(3); });
+    // --- Menu bar ----------------------------------------------------------------
+    // AppMenuBar costruisce da sola menu/azioni/scorciatoie: la MainWindow si
+    // limita a collegarne i segnali ai propri gestori.
+    m_menuBar = new AppMenuBar(this);
+    setMenuBar(m_menuBar);
+    connect(m_menuBar, &AppMenuBar::saveRequested, this, &MainWindow::onSave);
+    connect(m_menuBar, &AppMenuBar::saveAsRequested, this, &MainWindow::onSaveAs);
+    connect(m_menuBar, &AppMenuBar::loadRequested, this, &MainWindow::onLoad);
+    connect(m_menuBar, &AppMenuBar::newActivityRequested,
+            this, &MainWindow::openNewActivityType);
+    connect(m_menuBar, &AppMenuBar::viewSelected, this, &MainWindow::onViewSelected);
 
     // --- Connessioni ------------------------------------------------------------
     connect(controller, &CalendarController::activitiesChanged,
@@ -437,9 +381,7 @@ void MainWindow::showDayPage() {
     m_view = ViewKind::Day;
     m_pages->setCurrentIndex(kPageDay);
     m_navBar->setVisible(true);
-    if (m_viewDayAction) {
-        m_viewDayAction->setChecked(true);
-    }
+    m_menuBar->setActiveView(AppMenuBar::ViewKind::Day);
     refresh();
 }
 
@@ -447,9 +389,7 @@ void MainWindow::showWeekPage() {
     m_view = ViewKind::Week;
     m_pages->setCurrentIndex(kPageWeek);
     m_navBar->setVisible(true);
-    if (m_viewWeekAction) {
-        m_viewWeekAction->setChecked(true);
-    }
+    m_menuBar->setActiveView(AppMenuBar::ViewKind::Week);
     refresh();
 }
 
@@ -457,9 +397,7 @@ void MainWindow::showMonthPage() {
     m_view = ViewKind::Month;
     m_pages->setCurrentIndex(kPageMonth);
     m_navBar->setVisible(true);
-    if (m_viewMonthAction) {
-        m_viewMonthAction->setChecked(true);
-    }
+    m_menuBar->setActiveView(AppMenuBar::ViewKind::Month);
     refresh();
 }
 
@@ -467,17 +405,33 @@ void MainWindow::showYearPage() {
     m_view = ViewKind::Year;
     m_pages->setCurrentIndex(kPageYear);
     m_navBar->setVisible(true);
-    if (m_viewYearAction) {
-        m_viewYearAction->setChecked(true);
-    }
+    m_menuBar->setActiveView(AppMenuBar::ViewKind::Year);
     refresh();
 }
 
 void MainWindow::showListPage() {
     m_pages->setCurrentIndex(kPageList);
     m_navBar->setVisible(false);
-    if (m_viewListAction) {
-        m_viewListAction->setChecked(true);
+    m_menuBar->setActiveView(AppMenuBar::ViewKind::List);
+}
+
+void MainWindow::onViewSelected(AppMenuBar::ViewKind kind) {
+    switch (kind) {
+    case AppMenuBar::ViewKind::List:
+        showListPage();
+        break;
+    case AppMenuBar::ViewKind::Day:
+        showDayPage();
+        break;
+    case AppMenuBar::ViewKind::Week:
+        showWeekPage();
+        break;
+    case AppMenuBar::ViewKind::Month:
+        showMonthPage();
+        break;
+    case AppMenuBar::ViewKind::Year:
+        showYearPage();
+        break;
     }
 }
 

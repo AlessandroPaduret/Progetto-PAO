@@ -5,14 +5,12 @@
 #include <QMainWindow>
 #include <QString>
 
-#include <memory>
 #include <optional>
 
 #include "events/events.h"
+#include "views/AppMenuBar.h"
 
-class QAction;
 class QLabel;
-class QMenu;
 class QStackedWidget;
 
 namespace app {
@@ -22,7 +20,6 @@ class ActivityFormDialog;
 class ActivityListPage;
 class CalendarController;
 class DayView;
-class MenuShortcutStyle;
 class MonthView;
 class RecurrenceChoiceDialog;
 class WeekView;
@@ -91,6 +88,10 @@ private slots:
      *  ne crea una nuova con le stesse regole e inizio diverso). */
     void onChoiceSplit();
 
+    /** @brief Voce del menu "Visualizza" scelta dall'utente: passa alla
+     *  pagina corrispondente. */
+    void onViewSelected(AppMenuBar::ViewKind kind);
+
 protected:
     /** @brief Tiene centrato il pannello di creazione quando si ridimensiona. */
     void resizeEvent(QResizeEvent* event) override;
@@ -119,13 +120,7 @@ private:
 
     QWidget* m_navBar = nullptr;
     QLabel* m_navLabel = nullptr;
-    QMenu* m_viewMenu = nullptr;
-    std::unique_ptr<MenuShortcutStyle> m_menuStyle;  // scorciatoie a destra, grigie
-    QAction* m_viewListAction = nullptr;
-    QAction* m_viewDayAction = nullptr;
-    QAction* m_viewWeekAction = nullptr;
-    QAction* m_viewMonthAction = nullptr;
-    QAction* m_viewYearAction = nullptr;
+    AppMenuBar* m_menuBar = nullptr;
 
     QString m_currentFilePath;   // ultimo file salvato/caricato (per "Salva")
 

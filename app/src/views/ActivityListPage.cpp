@@ -16,6 +16,7 @@
 
 #include "CalendarController.h"
 #include "views/ActivityViewHelpers.h"
+#include "views/Theme.h"
 #include "views/ViewShared.h"
 
 namespace app {
@@ -77,6 +78,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     // Colonna 0 = pallino colorato dell'attivita' (come le griglie del
     // calendario), poi Titolo / Tipo / Dettaglio
     m_table = new QTableWidget(0, 4, this);
+    m_table->setObjectName(QStringLiteral("activityTable"));
     m_table->setHorizontalHeaderLabels(
         {QString(), tr("Titolo"), tr("Tipo"), tr("Dettagli")});
     m_table->horizontalHeader()->setStretchLastSection(true);
@@ -96,16 +98,6 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_table->setShowGrid(false);
     m_table->verticalHeader()->setVisible(false);
     m_table->verticalHeader()->setDefaultSectionSize(38);
-    m_table->setStyleSheet(QStringLiteral(
-        "QTableWidget { background: white; alternate-background-color: #f8f9fa;"
-        " border: none; outline: none; font-size: 13pt; color: #000000; }"
-        "QTableWidget::item { padding: 4px 8px; color: #000000;"
-        " border-right: 1px solid #dadce0; }"
-        "QTableWidget::item:selected { background: #e8f0fe; color: #000000;"
-        " border-right: 1px solid #dadce0; }"
-        "QHeaderView::section { background: #f8f9fa; border: none;"
-        " border-bottom: 1px solid #dadce0; border-right: 1px solid #dadce0;"
-        " padding: 6px; font-weight: bold; color: #202124; font-size: 13pt; }"));
 
     m_detailButton = new QPushButton(tr("Dettaglio"), this);
     m_editButton = new QPushButton(tr("Modifica"), this);
@@ -279,7 +271,7 @@ void ActivityListPage::reloadTable() {
         auto* detail = new QTableWidgetItem(itemDetail(activity));
         // Testo nero e leggibile (l'eventuale stile di default non scende sotto)
         for (QTableWidgetItem* item : {title, type, detail}) {
-            item->setForeground(QColor("#000000"));
+            item->setForeground(theme::kBlack);
         }
         m_table->setItem(row, 0, dot);
         m_table->setItem(row, 1, title);

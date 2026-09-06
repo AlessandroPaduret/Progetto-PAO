@@ -10,8 +10,10 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPalette>
 #include <QVBoxLayout>
 
+#include "views/Theme.h"
 #include "views/ViewShared.h"
 
 namespace app {
@@ -71,25 +73,32 @@ OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style s
 }
 
 void OccurrenceWidget::applyPalette() {
+    // La FORMA (bordo, raggio) e lo stato "selected" sono in
+    // resources/style.qss; qui si imposta solo il COLORE, che dipende
+    // dall'attivita' e non puo' stare in un foglio di stile statico. Lo si
+    // passa via QPalette (Window = riempimento, Mid = bordo, WindowText =
+    // testo), letta dal file con palette(...): niente stringhe CSS create
+    // a runtime.
     const QColor color = activityColor(m_occurrence.source);
     const bool done = isTaskDone(m_occurrence.source);
     QColor fill = color.lighter(done ? 180 : 150);
     if (done && m_style == Style::Chip) {
-        fill = QColor("#bdc1c6");
+        fill = theme::kDoneGray;
     }
-    const QColor border = m_selected ? QColor("#1a73e8") : color.darker(120);
-    const int borderWidth = m_selected ? 2 : 1;
-    setStyleSheet(QStringLiteral("app--OccurrenceWidget { background: %1; "
-                                 "border: %2px solid %3; border-radius: 3px; }")
-                      .arg(fill.name())
-                      .arg(borderWidth)
-                      .arg(border.name()));
-    const QString textColor = done ? QStringLiteral("#9aa0a6") : QStringLiteral("#202124");
-    const QString labelStyle =
-        QStringLiteral("QLabel, QCheckBox { color: %1; background: transparent; border: none; }")
-            .arg(m_style == Style::Chip ? QStringLiteral("white") : textColor);
-    if (m_checkBox) m_checkBox->setStyleSheet(labelStyle);
-    if (m_label) m_label->setStyleSheet(labelStyle);
+    const QColor textColor = done ? theme::kMutedText : theme::kPrimaryText;
+
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, fill);
+    pal.setColor(QPalette::Mid, color.darker(120));
+    pal.setColor(QPalette::WindowText, m_style == Style::Chip ? Qt::white : textColor);
+    setPalette(pal);
+    if (m_checkBox) m_checkBox->setPalette(pal);
+    if (m_label) m_label->setPalette(pal);
+
+    setProperty("selected", m_selected);
+    repolish(this);
+    if (m_checkBox) repolish(m_checkBox);
+    if (m_label) repolish(m_label);
 }
 
 void OccurrenceWidget::setSelected(bool selected) {
