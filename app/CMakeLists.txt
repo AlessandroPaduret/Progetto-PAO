@@ -56,6 +56,8 @@ add_executable(pao_app
     include/views/DayView.h
     src/views/MonthView.cpp
     include/views/MonthView.h
+    src/views/NavigationBar.cpp
+    include/views/NavigationBar.h
     src/views/YearView.cpp
     include/views/YearView.h
     src/views/ActivityListPage.cpp

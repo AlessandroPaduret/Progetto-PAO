@@ -26,6 +26,7 @@ SOURCES += \
     app/src/views/WeekView.cpp \
     app/src/views/DayView.cpp \
     app/src/views/MonthView.cpp \
+    app/src/views/NavigationBar.cpp \
     app/src/views/YearView.cpp \
     app/src/views/OccurrenceWidget.cpp \
     app/src/views/utils/WeekGridLayout.cpp \
@@ -60,6 +61,7 @@ HEADERS += \
     app/include/views/WeekView.h \
     app/include/views/DayView.h \
     app/include/views/MonthView.h \
+    app/include/views/NavigationBar.h \
     app/include/views/YearView.h \
     app/include/views/utils/ViewShared.h \
     app/include/views/utils/WidgetUtils.h \

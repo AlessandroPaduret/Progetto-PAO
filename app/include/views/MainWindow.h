@@ -9,7 +9,6 @@
 #include "events.h"
 #include "menu/AppMenuBar.h"
 
-class QLabel;
 class QStackedWidget;
 
 namespace app {
@@ -20,6 +19,7 @@ class ActivityListPage;
 class CalendarController;
 class DayView;
 class MonthView;
+class NavigationBar;
 class RecurrenceChoiceDialog;
 class WeekView;
 class YearView;
@@ -117,8 +117,7 @@ private:
     ActivityFormDialog* m_formDialog = nullptr;
     RecurrenceChoiceDialog* m_choiceDialog = nullptr;
 
-    QWidget* m_navBar = nullptr;
-    QLabel* m_navLabel = nullptr;
+    NavigationBar* m_navBar = nullptr;
     AppMenuBar* m_menuBar = nullptr;
 
     QString m_currentFilePath;   // ultimo file salvato/caricato (per "Salva")

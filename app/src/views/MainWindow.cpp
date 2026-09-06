@@ -3,8 +3,6 @@
 #include <QDate>
 #include <QDateTime>
 #include <QFileDialog>
-#include <QHBoxLayout>
-#include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
@@ -19,6 +17,7 @@
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
 #include "views/MonthView.h"
+#include "views/NavigationBar.h"
 #include "views/dialog/RecurrenceChoiceDialog.h"
 #include "views/utils/ViewShared.h"
 #include "views/WeekView.h"
@@ -89,18 +88,9 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     yearLayout->addWidget(makeScroll(m_yearView), 1);
 
     // --- Barra di navigazione condivisa (Oggi / <- / -> / etichetta) -----------
-    m_navBar = new QWidget(this);
-    auto* todayButton = new QPushButton(tr("Oggi"), m_navBar);
-    auto* prevButton = new QPushButton(tr("\u2190"), m_navBar);
-    auto* nextButton = new QPushButton(tr("\u2192"), m_navBar);
-    m_navLabel = new QLabel(m_navBar);
-    m_navLabel->setAlignment(Qt::AlignCenter);
-    auto* navLayout = new QHBoxLayout(m_navBar);
-    navLayout->setContentsMargins(8, 4, 8, 4);
-    navLayout->addWidget(todayButton);
-    navLayout->addWidget(prevButton);
-    navLayout->addWidget(nextButton);
-    navLayout->addWidget(m_navLabel, 1);
+    // Widget a se stante (NavigationBar): la MainWindow si limita a collegarne
+    // i segnali e a impostarne il testo, niente layout dei pulsanti qui.
+    m_navBar = new NavigationBar(this);
 
     m_pages = new QStackedWidget(this);
     m_pages->addWidget(weekPage);
@@ -131,9 +121,9 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     // --- Connessioni ------------------------------------------------------------
     connect(controller, &CalendarController::activitiesChanged,
             this, &MainWindow::refresh);
-    connect(todayButton, &QPushButton::clicked, this, &MainWindow::onToday);
-    connect(prevButton, &QPushButton::clicked, this, &MainWindow::onPrevious);
-    connect(nextButton, &QPushButton::clicked, this, &MainWindow::onNext);
+    connect(m_navBar, &NavigationBar::todayRequested, this, &MainWindow::onToday);
+    connect(m_navBar, &NavigationBar::previousRequested, this, &MainWindow::onPrevious);
+    connect(m_navBar, &NavigationBar::nextRequested, this, &MainWindow::onNext);
 
     // Vista settimana
     connect(m_weekView, &WeekView::emptySlotClicked,
@@ -306,19 +296,19 @@ void MainWindow::refresh() {
     // Etichetta della barra di navigazione
     switch (m_view) {
     case ViewKind::Day:
-        m_navLabel->setText(tr("Giorno del %1")
-                                .arg(m_anchor.toString(QStringLiteral("dd/MM/yyyy"))));
+        m_navBar->setLabel(tr("Giorno del %1")
+                               .arg(m_anchor.toString(QStringLiteral("dd/MM/yyyy"))));
         break;
     case ViewKind::Week:
-        m_navLabel->setText(tr("Settimana del %1")
-                                .arg(m_anchor.toString(QStringLiteral("dd/MM/yyyy"))));
+        m_navBar->setLabel(tr("Settimana del %1")
+                               .arg(m_anchor.toString(QStringLiteral("dd/MM/yyyy"))));
         break;
     case ViewKind::Month:
-        m_navLabel->setText(tr("Mese di %1")
-                                .arg(m_anchor.toString(QStringLiteral("MM/yyyy"))));
+        m_navBar->setLabel(tr("Mese di %1")
+                               .arg(m_anchor.toString(QStringLiteral("MM/yyyy"))));
         break;
     case ViewKind::Year:
-        m_navLabel->setText(tr("Anno %1").arg(m_anchor.year()));
+        m_navBar->setLabel(tr("Anno %1").arg(m_anchor.year()));
         break;
     }
 }
