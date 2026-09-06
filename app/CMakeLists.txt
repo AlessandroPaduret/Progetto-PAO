@@ -75,6 +75,10 @@ add_executable(pao_app
     include/views/utils/ViewShared.h
     include/views/utils/WidgetUtils.h
     include/views/utils/Theme.h
+    src/views/utils/WeekGridLayout.cpp
+    include/views/utils/WeekGridLayout.h
+    src/views/utils/WeekGridPainter.cpp
+    include/views/utils/WeekGridPainter.h
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 

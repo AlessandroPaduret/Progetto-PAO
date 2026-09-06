@@ -28,6 +28,8 @@ SOURCES += \
     app/src/views/MonthView.cpp \
     app/src/views/YearView.cpp \
     app/src/views/OccurrenceWidget.cpp \
+    app/src/views/utils/WeekGridLayout.cpp \
+    app/src/views/utils/WeekGridPainter.cpp \
     model/src/events/Activity.cpp \
     model/src/events/ActivityBuilder.cpp \
     model/src/events/Calendar.cpp \
@@ -60,6 +62,8 @@ HEADERS += \
     app/include/views/YearView.h \
     app/include/views/utils/ViewShared.h \
     app/include/views/utils/WidgetUtils.h \
+    app/include/views/utils/WeekGridLayout.h \
+    app/include/views/utils/WeekGridPainter.h \
     model/include/events/events.h \
     model/include/events/builders/ActivityBuilder.h \
     model/include/events/builders/GeneratorBuilder.h \

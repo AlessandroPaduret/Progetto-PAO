@@ -5,18 +5,15 @@
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
-#include <QFont>
 #include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRubberBand>
 
-#include <algorithm>
-
 #include "views/OccurrenceWidget.h"
-#include "views/utils/Theme.h"
 #include "views/utils/ViewShared.h"
+#include "views/utils/WeekGridPainter.h"
 
 namespace app {
 
@@ -70,6 +67,11 @@ int WeekView::dayWidth() const {
 
 int WeekView::hourHeight() const {
     return qMax(kHourHeight, (height() - gridTop()) / 24);
+}
+
+WeekGridGeometry WeekView::geometry() const {
+    return WeekGridGeometry{kGutterWidth, kHeaderHeight, kAllDayHeight,
+                            dayWidth(),   hourHeight(),  kMinOccurrenceHeight};
 }
 
 void WeekView::setWeekStart(const QDate& monday) {
@@ -196,157 +198,21 @@ void WeekView::rebuildWidgets() {
 }
 
 // ---------------------------------------------------------------------------
-// Layout: striscia "tutto il giorno" + griglia a colonne per le occorrenze
-// sovrapposte dello stesso giorno. A differenza della vecchia implementazione
-// non si disegnano rettangoli: si posizionano i widget reali con setGeometry.
+// Layout: il calcolo geometrico (striscia "tutto il giorno" impilata +
+// griglia a colonne per le occorrenze sovrapposte) e' delegato a
+// WeekGridLayout::place (nessuna logica di layout qui, solo applicazione ai
+// widget reali con setGeometry).
 // ---------------------------------------------------------------------------
 void WeekView::relayout() {
-    std::vector<bool> placed(m_occurrences.size(), false);
+    const WeekGridResult result =
+        WeekGridLayout::place(m_occurrences, m_monday, m_dayCount, geometry());
+    m_allDayHeight = result.allDayHeight;
 
-    // --- Striscia "tutto il giorno" -----------------------------------------
-    std::vector<std::vector<bool>> dayRows(m_dayCount);  // [giorno][riga] occupata
-    struct AllDayItem {
-        int index, firstDay, lastDay, row;
-    };
-    std::vector<AllDayItem> allDayItems;
-
-    for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-        const events::Occurrence& occ = m_occurrences[i];
-        if (!coversFullDay(occ)) {
-            continue;
-        }
-        const QDate startDate = localTime(occ.start).date();
-        const QDate endExclusive = localTime(occ.end()).date();
-        int firstDay = m_monday.daysTo(startDate);
-        int lastDay = m_monday.daysTo(endExclusive) - 1;
-        if (lastDay < firstDay) {
-            lastDay = firstDay;
-        }
-        firstDay = qBound(0, firstDay, m_dayCount - 1);
-        lastDay = qBound(0, lastDay, m_dayCount - 1);
-
-        int row = 0;
-        bool free = false;
-        while (!free) {
-            free = true;
-            for (int d = firstDay; d <= lastDay; ++d) {
-                if (static_cast<int>(dayRows[d].size()) > row && dayRows[d][row]) {
-                    free = false;
-                    ++row;
-                    break;
-                }
-            }
-        }
-        for (int d = firstDay; d <= lastDay; ++d) {
-            if (static_cast<int>(dayRows[d].size()) <= row) {
-                dayRows[d].resize(row + 1, false);
-            }
-            dayRows[d][row] = true;
-        }
-        allDayItems.push_back({i, firstDay, lastDay, row});
-    }
-
-    int maxRows = 1;
-    for (int d = 0; d < m_dayCount; ++d) {
-        maxRows = std::max(maxRows, static_cast<int>(dayRows[d].size()));
-    }
-    m_allDayHeight = maxRows * kAllDayHeight;
-
-    for (const AllDayItem& item : allDayItems) {
-        const int x = kGutterWidth + item.firstDay * dayWidth() + 2;
-        const int w = (item.lastDay - item.firstDay + 1) * dayWidth() - 4;
-        const int y = kHeaderHeight + 2 + item.row * kAllDayHeight;
-        m_widgets[item.index]->setGeometry(x, y, w, kAllDayHeight - 4);
-        m_widgets[item.index]->setVisible(true);
-        placed[item.index] = true;
-    }
-
-    // --- Griglia oraria: layout a colonne per giorno ------------------------
-    for (int day = 0; day < m_dayCount; ++day) {
-        std::vector<int> dayIndex;
-        for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-            if (coversFullDay(m_occurrences[i])) {
-                continue;
-            }
-            if (m_monday.daysTo(localTime(m_occurrences[i].start).date()) == day) {
-                dayIndex.push_back(i);
-            }
-        }
-        std::sort(dayIndex.begin(), dayIndex.end(),
-                  [this](int a, int b) {
-                      return m_occurrences[a].start < m_occurrences[b].start;
-                  });
-
-        int k = 0;
-        while (k < static_cast<int>(dayIndex.size())) {
-            auto effectiveEnd = [this](const events::Occurrence& o) {
-                return o.duration > events::Duration::zero()
-                           ? o.end()
-                           : o.start + std::chrono::minutes(1);
-            };
-
-            auto clusterStop = effectiveEnd(m_occurrences[dayIndex[k]]);
-            int j = k + 1;
-            while (j < static_cast<int>(dayIndex.size()) &&
-                   m_occurrences[dayIndex[j]].start < clusterStop) {
-                clusterStop =
-                    std::max(clusterStop, effectiveEnd(m_occurrences[dayIndex[j]]));
-                ++j;
-            }
-
-            std::vector<int> column;
-            std::vector<events::TimePoint> columnEnd;
-            for (int t = k; t < j; ++t) {
-                const int idx = dayIndex[t];
-                const events::TimePoint start = m_occurrences[idx].start;
-                int col = 0;
-                while (col < static_cast<int>(columnEnd.size()) &&
-                       !(start >= columnEnd[col])) {
-                    ++col;
-                }
-                if (col == static_cast<int>(columnEnd.size())) {
-                    columnEnd.push_back(start);
-                }
-                column.push_back(col);
-                columnEnd[col] = std::max(columnEnd[col],
-                                          effectiveEnd(m_occurrences[idx]));
-            }
-            const int clusterCols = std::max(1, static_cast<int>(columnEnd.size()));
-
-            for (int t = k; t < j; ++t) {
-                const int idx = dayIndex[t];
-                const events::Occurrence& occ = m_occurrences[idx];
-                const QDateTime localStart = localTime(occ.start);
-                const QDateTime localEnd = localTime(occ.end());
-
-                const int topMin = localStart.time().msecsSinceStartOfDay() / 60000;
-                int bottomMin = localEnd.time().msecsSinceStartOfDay() / 60000;
-                if (localEnd.date() != localStart.date()) {
-                    bottomMin = kMinutesPerDay;
-                }
-                const int lo = qBound(0, topMin, kMinutesPerDay);
-                const int hi = qBound(0, bottomMin, kMinutesPerDay);
-                int h = (hi - lo) * hourHeight() / 60 - 4;
-                if (h < kMinOccurrenceHeight) {
-                    h = kMinOccurrenceHeight;
-                }
-
-                const int colWidth = dayWidth() / clusterCols;
-                const int x = kGutterWidth + day * dayWidth() +
-                              column[t - k] * colWidth + 2;
-                const int y = gridTop() + lo * hourHeight() / 60 + 2;
-                m_widgets[idx]->setGeometry(x, y, colWidth - 4, h);
-                m_widgets[idx]->setVisible(true);
-                placed[idx] = true;
-            }
-            k = j;
-        }
-    }
-
-    // Occorrenze fuori dai giorni mostrati (dayCount ridotto): nascoste.
     for (int i = 0; i < static_cast<int>(m_widgets.size()); ++i) {
-        if (!placed[i]) {
-            m_widgets[i]->setVisible(false);
+        const OccurrencePlacement& placement = result.placements[i];
+        m_widgets[i]->setVisible(placement.visible);
+        if (placement.visible) {
+            m_widgets[i]->setGeometry(placement.rect);
         }
     }
 
@@ -373,7 +239,6 @@ void WeekView::resizeEvent(QResizeEvent* event) {
 
 void WeekView::paintEvent(QPaintEvent*) {
     QPainter painter(this);
-    painter.fillRect(rect(), Qt::white);
 
     // Scala dei font proporzionale all'ingrandimento della griglia
     const qreal scale = qMin(static_cast<qreal>(dayWidth()) / kDayWidth,
@@ -381,59 +246,8 @@ void WeekView::paintEvent(QPaintEvent*) {
     const int headerFontSize = qMax(10, qRound(10 * scale));
     const int smallFontSize = qMax(8, qRound(8 * scale));
 
-    // --- Intestazione: nome giorno + numero ---
-    for (int day = 0; day < m_dayCount; ++day) {
-        const QRect headerRect(kGutterWidth + day * dayWidth(), 0,
-                               dayWidth(), kHeaderHeight);
-        painter.fillRect(headerRect, Qt::white);
-
-        const QDate date = m_monday.addDays(day);
-        const bool isToday = date == QDate::currentDate();
-        painter.setPen(isToday ? theme::kAccentBlue : theme::kSecondaryText);
-        QFont font = painter.font();
-        font.setBold(isToday);
-        font.setPointSize(headerFontSize);
-        painter.setFont(font);
-        painter.drawText(headerRect, Qt::AlignCenter,
-                         QStringLiteral("%1 %2")
-                             .arg(QString::fromLatin1(shortDayName(date.dayOfWeek())))
-                             .arg(date.day()));
-    }
-
-    // --- Striscia "tutto il giorno" (sfondo + separatori) ---
-    painter.fillRect(QRect(kGutterWidth, kHeaderHeight, width() - kGutterWidth,
-                           m_allDayHeight),
-                     theme::kPanelBackground);
-    painter.setPen(theme::kBorderGray);
-    painter.drawLine(kGutterWidth, kHeaderHeight, width(), kHeaderHeight);
-    painter.drawLine(kGutterWidth, gridTop(), width(), gridTop());
-    for (int day = 0; day <= m_dayCount; ++day) {
-        const int x = kGutterWidth + day * dayWidth();
-        painter.drawLine(x, kHeaderHeight, x, gridTop());
-    }
-
-    // --- Linee della griglia ---
-    painter.setPen(theme::kBorderGray);
-    for (int day = 0; day <= m_dayCount; ++day) {
-        const int x = kGutterWidth + day * dayWidth();
-        painter.drawLine(x, gridTop(), x, height());
-    }
-
-    // --- Ore sul bordo sinistro + linee orizzontali ---
-    QFont hourFont = painter.font();
-    hourFont.setPointSize(smallFontSize);
-    painter.setFont(hourFont);
-    for (int hour = 0; hour < 24; ++hour) {
-        const int y = gridTop() + hour * hourHeight();
-        painter.setPen(theme::kBorderGray);
-        painter.drawLine(kGutterWidth, y, width(), y);
-        painter.setPen(theme::kSecondaryText);
-        painter.drawText(QRect(0, y - smallFontSize, kGutterWidth - 8,
-                               smallFontSize * 2),
-                         Qt::AlignRight | Qt::AlignVCenter,
-                         QStringLiteral("%1:00").arg(hour, 2, 10,
-                                                     QLatin1Char('0')));
-    }
+    WeekGridPainter::paint(painter, rect(), m_monday, m_dayCount, m_allDayHeight,
+                          geometry(), headerFontSize, smallFontSize);
 }
 
 void WeekView::mousePressEvent(QMouseEvent* event) {

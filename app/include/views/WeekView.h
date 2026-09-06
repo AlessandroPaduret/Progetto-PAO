@@ -8,7 +8,8 @@
 #include <optional>
 #include <vector>
 
-#include "events/events.h"
+#include "events/core/Occurrence.h"
+#include "views/utils/WeekGridLayout.h"
 
 class QRubberBand;
 class QLabel;
@@ -128,10 +129,15 @@ private:
     int dayWidth() const;   // larghezza corrente di una colonna giorno
     int hourHeight() const; // altezza corrente di un'ora
 
+    /** @brief Geometria corrente (dimensioni in pixel), condivisa da
+     *  `WeekGridLayout::place` e `WeekGridPainter::paint`. */
+    WeekGridGeometry geometry() const;
+
     /** @brief Ricrea i widget delle occorrenze (uno per occorrenza). */
     void rebuildWidgets();
-    /** @brief Ricalcola e applica la geometria di ogni OccurrenceWidget
-     *  (striscia "tutto il giorno" impilata + colonne nella griglia oraria). */
+    /** @brief Ricalcola (via `WeekGridLayout::place`) e applica ai widget la
+     *  geometria di ogni occorrenza (striscia "tutto il giorno" impilata +
+     *  colonne nella griglia oraria). */
     void relayout();
 
     /** @brief Cella (giorno/ora) dalle coordinate locali, o nullopt se fuori
