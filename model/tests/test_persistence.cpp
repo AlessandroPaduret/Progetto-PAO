@@ -4,7 +4,7 @@
 #include <chrono>
 
 #include "persistence/JsonPersistence.h"
-#include "events/builders/ActivityBuilder.h"
+#include "events/builders/ActivityConfig.h" // Sostituito ActivityBuilder con ActivityConfig
 #include "events/domain/Task.h"
 #include "events/generators/MonthlyGenerator.h"
 
@@ -15,20 +15,24 @@ class TestPersistence : public QObject {
     Q_OBJECT
 
 private slots:
-    void testTaskRoundTripWithBuilder();
+    void testTaskRoundTripWithConfig(); // Rinominato il test per coerenza
 };
 
-void TestPersistence::testTaskRoundTripWithBuilder() {
+void TestPersistence::testTaskRoundTripWithConfig() {
     constexpr auto due = std::chrono::sys_days{2026y / 12 / 1} + 12h;
     auto monthlyGen = std::make_shared<MonthlyGenerator>(1);
 
-    auto task = TaskBuilder("Pagamento Affitto", due)
-                    .addGenerator(monthlyGen)
-                    .withPriority(Priority::High)
-                    .build();
+    // Creazione del Task tramite makeTask e TaskConfig
+    auto task = makeTask(TaskConfig{
+        ActivityConfig{
+            .title = "Pagamento Affitto",
+            .start = due,
+            .generator = monthlyGen
+        },
+        Priority::High
+    });
 
-    auto taskPtr = dynamic_cast<Task*>(task.get());
-    taskPtr->setDone(due, true);
+    task->setDone(due, true);
 
     QJsonObject json = persistence::activityToJson(*task);
 

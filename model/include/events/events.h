@@ -18,8 +18,8 @@
 #include "events/domain/Meeting.h"
 #include "events/domain/Calendar.h"
 
-// Builders
-#include "events/builders/ActivityBuilder.h"
+// Config
+#include "events/builders/ActivityConfig.h"
 
 // Generators
 #include "events/generators/SingleGenerator.h"

@@ -224,7 +224,6 @@ struct CommonActivityData {
   TimePoint start;
   TimePoint end = TimePoint::max();
   Duration duration = Duration::zero();
-  std::size_t maxOccurrences = 0;
   std::shared_ptr<const events::DateGenerator> generator;
   std::unordered_set<TimePoint> exceptions;
 };
@@ -236,16 +235,6 @@ bool readCommonActivityData(const QJsonObject &json, CommonActivityData &out, QS
 
   if (json.contains(QLatin1String("end"))) {
     if (!timePointFromJson(json, "end", out.end, error)) return false;
-  }
-
-  if (json.contains(QLatin1String("max_occurrences"))) {
-    const QJsonValue maxVal = json.value(QLatin1String("max_occurrences"));
-    if (maxVal.isDouble() && maxVal.toInteger() >= 0) {
-      out.maxOccurrences = static_cast<std::size_t>(maxVal.toInteger());
-    } else {
-      setError(error, "Campo max_occurrences non valido");
-      return false;
-    }
   }
 
   const QJsonValue genVal = json.value(QLatin1String("generator"));
