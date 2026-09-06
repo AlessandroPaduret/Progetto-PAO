@@ -20,6 +20,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- Dipendenze -------------------------------------------------------------
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 COMPONENTS Test QUIET)
 
 # Modello logico + persistenza JSON (gestisce da solo Qt Core e Catch2 opzionali)
 add_subdirectory(../model model)
@@ -77,17 +78,14 @@ add_executable(pao_app
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 
-# --- Test del controller (Catch2, headless, opzionali) ----------------------
+# --- Test del controller (QTest, headless, opzionali) ------------------------
 include(CTest)
 if(BUILD_TESTING)
-    find_package(Catch2 3 QUIET)
-    if(Catch2_FOUND)
+    if(TARGET Qt6::Test)
         add_executable(app_controller_tests tests/test_controller.cpp)
-        target_link_libraries(app_controller_tests PRIVATE pao_core Catch2::Catch2 Qt6::Gui)
-
-        include(Catch)
-        catch_discover_tests(app_controller_tests)
+        target_link_libraries(app_controller_tests PRIVATE pao_core Qt6::Test Qt6::Gui)
+        add_test(NAME AppControllerTest COMMAND app_controller_tests)
     else()
-        message(STATUS "Catch2 non trovato: test dell'app disabilitati")
+        message(STATUS "Qt Test non trovato: test dell'app disabilitati")
     endif()
 endif()
