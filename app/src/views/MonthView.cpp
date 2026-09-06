@@ -13,8 +13,8 @@
 #include <algorithm>
 
 #include "views/OccurrenceWidget.h"
-#include "views/ViewShared.h"
-#include "views/WidgetUtils.h"
+#include "views/utils/ViewShared.h"
+#include "views/utils/WidgetUtils.h"
 
 namespace app {
 

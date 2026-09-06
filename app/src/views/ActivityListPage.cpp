@@ -15,9 +15,9 @@
 #include <algorithm>
 
 #include "controller/CalendarController.h"
-#include "views/ActivityViewHelpers.h"
-#include "views/Theme.h"
-#include "views/ViewShared.h"
+#include "views/dialog/ActivityViewHelpers.h"
+#include "views/utils/Theme.h"
+#include "views/utils/ViewShared.h"
 
 namespace app {
 

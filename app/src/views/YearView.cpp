@@ -9,8 +9,8 @@
 
 #include <optional>
 
-#include "views/Theme.h"
-#include "views/ViewShared.h"
+#include "views/utils/Theme.h"
+#include "views/utils/ViewShared.h"
 
 namespace app {
 

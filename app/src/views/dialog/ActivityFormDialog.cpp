@@ -1,4 +1,4 @@
-#include "views/ActivityFormDialog.h"
+#include "views/dialog/ActivityFormDialog.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
@@ -6,7 +6,7 @@
 #include <QVBoxLayout>
 
 #include "controller/CalendarController.h"
-#include "views/ActivityFormPage.h"
+#include "views/dialog/ActivityFormPage.h"
 
 namespace app {
 

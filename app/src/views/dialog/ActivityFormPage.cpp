@@ -1,4 +1,4 @@
-#include "views/ActivityFormPage.h"
+#include "views/dialog/ActivityFormPage.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -31,7 +31,7 @@
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
-#include "views/ViewShared.h"
+#include "views/utils/ViewShared.h"
 
 namespace app {
 

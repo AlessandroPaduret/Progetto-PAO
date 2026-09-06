@@ -13,9 +13,9 @@
 #include <QPalette>
 #include <QVBoxLayout>
 
-#include "views/Theme.h"
-#include "views/ViewShared.h"
-#include "views/WidgetUtils.h"
+#include "views/utils/Theme.h"
+#include "views/utils/ViewShared.h"
+#include "views/utils/WidgetUtils.h"
 
 namespace app {
 

@@ -16,13 +16,13 @@ SOURCES += \
     app/src/main.cpp \
     app/src/controller/CalendarController.cpp \
     app/src/menu/AppMenuBar.cpp \
-    app/src/views/ActivityDetailDialog.cpp \
-    app/src/views/ActivityFormPage.cpp \
-    app/src/views/ActivityFormDialog.cpp \
+    app/src/views/dialog/ActivityDetailDialog.cpp \
+    app/src/views/dialog/ActivityFormPage.cpp \
+    app/src/views/dialog/ActivityFormDialog.cpp \
     app/src/views/ActivityListPage.cpp \
-    app/src/views/ActivityViewHelpers.cpp \
+    app/src/views/dialog/ActivityViewHelpers.cpp \
     app/src/views/MainWindow.cpp \
-    app/src/views/RecurrenceChoiceDialog.cpp \
+    app/src/views/dialog/RecurrenceChoiceDialog.cpp \
     app/src/views/WeekView.cpp \
     app/src/views/DayView.cpp \
     app/src/views/MonthView.cpp \
@@ -45,21 +45,21 @@ HEADERS += \
     app/include/controller/CalendarController.h \
     app/include/menu/AppMenuBar.h \
     app/include/menu/MenuShortcutStyle.h \
-    app/include/views/ActivityDetailDialog.h \
+    app/include/views/dialog/ActivityDetailDialog.h \
     app/include/views/OccurrenceWidget.h \
-    app/include/views/Theme.h \
-    app/include/views/ActivityFormPage.h \
-    app/include/views/ActivityFormDialog.h \
+    app/include/views/utils/Theme.h \
+    app/include/views/dialog/ActivityFormPage.h \
+    app/include/views/dialog/ActivityFormDialog.h \
     app/include/views/ActivityListPage.h \
-    app/include/views/ActivityViewHelpers.h \
+    app/include/views/dialog/ActivityViewHelpers.h \
     app/include/views/MainWindow.h \
-    app/include/views/RecurrenceChoiceDialog.h \
+    app/include/views/dialog/RecurrenceChoiceDialog.h \
     app/include/views/WeekView.h \
     app/include/views/DayView.h \
     app/include/views/MonthView.h \
     app/include/views/YearView.h \
-    app/include/views/ViewShared.h \
-    app/include/views/WidgetUtils.h \
+    app/include/views/utils/ViewShared.h \
+    app/include/views/utils/WidgetUtils.h \
     model/include/events/events.h \
     model/include/events/builders/ActivityBuilder.h \
     model/include/events/builders/GeneratorBuilder.h \

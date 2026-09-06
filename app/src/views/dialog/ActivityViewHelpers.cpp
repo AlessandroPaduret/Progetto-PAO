@@ -1,4 +1,4 @@
-#include "views/ActivityViewHelpers.h"
+#include "views/dialog/ActivityViewHelpers.h"
 
 #include <QDateTime>
 
@@ -10,7 +10,7 @@
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/SingleGenerator.h"
 #include "events/generators/YearlyGenerator.h"
-#include "views/ViewShared.h"
+#include "views/utils/ViewShared.h"
 
 namespace app {
 namespace ActivityViewHelpers {

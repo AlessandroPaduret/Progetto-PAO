@@ -60,21 +60,21 @@ add_executable(pao_app
     include/views/YearView.h
     src/views/ActivityListPage.cpp
     include/views/ActivityListPage.h
-    src/views/ActivityDetailDialog.cpp
-    include/views/ActivityDetailDialog.h
-    src/views/ActivityFormPage.cpp
-    include/views/ActivityFormPage.h
-    src/views/ActivityFormDialog.cpp
-    include/views/ActivityFormDialog.h
-    src/views/ActivityViewHelpers.cpp
-    include/views/ActivityViewHelpers.h
-    src/views/RecurrenceChoiceDialog.cpp
-    include/views/RecurrenceChoiceDialog.h
+    src/views/dialog/ActivityDetailDialog.cpp
+    include/views/dialog/ActivityDetailDialog.h
+    src/views/dialog/ActivityFormPage.cpp
+    include/views/dialog/ActivityFormPage.h
+    src/views/dialog/ActivityFormDialog.cpp
+    include/views/dialog/ActivityFormDialog.h
+    src/views/dialog/ActivityViewHelpers.cpp
+    include/views/dialog/ActivityViewHelpers.h
+    src/views/dialog/RecurrenceChoiceDialog.cpp
+    include/views/dialog/RecurrenceChoiceDialog.h
     src/views/OccurrenceWidget.cpp
     include/views/OccurrenceWidget.h
-    include/views/ViewShared.h
-    include/views/WidgetUtils.h
-    include/views/Theme.h
+    include/views/utils/ViewShared.h
+    include/views/utils/WidgetUtils.h
+    include/views/utils/Theme.h
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 

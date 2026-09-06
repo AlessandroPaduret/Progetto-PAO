@@ -12,7 +12,7 @@
 #include "events/builders/ActivityConfig.h"
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
-#include "views/ViewShared.h"
+#include "views/utils/ViewShared.h"
 
 using namespace std::chrono_literals;
 using namespace events;

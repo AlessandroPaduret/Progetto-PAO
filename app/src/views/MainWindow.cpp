@@ -14,13 +14,13 @@
 
 #include "controller/CalendarController.h"
 #include "events/builders/ActivityConfig.h"
-#include "views/ActivityDetailDialog.h"
-#include "views/ActivityFormDialog.h"
+#include "views/dialog/ActivityDetailDialog.h"
+#include "views/dialog/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
 #include "views/MonthView.h"
-#include "views/RecurrenceChoiceDialog.h"
-#include "views/ViewShared.h"
+#include "views/dialog/RecurrenceChoiceDialog.h"
+#include "views/utils/ViewShared.h"
 #include "views/WeekView.h"
 #include "views/YearView.h"
 

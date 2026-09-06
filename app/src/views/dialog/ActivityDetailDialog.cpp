@@ -1,4 +1,4 @@
-#include "views/ActivityDetailDialog.h"
+#include "views/dialog/ActivityDetailDialog.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
@@ -9,7 +9,7 @@
 #include <QVBoxLayout>
 
 #include "controller/CalendarController.h"
-#include "views/ActivityViewHelpers.h"
+#include "views/dialog/ActivityViewHelpers.h"
 
 namespace app {
 
