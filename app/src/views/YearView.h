@@ -4,19 +4,25 @@
 #include <QDate>
 #include <QWidget>
 
-#include <optional>
+#include <array>
 #include <vector>
 
 #include "events/events.h"
 
+class QCalendarWidget;
+class QGridLayout;
+
 namespace app {
 
-/** @brief Vista "anno": 12 mini-calendari disposti in una griglia 4x3, un
- *  mese ciascuno; i giorni con attivita' mostrano un pallino colorato
- *  (uno per attivita' diversa, nel limite del riquadro).
+/** @brief Vista "anno": 12 QCalendarWidget nativi disposti in una griglia
+ *  3x4 (uno per mese, senza barra di navigazione: il mese mostrato resta
+ *  fisso), con i giorni che hanno attivita' evidenziati da uno sfondo
+ *  colorato (colore della prima attivita' non evasa del giorno, grigio se
+ *  ci sono solo Compiti evasi). Delega a Qt il calcolo del calendario, i
+ *  nomi dei giorni/mesi (localizzati) e l'evidenziazione di "oggi".
  *
- *  Doppio clic su un giorno: passa alla vista giorno di quella data
- *  (segnale `daySelected`). Tooltip con l'elenco delle attivita' del giorno.
+ *  Doppio clic (o Invio) su un giorno: passa alla vista giorno di quella
+ *  data (segnale `daySelected`, dal nativo `QCalendarWidget::activated`).
  */
 class YearView : public QWidget {
     Q_OBJECT
@@ -35,21 +41,15 @@ public:
     int baseHeight() const;
 
 signals:
-    /** @brief Doppio clic su un giorno: la data scelta. */
+    /** @brief Doppio clic (o Invio) su un giorno: la data scelta. */
     void daySelected(const QDate& date);
 
-protected:
-    void paintEvent(QPaintEvent* event) override;
-    void mouseDoubleClickEvent(QMouseEvent* event) override;
-    bool event(QEvent* event) override;
-
 private:
-    /** @brief Rettangolo del pannello del mese (0..11). */
-    QRect monthRect(int monthIndex) const;
-    /** @brief Data del giorno sotto il punto, se nel mese. */
-    std::optional<QDate> dateAt(const QPoint& pos) const;
+    static constexpr int kCols = 3;
+    static constexpr int kRows = 4;
 
-    std::vector<events::Occurrence> m_occurrences;
+    QGridLayout* m_grid = nullptr;
+    std::array<QCalendarWidget*, kCols * kRows> m_calendars = {};
     QDate m_year;
 };
 

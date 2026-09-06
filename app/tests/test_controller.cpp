@@ -8,9 +8,9 @@
 #include <memory>
 
 #include "CalendarController.h"
-#include "events/builders/ActivityBuilder.h"
-#include "events/builders/GeneratorBuilder.h"
+#include "events/builders/ActivityConfig.h"
 #include "events/domain/Task.h"
+#include "events/generators/FixedIntervalGenerator.h"
 #include "views/ViewShared.h"
 
 using namespace std::chrono_literals;
@@ -42,18 +42,13 @@ TEST_CASE("Controller: CRUD di base", "[controller]") {
     app::CalendarController controller;
 
     SECTION("add/search/remove") {
-        controller.addActivity(
-            ActivityBuilder("Dentista", tp(utc(2026, 1, 8, 10)))
-                .withDuration(1h)
-                .build());
-        controller.addActivity(
-            TaskBuilder("Consegna", tp(utc(2026, 1, 15)))
-                .withPriority(Priority::High)
-                .build());
-        controller.addActivity(
-            MeetingBuilder("Riunione", tp(utc(2026, 1, 9, 8)))
-                .withDuration(1h)
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Dentista", .start = tp(utc(2026, 1, 8, 10)), .duration = 1h}));
+        controller.addActivity(makeTask(TaskConfig(
+            ActivityConfig{.title = "Consegna", .start = tp(utc(2026, 1, 15))},
+            Priority::High)));
+        controller.addActivity(makeMeeting(MeetingConfig(
+            ActivityConfig{.title = "Riunione", .start = tp(utc(2026, 1, 9, 8)), .duration = 1h})));
 
         REQUIRE(controller.calendar().size() == 3);
         REQUIRE(controller.search("DENTISTA").size() == 1);
@@ -74,12 +69,12 @@ TEST_CASE("Controller: CRUD di base", "[controller]") {
 TEST_CASE("Controller: addActivities aggiunge piu' attivita' in un colpo", "[controller]") {
     app::CalendarController controller;
     std::vector<std::unique_ptr<events::Activity>> activities;
-    activities.push_back(
-        ActivityBuilder("A", tp(utc(2026, 1, 8, 10))).withDuration(1h).build());
-    activities.push_back(
-        TaskBuilder("B", tp(utc(2026, 1, 9))).withPriority(Priority::Medium).build());
-    activities.push_back(
-        MeetingBuilder("C", tp(utc(2026, 1, 10))).withDuration(1h).build());
+    activities.push_back(makeActivity(ActivityConfig{
+        .title = "A", .start = tp(utc(2026, 1, 8, 10)), .duration = 1h}));
+    activities.push_back(makeTask(TaskConfig(
+        ActivityConfig{.title = "B", .start = tp(utc(2026, 1, 9))}, Priority::Medium)));
+    activities.push_back(makeMeeting(MeetingConfig(
+        ActivityConfig{.title = "C", .start = tp(utc(2026, 1, 10)), .duration = 1h})));
 
     REQUIRE(controller.addActivities(std::move(activities)));
     REQUIRE(controller.calendar().size() == 3);
@@ -94,10 +89,9 @@ TEST_CASE("Controller: stato di completamento (toggleDone, solo su Task)", "[con
     app::CalendarController controller;
 
     SECTION("task: spunta globale") {
-        controller.addActivity(
-            TaskBuilder("Consegna", tp(utc(2026, 1, 15)))
-                .withPriority(Priority::High)
-                .build());
+        controller.addActivity(makeTask(TaskConfig(
+            ActivityConfig{.title = "Consegna", .start = tp(utc(2026, 1, 15))},
+            Priority::High)));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 15), utc(2026, 1, 15));
         REQUIRE(occurrences.size() == 1);
 
@@ -111,10 +105,8 @@ TEST_CASE("Controller: stato di completamento (toggleDone, solo su Task)", "[con
     }
 
     SECTION("evento: toggle non ha effetto (nessuno stato)") {
-        controller.addActivity(
-            ActivityBuilder("Dentista", tp(utc(2026, 1, 8, 10)))
-                .withDuration(1h)
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Dentista", .start = tp(utc(2026, 1, 8, 10)), .duration = 1h}));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 8, 0, 0), utc(2026, 1, 8, 23, 59));
         REQUIRE(occurrences.size() == 1);
         REQUIRE_FALSE(controller.toggleDone(occurrences[0]));
@@ -125,14 +117,12 @@ TEST_CASE("Controller: azioni sulle occorrenze", "[controller]") {
     app::CalendarController controller;
 
     SECTION("elimina occorrenza di un ricorrente = eccezione") {
-        controller.addActivity(
-            ActivityBuilder("Meeting")
-                .withDuration(1h)
-                .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                                  .repeatEvery(std::chrono::days(7))
-                                  .until(tp(utc(2026, 2, 1)))
-                                  .build())
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Meeting",
+            .start = tp(utc(2026, 1, 5, 9)),
+            .duration = 1h,
+            .end = tp(utc(2026, 2, 1)),
+            .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::days(7))}));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
         REQUIRE(occurrences.size() == 4);
 
@@ -146,14 +136,12 @@ TEST_CASE("Controller: azioni sulle occorrenze", "[controller]") {
     }
 
     SECTION("elimina con truncate esclude le successive") {
-        controller.addActivity(
-            ActivityBuilder("Meeting")
-                .withDuration(1h)
-                .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                                  .repeatEvery(std::chrono::days(7))
-                                  .until(tp(utc(2026, 2, 1)))
-                                  .build())
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Meeting",
+            .start = tp(utc(2026, 1, 5, 9)),
+            .duration = 1h,
+            .end = tp(utc(2026, 2, 1)),
+            .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::days(7))}));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
         REQUIRE(occurrences.size() == 4);
 
@@ -166,10 +154,8 @@ TEST_CASE("Controller: azioni sulle occorrenze", "[controller]") {
     }
 
     SECTION("elimina occorrenza di un evento singolo = elimina l'attivita'") {
-        controller.addActivity(
-            ActivityBuilder("Dentista", tp(utc(2026, 1, 8, 10)))
-                .withDuration(1h)
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Dentista", .start = tp(utc(2026, 1, 8, 10)), .duration = 1h}));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
         REQUIRE(occurrences.size() == 1);
 
@@ -178,21 +164,18 @@ TEST_CASE("Controller: azioni sulle occorrenze", "[controller]") {
     }
 
     SECTION("modifica istanza: eccezione + nuovo evento singolo") {
-        controller.addActivity(
-            ActivityBuilder("Meeting")
-                .withDuration(1h)
-                .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                                  .repeatEvery(std::chrono::days(7))
-                                  .until(tp(utc(2026, 2, 1)))
-                                  .build())
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Meeting",
+            .start = tp(utc(2026, 1, 5, 9)),
+            .duration = 1h,
+            .end = tp(utc(2026, 2, 1)),
+            .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::days(7))}));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
 
         const Occurrence* target = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
         REQUIRE(target != nullptr);
-        auto replacement = ActivityBuilder("Meeting (posticipato)", tp(utc(2026, 1, 12, 11)))
-                .withDuration(1h)
-                .build();
+        auto replacement = makeActivity(ActivityConfig{
+            .title = "Meeting (posticipato)", .start = tp(utc(2026, 1, 12, 11)), .duration = 1h});
         REQUIRE(controller.modifyOccurrence(*target, std::move(replacement)));
 
         occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
@@ -203,14 +186,12 @@ TEST_CASE("Controller: azioni sulle occorrenze", "[controller]") {
 
 TEST_CASE("Controller: aggiornamento attivita' conserva le eccezioni", "[controller]") {
     app::CalendarController controller;
-    controller.addActivity(
-        ActivityBuilder("Meeting")
-            .withDuration(1h)
-            .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                              .repeatEvery(std::chrono::days(7))
-                              .until(tp(utc(2026, 2, 1)))
-                              .build())
-            .build());
+    controller.addActivity(makeActivity(ActivityConfig{
+        .title = "Meeting",
+        .start = tp(utc(2026, 1, 5, 9)),
+        .duration = 1h,
+        .end = tp(utc(2026, 2, 1)),
+        .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::days(7))}));
 
     const Activity* original = controller.search("Meeting")[0];
     auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
@@ -219,13 +200,12 @@ TEST_CASE("Controller: aggiornamento attivita' conserva le eccezioni", "[control
     controller.deleteOccurrence(*target);  // aggiunge un'eccezione
 
     // modifica la regola (titolo e durata cambiano)
-    auto updated = ActivityBuilder("Meeting (aggiornato)")
-            .withDuration(2h)
-            .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                              .repeatEvery(std::chrono::days(7))
-                              .until(tp(utc(2026, 2, 1)))
-                              .build())
-            .build();
+    auto updated = makeActivity(ActivityConfig{
+        .title = "Meeting (aggiornato)",
+        .start = tp(utc(2026, 1, 5, 9)),
+        .duration = 2h,
+        .end = tp(utc(2026, 2, 1)),
+        .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::days(7))});
     REQUIRE(controller.updateActivity(original, std::move(updated)));
 
     occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 31));
@@ -237,10 +217,8 @@ TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]")
     app::CalendarController controller;
 
     SECTION("evento singolo: cambia inizio, durata invariata") {
-        controller.addActivity(
-            ActivityBuilder("Dentista", tp(utc(2026, 1, 8, 10)))
-                .withDuration(1h)
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Dentista", .start = tp(utc(2026, 1, 8, 10)), .duration = 1h}));
         const events::Activity* activity = controller.search("Dentista")[0];
 
         const TimePoint newStart = tp(utc(2026, 1, 9, 15));
@@ -254,14 +232,12 @@ TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]")
     }
 
     SECTION("ricorrente: inizio spostato, la fine NON slitta, serie intonsa") {
-        controller.addActivity(
-            ActivityBuilder("Riunione")
-                .withDuration(1h)
-                .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                                  .repeatEvery(std::chrono::days(7))
-                                  .until(tp(utc(2026, 2, 16)))
-                                  .build())
-                .build());
+        controller.addActivity(makeActivity(ActivityConfig{
+            .title = "Riunione",
+            .start = tp(utc(2026, 1, 5, 9)),
+            .duration = 1h,
+            .end = tp(utc(2026, 2, 16)),
+            .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::days(7))}));
         auto occurrences = controller.occurrencesIn(utc(2026, 1, 1), utc(2026, 1, 31));
         const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 12, 9)));
         REQUIRE(second != nullptr);
@@ -279,10 +255,9 @@ TEST_CASE("Controller: spostamento di un'attivita' (drag&drop)", "[controller]")
     }
 
     SECTION("task: cambia la scadenza") {
-        controller.addActivity(
-            TaskBuilder("Consegna", tp(utc(2026, 1, 15)))
-                .withPriority(Priority::High)
-                .build());
+        controller.addActivity(makeTask(TaskConfig(
+            ActivityConfig{.title = "Consegna", .start = tp(utc(2026, 1, 15))},
+            Priority::High)));
         const events::Activity* t = controller.search("Consegna")[0];
         REQUIRE(controller.moveActivity(t, utc(2026, 2, 1)));
         REQUIRE(t->getStart() == tp(utc(2026, 2, 1)));
@@ -293,22 +268,21 @@ TEST_CASE("Controller: drag di una sola occorrenza di una serie (buco in origine
     app::CalendarController controller;
 
     // Serie giornaliera per una settimana (lun 5/1 09:00, 1h)
-    controller.addActivity(
-        ActivityBuilder("Allenamento")
-            .withDuration(1h)
-            .addGenerator(GeneratorBuilder::from(tp(utc(2026, 1, 5, 9)))
-                              .repeatEvery(std::chrono::hours(24))
-                              .build())
-            .build());
+    controller.addActivity(makeActivity(ActivityConfig{
+        .title = "Allenamento",
+        .start = tp(utc(2026, 1, 5, 9)),
+        .duration = 1h,
+        .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::hours(24))}));
     auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
     REQUIRE(occurrences.size() == 7);
 
     // Sposta SOLO la seconda occorrenza (mar 6/1 09:00) alla destinazione
     const Occurrence* second = findByStart(occurrences, tp(utc(2026, 1, 6, 9)));
     REQUIRE(second != nullptr);
-    auto replacement = ActivityBuilder(second->source->getTitle(), tp(utc(2026, 1, 8, 15)))
-            .withDuration(second->duration)
-            .build();
+    auto replacement = makeActivity(ActivityConfig{
+        .title = second->source->getTitle(),
+        .start = tp(utc(2026, 1, 8, 15)),
+        .duration = second->duration});
     REQUIRE(controller.modifyOccurrence(*second, std::move(replacement)));
 
     occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
@@ -343,12 +317,12 @@ TEST_CASE("Controller: 'da questo momento in poi' divide la serie", "[controller
     app::CalendarController controller;
 
     // Serie giornaliera 8:00-10:00 (2h) per una settimana, fine 12/1 00:00
-    auto generator = GeneratorBuilder::from(tp(utc(2026, 1, 5, 8)))
-                         .repeatEvery(std::chrono::hours(24))
-                         .until(tp(utc(2026, 1, 12)))
-                         .build();
-    controller.addActivity(
-        std::make_unique<events::Activity>("Lezione", 2h, std::move(generator)));
+    controller.addActivity(makeActivity(ActivityConfig{
+        .title = "Lezione",
+        .start = tp(utc(2026, 1, 5, 8)),
+        .duration = 2h,
+        .end = tp(utc(2026, 1, 12)),
+        .generator = std::make_shared<FixedIntervalGenerator>(std::chrono::hours(24))}));
 
     auto occurrences = controller.occurrencesIn(utc(2026, 1, 5), utc(2026, 1, 12));
     REQUIRE(occurrences.size() == 7);  // 5/1 .. 11/1 alle 08:00
@@ -394,14 +368,11 @@ TEST_CASE("Controller: 'da questo momento in poi' divide la serie", "[controller
 
 TEST_CASE("Controller: salvataggio e caricamento su file", "[controller]") {
     app::CalendarController controller;
-    controller.addActivity(
-        ActivityBuilder("Dentista", tp(utc(2026, 1, 8, 10)))
-            .withDuration(1h)
-            .build());
-    controller.addActivity(
-        TaskBuilder("Consegna", tp(utc(2026, 1, 15)))
-            .withPriority(Priority::High)
-            .build());
+    controller.addActivity(makeActivity(ActivityConfig{
+        .title = "Dentista", .start = tp(utc(2026, 1, 8, 10)), .duration = 1h}));
+    controller.addActivity(makeTask(TaskConfig(
+        ActivityConfig{.title = "Consegna", .start = tp(utc(2026, 1, 15))},
+        Priority::High)));
 
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
@@ -446,7 +417,8 @@ TEST_CASE("ALLDAY fix verification", "[all-day]") {
         toTP(QDateTime(monday, QTime(0, 0), QTimeZone(0)));
 
     app::CalendarController controller;
-    auto ev = ActivityBuilder("AllDay", startUtc).withDuration(std::chrono::seconds(86400)).build();
+    auto ev = makeActivity(ActivityConfig{
+        .title = "AllDay", .start = startUtc, .duration = std::chrono::seconds(86400)});
     controller.addActivity(std::move(ev));
 
     // Week query (UTC) for the week of Monday
@@ -478,8 +450,8 @@ TEST_CASE("ALLDAY: un evento normale non e' all-day", "[all-day]") {
     const TimePoint start =
         TimePoint(std::chrono::seconds(startLocal.toSecsSinceEpoch()));
     app::CalendarController controller;
-    controller.addActivity(
-        ActivityBuilder("Riunione", start).withDuration(std::chrono::minutes(60)).build());
+    controller.addActivity(makeActivity(ActivityConfig{
+        .title = "Riunione", .start = start, .duration = std::chrono::minutes(60)}));
     const QDateTime dayFrom(QDate(2026, 8, 31), QTime(0, 0), QTimeZone(0));
     const auto occs = controller.occurrencesIn(
         dayFrom, QDateTime(QDate(2026, 8, 31), QTime(23, 59), QTimeZone(0)));

@@ -10,18 +10,23 @@
 
 #include "events/events.h"
 
+class QGridLayout;
+
 namespace app {
 
-/** @brief Vista "mese": griglia settimanale del mese (5-6 righe x 7 giorni).
+class MonthDayCell;
+class OccurrenceWidget;
+
+/** @brief Vista "mese": griglia di 6x7 celle widget (una per giorno, sempre
+ *  6 settimane come Google Calendar), non piu' un canvas dipinto a mano.
  *
- *  Ogni giorno mostra un massimo di 3 attivita' come chip colorati (le
- *  rimanenti sono indicate con "+N"); il numero del giorno e' evidenziato
- *  se e' oggi. I giorni fuori dal mese sono in grigio.
- *
- *  Interazione: clic sinistro seleziona, doppio clic su un'occorrenza
- *  modifica (con la scelta serie/istanza per i ricorrenti, come nella vista
- *  settimana), doppio clic su una cella vuota crea una nuova attivita' alle
- *  09:00, menu contestuale per Info/Modifica/Elimina/Nuova attivita'.
+ *  Ogni cella (`MonthDayCell`) e' un widget reale che possiede il proprio
+ *  numero del giorno e fino a 3 chip (`OccurrenceWidget`, condiviso con
+ *  WeekView) per le attivita' del giorno, piu' un'etichetta "+N"; tooltip,
+ *  menu contestuale e spunta dei Compiti sono quelli nativi dei rispettivi
+ *  widget. Interazione: clic sinistro su un chip seleziona, doppio clic su
+ *  un'occorrenza modifica (con la scelta serie/istanza per i ricorrenti),
+ *  doppio clic su una cella vuota crea alle 09:00, menu contestuale.
  */
 class MonthView : public QWidget {
     Q_OBJECT
@@ -59,32 +64,20 @@ signals:
     /** @brief Clic sulla spunta di un COMPITO: inverte lo stato evaso/da fare. */
     void doneToggled(const events::Occurrence& occurrence);
 
-protected:
-    void paintEvent(QPaintEvent* event) override;
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseDoubleClickEvent(QMouseEvent* event) override;
-    bool event(QEvent* event) override;
-
 private:
-    /** @brief Numero di righe settimanali del mese corrente (5 o 6). */
-    int rows() const;
+    static constexpr int kRows = 6;
+    static constexpr int kCols = 7;
+
     /** @brief Lunedi' di partenza della griglia (anche fuori dal mese). */
     QDate gridStart() const;
-    /** @brief Rettangolo di una cella della griglia. */
-    QRect cellRect(int row, int day) const;
-    /** @brief Data della cella sotto il punto (solo griglia). */
-    std::optional<QDate> dateAt(const QPoint& pos) const;
-    /** @brief Indice dell'occorrenza il cui chip contiene il punto. */
-    int hitTest(const QPoint& pos) const;
-    /** @brief Calcola i rettangoli dei chip (stacking per giorno). */
-    void ensureRects();
+    void setSelectedChip(OccurrenceWidget* chip, const events::Occurrence& occurrence);
 
-    std::vector<events::Occurrence> m_occurrences;
-    std::vector<QRect> m_chipRects;   // chip corrente (parallelo a m_occurrences)
-    std::vector<QRect> m_checkRects;  // spunta di ogni chip
-    std::vector<int> m_extraCounts;   // occorrenze oltre i chip mostrati, per cella
+    QGridLayout* m_grid = nullptr;
+    MonthDayCell* m_cells[kRows * kCols] = {};
     QDate m_month;
-    int m_selected = -1;
+
+    OccurrenceWidget* m_selectedChip = nullptr;
+    std::optional<events::Occurrence> m_selectedOccurrence;
 };
 
 } // namespace app

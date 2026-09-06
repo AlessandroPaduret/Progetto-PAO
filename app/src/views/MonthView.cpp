@@ -1,72 +1,206 @@
 #include "views/MonthView.h"
 
-#include <QFontMetrics>
-#include <QHelpEvent>
+#include <QDate>
+#include <QFrame>
+#include <QGridLayout>
+#include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
-#include <QPainter>
-#include <QToolTip>
+#include <QVBoxLayout>
 
 #include <algorithm>
 
+#include "views/OccurrenceWidget.h"
 #include "views/ViewShared.h"
 
 namespace app {
 
 namespace {
-
-constexpr int kHeaderHeight = 24;        // riga dei nomi dei giorni
-constexpr int kDayNumberHeight = 20;     // spazio riservato al numero del giorno
-constexpr int kChipHeight = 16;          // altezza di un chip di attivita'
-constexpr int kMaxChipsPerDay = 3;       // chip mostrati prima del "+N"
-
-const QColor kGridColor("#dadce0");
-const QColor kTextColor("#202124");
-const QColor kFadedTextColor("#9aa0a6");
-const QColor kTodayColor("#1a73e8");
-
+constexpr int kMaxChipsPerDay = 3;
 } // namespace
 
+// ---------------------------------------------------------------------------
+// MonthDayCell: una cella della griglia mensile. Widget reale (QFrame) che
+// possiede il numero del giorno e fino a kMaxChipsPerDay chip (OccurrenceWidget,
+// lo stesso usato da WeekView) per le attivita' del giorno.
+// ---------------------------------------------------------------------------
+class MonthDayCell : public QFrame {
+    Q_OBJECT
+public:
+    explicit MonthDayCell(QWidget* parent = nullptr) : QFrame(parent) {
+        setAttribute(Qt::WA_StyledBackground, true);
+
+        m_dayLabel = new QLabel(this);
+
+        m_chipsBox = new QWidget(this);
+        m_chipsLayout = new QVBoxLayout(m_chipsBox);
+        m_chipsLayout->setContentsMargins(0, 0, 0, 0);
+        m_chipsLayout->setSpacing(2);
+
+        m_moreLabel = new QLabel(this);
+        m_moreLabel->setStyleSheet(
+            QStringLiteral("color: #9aa0a6; background: transparent; border: none;"));
+        QFont moreFont = m_moreLabel->font();
+        moreFont.setPointSize(8);
+        m_moreLabel->setFont(moreFont);
+        m_moreLabel->hide();
+
+        auto* layout = new QVBoxLayout(this);
+        layout->setContentsMargins(3, 2, 3, 2);
+        layout->setSpacing(2);
+        layout->addWidget(m_dayLabel);
+        layout->addWidget(m_chipsBox);
+        layout->addWidget(m_moreLabel);
+        layout->addStretch(1);
+    }
+
+    void setDate(const QDate& date, bool inMonth) {
+        m_date = date;
+        const bool isToday = date == QDate::currentDate();
+        m_dayLabel->setText(QString::number(date.day()));
+        QFont f = m_dayLabel->font();
+        f.setBold(isToday);
+        f.setPointSize(10);
+        m_dayLabel->setFont(f);
+        const QString color = isToday ? QStringLiteral("#1a73e8")
+                                      : (inMonth ? QStringLiteral("#202124")
+                                                 : QStringLiteral("#9aa0a6"));
+        m_dayLabel->setStyleSheet(
+            QStringLiteral("color: %1; background: transparent; border: none;").arg(color));
+        setStyleSheet(QStringLiteral("app--MonthDayCell { background: %1;"
+                                     " border: 1px solid #dadce0; }")
+                          .arg(inMonth ? QStringLiteral("white") : QStringLiteral("#f8f9fa")));
+        setToolTip(tr("Giorno del %1").arg(date.toString(QStringLiteral("dd/MM/yyyy"))));
+    }
+
+    void setOccurrences(const std::vector<events::Occurrence>& dayOccurrences) {
+        qDeleteAll(m_chips);
+        m_chips.clear();
+
+        std::vector<events::Occurrence> sorted = dayOccurrences;
+        std::sort(sorted.begin(), sorted.end(),
+                  [](const events::Occurrence& a, const events::Occurrence& b) {
+                      return a.start < b.start;
+                  });
+
+        const int shown = std::min<int>(kMaxChipsPerDay, static_cast<int>(sorted.size()));
+        for (int i = 0; i < shown; ++i) {
+            const events::Occurrence& occ = sorted[i];
+            auto* chip = new OccurrenceWidget(occ, OccurrenceWidget::Style::Chip,
+                                              isRecurrent(occ.source),
+                                              /*draggable=*/false, m_chipsBox);
+            connect(chip, &OccurrenceWidget::pressed, this,
+                    [this, chip](const events::Occurrence& o) { emit chipPressed(chip, o); });
+            connect(chip, &OccurrenceWidget::doneToggled, this, &MonthDayCell::doneToggled);
+            connect(chip, &OccurrenceWidget::infoRequested, this, &MonthDayCell::infoRequested);
+            connect(chip, &OccurrenceWidget::editRequested,
+                    this, &MonthDayCell::activityEditRequested);
+            connect(chip, &OccurrenceWidget::modifyInstanceRequested,
+                    this, &MonthDayCell::modifyEventRequested);
+            connect(chip, &OccurrenceWidget::deleteRequested,
+                    this, &MonthDayCell::deleteEventRequested);
+            connect(chip, &OccurrenceWidget::doubleClicked, this,
+                    [this](const events::Occurrence& o) {
+                        if (isRecurrent(o.source) && o.start > o.source->getStart()) {
+                            emit occurrenceEditChoiceRequested(o);
+                        } else {
+                            emit activityEditRequested(o);
+                        }
+                    });
+            m_chipsLayout->addWidget(chip);
+            m_chips.push_back(chip);
+        }
+        const int extra = static_cast<int>(sorted.size()) - shown;
+        if (extra > 0) {
+            m_moreLabel->setText(tr("+%1").arg(extra));
+            m_moreLabel->show();
+        } else {
+            m_moreLabel->hide();
+        }
+    }
+
+signals:
+    void emptySlotClicked(const QDateTime& start);
+    void activityEditRequested(const events::Occurrence& occurrence);
+    void occurrenceEditChoiceRequested(const events::Occurrence& occurrence);
+    void infoRequested(const events::Occurrence& occurrence);
+    void modifyEventRequested(const events::Occurrence& occurrence);
+    void deleteEventRequested(const events::Occurrence& occurrence);
+    void doneToggled(const events::Occurrence& occurrence);
+    void chipPressed(OccurrenceWidget* chip, const events::Occurrence& occurrence);
+
+protected:
+    void mouseDoubleClickEvent(QMouseEvent*) override {
+        emit emptySlotClicked(QDateTime(m_date, QTime(9, 0)));
+    }
+
+    void mousePressEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::RightButton) {
+            QMenu menu(this);
+            QAction* createAction = menu.addAction(tr("Nuova attivita'..."));
+            if (menu.exec(event->globalPosition().toPoint()) == createAction) {
+                emit emptySlotClicked(QDateTime(m_date, QTime(9, 0)));
+            }
+            return;
+        }
+        QFrame::mousePressEvent(event);
+    }
+
+private:
+    QDate m_date;
+    QLabel* m_dayLabel;
+    QWidget* m_chipsBox;
+    QVBoxLayout* m_chipsLayout;
+    QLabel* m_moreLabel;
+    std::vector<OccurrenceWidget*> m_chips;
+};
+
+// ---------------------------------------------------------------------------
+// MonthView
+// ---------------------------------------------------------------------------
 MonthView::MonthView(QWidget* parent) : QWidget(parent) {
-    setMouseTracking(true);
-    // Sotto le dimensioni base la griglia non scala: compaiono le scrollbar.
+    m_grid = new QGridLayout(this);
+    m_grid->setSpacing(0);
+    m_grid->setContentsMargins(0, 0, 0, 0);
+
+    for (int d = 0; d < kCols; ++d) {
+        auto* header = new QLabel(QString::fromLatin1(shortDayName(d + 1)), this);
+        header->setAlignment(Qt::AlignCenter);
+        header->setStyleSheet(QStringLiteral(
+            "font-weight: bold; color: #5f6368; background: #f8f9fa;"
+            " border-bottom: 1px solid #dadce0;"));
+        m_grid->addWidget(header, 0, d);
+        m_grid->setColumnStretch(d, 1);
+    }
+    for (int r = 0; r < kRows; ++r) {
+        m_grid->setRowStretch(r + 1, 1);
+        for (int c = 0; c < kCols; ++c) {
+            auto* cell = new MonthDayCell(this);
+            connect(cell, &MonthDayCell::emptySlotClicked, this, &MonthView::emptySlotClicked);
+            connect(cell, &MonthDayCell::activityEditRequested,
+                    this, &MonthView::activityEditRequested);
+            connect(cell, &MonthDayCell::occurrenceEditChoiceRequested,
+                    this, &MonthView::occurrenceEditChoiceRequested);
+            connect(cell, &MonthDayCell::infoRequested, this, &MonthView::infoRequested);
+            connect(cell, &MonthDayCell::modifyEventRequested,
+                    this, &MonthView::modifyEventRequested);
+            connect(cell, &MonthDayCell::deleteEventRequested,
+                    this, &MonthView::deleteEventRequested);
+            connect(cell, &MonthDayCell::doneToggled, this, &MonthView::doneToggled);
+            connect(cell, &MonthDayCell::chipPressed, this, &MonthView::setSelectedChip);
+            m_grid->addWidget(cell, r + 1, c);
+            m_cells[r * kCols + c] = cell;
+        }
+    }
     setMinimumSize(baseWidth(), baseHeight());
 }
 
 int MonthView::baseWidth() const {
-    return 7 * 100;
+    return kCols * 100;
 }
 
 int MonthView::baseHeight() const {
-    return kHeaderHeight + 6 * 110;
-}
-
-void MonthView::setOccurrences(const std::vector<events::Occurrence>& occurrences) {
-    m_occurrences = occurrences;
-    m_selected = -1;
-    m_chipRects.clear();
-    m_checkRects.clear();
-    update();
-}
-
-void MonthView::setMonth(const QDate& firstOfMonth) {
-    m_month = firstOfMonth;
-    m_selected = -1;
-    m_chipRects.clear();
-    m_checkRects.clear();
-    update();
-}
-
-const events::Occurrence* MonthView::selectedOccurrence() const {
-    if (m_selected < 0 || m_selected >= static_cast<int>(m_occurrences.size())) {
-        return nullptr;
-    }
-    return &m_occurrences[m_selected];
-}
-
-int MonthView::rows() const {
-    const QDate first(m_month.year(), m_month.month(), 1);
-    return (first.dayOfWeek() - 1 + first.daysInMonth() + 6) / 7;
+    return 20 + kRows * 90;
 }
 
 QDate MonthView::gridStart() const {
@@ -74,307 +208,45 @@ QDate MonthView::gridStart() const {
     return first.addDays(1 - first.dayOfWeek());
 }
 
-QRect MonthView::cellRect(int row, int day) const {
-    const int w = width() / 7;
-    const int h = (height() - kHeaderHeight) / rows();
-    return QRect(day * w, kHeaderHeight + row * h, w, h);
+void MonthView::setMonth(const QDate& firstOfMonth) {
+    m_month = firstOfMonth;
+    const QDate start = gridStart();
+    for (int i = 0; i < kRows * kCols; ++i) {
+        const QDate date = start.addDays(i);
+        m_cells[i]->setDate(date, date.month() == m_month.month() && date.year() == m_month.year());
+    }
 }
 
-std::optional<QDate> MonthView::dateAt(const QPoint& pos) const {
-    if (pos.y() < kHeaderHeight) {
-        return std::nullopt;
-    }
-    const int rCount = rows();
-    const int w = width() / 7;
-    const int h = (height() - kHeaderHeight) / rCount;
-    const int day = pos.x() / w;
-    const int row = (pos.y() - kHeaderHeight) / h;
-    if (day < 0 || day > 6 || row < 0 || row >= rCount) {
-        return std::nullopt;
-    }
-    return gridStart().addDays(row * 7 + day);
-}
-
-int MonthView::hitTest(const QPoint& pos) const {
-    const_cast<MonthView*>(this)->ensureRects();
-    for (int i = 0; i < static_cast<int>(m_chipRects.size()); ++i) {
-        if (m_chipRects[i].contains(pos)) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void MonthView::ensureRects() {
-    if (m_occurrences.empty()) {
-        m_chipRects.clear();
-        m_checkRects.clear();
-        m_extraCounts.assign(42, 0);
-        return;
-    }
-    m_chipRects.assign(m_occurrences.size(), QRect());
-    m_checkRects.assign(m_occurrences.size(), QRect());
-    m_extraCounts.assign(42, 0);
+void MonthView::setOccurrences(const std::vector<events::Occurrence>& occurrences) {
+    m_selectedChip = nullptr;
+    m_selectedOccurrence.reset();
 
     const QDate start = gridStart();
-    const int rCount = rows();
-    for (int r = 0; r < rCount; ++r) {
-        for (int d = 0; d < 7; ++d) {
-            const QDate date = start.addDays(r * 7 + d);
-
-            // Indici delle occorrenze del giorno (ordinate per inizio)
-            std::vector<int> dayIndex;
-            for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-                if (localTime(m_occurrences[i].start).date() == date) {
-                    dayIndex.push_back(i);
-                }
+    for (int i = 0; i < kRows * kCols; ++i) {
+        const QDate date = start.addDays(i);
+        std::vector<events::Occurrence> dayOccurrences;
+        for (const events::Occurrence& occ : occurrences) {
+            if (localTime(occ.start).date() == date) {
+                dayOccurrences.push_back(occ);
             }
-            if (dayIndex.empty()) {
-                continue;
-            }
-            std::sort(dayIndex.begin(), dayIndex.end(),
-                      [this](int a, int b) {
-                          return m_occurrences[a].start < m_occurrences[b].start;
-                      });
-
-            // Chip impilati sotto il numero del giorno
-            const QRect cell = cellRect(r, d);
-            int y = cell.top() + kDayNumberHeight + 2;
-            int shown = 0;
-            for (const int i : dayIndex) {
-                if (shown >= kMaxChipsPerDay) {
-                    break;
-                }
-                m_chipRects[i] =
-                    QRect(cell.left() + 2, y, cell.width() - 4, kChipHeight);
-                // Spunta in basso a destra del chip (solo per i Compiti)
-                if (isTask(m_occurrences[i].source)) {
-                    m_checkRects[i] = QRect(m_chipRects[i].right() - 13,
-                                            m_chipRects[i].bottom() - 12, 11, 11);
-                }
-                y += kChipHeight + 2;
-                ++shown;
-            }
-            m_extraCounts[r * 7 + d] =
-                static_cast<int>(dayIndex.size()) - shown;
         }
+        m_cells[i]->setOccurrences(dayOccurrences);
     }
 }
 
-void MonthView::paintEvent(QPaintEvent*) {
-    ensureRects();
-    QPainter painter(this);
-    painter.fillRect(rect(), Qt::white);
-
-    const int rCount = rows();
-
-    // --- Intestazione: nomi dei giorni ---
-    QFont headerFont = painter.font();
-    headerFont.setBold(true);
-    headerFont.setPointSize(10);
-    painter.setFont(headerFont);
-    painter.setPen(QColor("#5f6368"));
-    for (int d = 0; d < 7; ++d) {
-        const QRect header(d * (width() / 7), 0, width() / 7, kHeaderHeight);
-        painter.drawText(header, Qt::AlignCenter,
-                         QString::fromLatin1(shortDayName(d + 1)));
+void MonthView::setSelectedChip(OccurrenceWidget* chip, const events::Occurrence& occurrence) {
+    if (m_selectedChip) {
+        m_selectedChip->setSelected(false);
     }
-
-    // --- Celle: sfondo, numero del giorno ---
-    const QDate start = gridStart();
-    QFont dayFont = painter.font();
-    for (int r = 0; r < rCount; ++r) {
-        for (int d = 0; d < 7; ++d) {
-            const QDate date = start.addDays(r * 7 + d);
-            const QRect cell = cellRect(r, d);
-            const bool inMonth = date.year() == m_month.year() &&
-                                 date.month() == m_month.month();
-            const bool isToday = date == QDate::currentDate();
-
-            painter.fillRect(cell, inMonth ? Qt::white : QColor("#f8f9fa"));
-            dayFont.setBold(isToday);
-            dayFont.setPointSize(10);
-            painter.setFont(dayFont);
-            painter.setPen(isToday ? kTodayColor
-                                   : (inMonth ? kTextColor : kFadedTextColor));
-            painter.drawText(cell.adjusted(4, 2, -4, -2),
-                             Qt::AlignTop | Qt::AlignLeft,
-                             QString::number(date.day()));
-        }
-    }
-
-    // --- Linee della griglia ---
-    painter.setPen(kGridColor);
-    for (int r = 0; r <= rCount; ++r) {
-        const int y = kHeaderHeight +
-                      r * (height() - kHeaderHeight) / rCount;
-        painter.drawLine(0, y, width(), y);
-    }
-    for (int d = 0; d <= 7; ++d) {
-        const int x = d * (width() / 7);
-        painter.drawLine(x, kHeaderHeight, x, height());
-    }
-
-    // --- Chip delle attivita' ---
-    QFont chipFont = painter.font();
-    chipFont.setPointSize(8);
-    const QFontMetrics metrics(chipFont);
-    for (int i = 0; i < static_cast<int>(m_occurrences.size()); ++i) {
-        const QRect rect = m_chipRects[i];
-        if (!rect.isValid()) {
-            continue;
-        }
-        const events::Occurrence& occ = m_occurrences[i];
-        const QColor color = activityColor(occ.source);
-        const bool done = isTaskDone(occ.source);
-        const bool hasCheck = m_checkRects[i].isValid();
-
-        QColor fill = done ? QColor("#bdc1c6") : color;
-        painter.setPen(i == m_selected ? QPen(kTodayColor, 2) : Qt::NoPen);
-        painter.setBrush(fill);
-        painter.drawRoundedRect(rect, 3, 3);
-
-        // Spunta (checkbox) in alto a sinistra (solo per i Compiti)
-        if (hasCheck) {
-            const QRect check = m_checkRects[i];
-            painter.setPen(QColor("#3c4043"));
-            painter.setBrush(done ? QColor("#1a73e8") : Qt::white);
-            painter.drawRect(check);
-            if (done) {
-                painter.setPen(Qt::white);
-                painter.drawText(check, Qt::AlignCenter, QStringLiteral("\u2713"));
-            }
-        }
-
-        painter.setFont(chipFont);
-        painter.setPen(Qt::white);
-        const QString title = metrics.elidedText(
-            QString::fromStdString(occ.source->getTitle()),
-            Qt::ElideRight, rect.width() - 20);
-        painter.drawText(rect.adjusted(3, 0, -16, 0),
-                         Qt::AlignLeft | Qt::AlignVCenter, title);
-    }
-
-    // --- "+N altri" per i giorni con piu' attivita' di quelle mostrate ---
-    painter.setFont(chipFont);
-    painter.setPen(kFadedTextColor);
-    for (int r = 0; r < rCount; ++r) {
-        for (int d = 0; d < 7; ++d) {
-            const int extra = m_extraCounts[r * 7 + d];
-            if (extra <= 0) {
-                continue;
-            }
-            const QRect cell = cellRect(r, d);
-            const QRect countRect(cell.left() + 2,
-                                  cell.top() + kDayNumberHeight + 2 +
-                                      kMaxChipsPerDay * (kChipHeight + 2),
-                                  cell.width() - 4, kChipHeight);
-            painter.drawText(countRect, Qt::AlignLeft | Qt::AlignVCenter,
-                             QStringLiteral("+%1").arg(extra));
-        }
-    }
+    m_selectedChip = chip;
+    m_selectedOccurrence = occurrence;
+    chip->setSelected(true);
 }
 
-void MonthView::mousePressEvent(QMouseEvent* event) {
-    const int index = hitTest(event->pos());
-
-    if (event->button() == Qt::RightButton) {
-        QMenu menu(this);
-        if (index >= 0) {
-            m_selected = index;
-            update();
-            QAction* infoAction = menu.addAction(tr("Info"));
-            QAction* modifyAction = menu.addAction(tr("Modifica"));
-            const bool recurrent = isRecurrent(m_occurrences[index].source);
-            QAction* modifyInstanceAction =
-                recurrent ? menu.addAction(tr("Modifica istanza")) : nullptr;
-            QAction* deleteAction = menu.addAction(tr("Elimina"));
-            QAction* chosen = menu.exec(event->globalPosition().toPoint());
-            if (chosen == infoAction) {
-                emit infoRequested(m_occurrences[index]);
-            } else if (chosen == modifyAction) {
-                emit activityEditRequested(m_occurrences[index]);
-            } else if (chosen == modifyInstanceAction) {
-                emit modifyEventRequested(m_occurrences[index]);
-            } else if (chosen == deleteAction) {
-                emit deleteEventRequested(m_occurrences[index]);
-            }
-        } else {
-            QAction* createAction = menu.addAction(tr("Nuova attivita'..."));
-            if (menu.exec(event->globalPosition().toPoint()) == createAction) {
-                if (std::optional<QDate> date = dateAt(event->pos())) {
-                    emit emptySlotClicked(QDateTime(*date, QTime(9, 0)));
-                }
-            }
-        }
-        return;
-    }
-
-    if (event->button() == Qt::LeftButton) {
-        // Clic sulla spunta del chip: inverte lo stato evaso/da fare
-        if (index >= 0 && index < static_cast<int>(m_checkRects.size()) &&
-            m_checkRects[index].contains(event->pos())) {
-            emit doneToggled(m_occurrences[index]);
-            return;
-        }
-        m_selected = index;
-        update();
-    }
-}
-
-void MonthView::mouseDoubleClickEvent(QMouseEvent* event) {
-    const int index = hitTest(event->pos());
-    if (index >= 0) {
-        m_selected = index;
-        update();
-        const events::Occurrence& occurrence = m_occurrences[index];
-        if (isRecurrent(occurrence.source)) {
-            if (occurrence.start > occurrence.source->getStart()) {
-                emit occurrenceEditChoiceRequested(occurrence);
-                return;
-            }
-        }
-        emit activityEditRequested(occurrence);
-        return;
-    }
-    if (std::optional<QDate> date = dateAt(event->pos())) {
-        emit emptySlotClicked(QDateTime(*date, QTime(9, 0)));
-    }
-}
-
-bool MonthView::event(QEvent* event) {
-    if (event->type() == QEvent::ToolTip) {
-        auto* help = static_cast<QHelpEvent*>(event);
-        const int index = hitTest(help->pos());
-        if (index >= 0) {
-            const events::Occurrence& occurrence = m_occurrences[index];
-            // Per gli eventi "tutto il giorno" mostra l'ora 00:00 (salvati a
-            // mezzanotte UTC), non quella locale spostata dall'offset.
-            const QDateTime start = activityDisplayTime(
-                occurrence.source, occurrence.start);
-            const QDateTime end = activityDisplayTime(
-                occurrence.source, occurrence.end());
-            QToolTip::showText(help->globalPos(),
-                               QStringLiteral("%1\n%2 \u2013 %3")
-                                   .arg(QString::fromStdString(
-                                            occurrence.source->getTitle()),
-                                        start.toString(
-                                            QStringLiteral("dd/MM/yyyy HH:mm")),
-                                        end.toString(
-                                            QStringLiteral("HH:mm"))),
-                               this);
-        } else if (std::optional<QDate> date = dateAt(help->pos())) {
-            QToolTip::showText(help->globalPos(),
-                               QStringLiteral("Giorno del %1")
-                                   .arg(date->toString(
-                                       QStringLiteral("dd/MM/yyyy"))),
-                               this);
-        } else {
-            QToolTip::hideText();
-        }
-        return true;
-    }
-    return QWidget::event(event);
+const events::Occurrence* MonthView::selectedOccurrence() const {
+    return m_selectedOccurrence ? &(*m_selectedOccurrence) : nullptr;
 }
 
 } // namespace app
+
+#include "MonthView.moc"

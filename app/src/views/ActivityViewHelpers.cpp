@@ -73,12 +73,6 @@ public:
   void visit(const events::SingleGenerator&) override {
     rule = QObject::tr("una volta");
   }
-
-  void visit(const events::MaxOccurrencesDecorator& generator) override {
-    // Il limite di occorrenze non cambia la regola: si delega al generatore
-    // avvolto.
-    generator.getWrappedGenerator().accept(*this);
-  }
 };
 
 // --- Visitor: riga descrittiva sintetica per tipo ----------------------------

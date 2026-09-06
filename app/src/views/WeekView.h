@@ -10,28 +10,34 @@
 
 #include "events/events.h"
 
+class QRubberBand;
+class QLabel;
+
 namespace app {
+
+class OccurrenceWidget;
 
 /** @brief Griglia settimanale stile Google Calendar.
  *
  *  Intestazione con giorni della settimana e numeri, ore sul bordo sinistro,
- *  attivita' disegnate come blocchi colorati (posizione = ora di inizio,
- *  altezza = durata; durata zero = chip di altezza minima).
+ *  attivita' rappresentate da widget Qt reali (`OccurrenceWidget`, non
+ *  rettangoli disegnati a mano): posizione = ora di inizio, altezza =
+ *  durata; durata zero = chip di altezza minima. Il tooltip al passaggio del
+ *  mouse, il menu contestuale (tasto destro) e la spunta dei Compiti sono
+ *  quelli nativi del widget di ciascuna occorrenza.
  *
  *  In alto, sotto i giorni, c'e' una STRISCIA dedicata alle attivita'
  *  "tutto il giorno" (chip che coprono una o piu' date).
- *
- *  Solo i COMPITI hanno una spunta (checkbox) in alto a sinistra: un clic
- *  sulla spunta emette `doneToggled` (lo stato "evaso" esiste solo per i
- *  Compiti); i compiti evasi vengono mostrati attenuati con la spunta barrata.
  *
  *  Le occorrenze che si sovrappongono temporalmente nello stesso giorno
  *  vengono AFFIANCATE in colonne (come in Google Calendar), cosi' possono
  *  coesistere nella stessa casella.
  *
  *  Trascinamento: tenendo premuto il tasto sinistro su un'occorrenza e
- *  spostando il mouse, l'occorrenza diventa trascinabile; al rilascio su
- *  una nuova cella viene emesso `activityMoved` con la nuova data/ora.
+ *  spostando il mouse oltre la soglia di sistema (QApplication::
+ *  startDragDistance) parte un drag&drop nativo Qt (QDrag/QMimeData); al
+ *  rilascio su una nuova cella viene emesso `activityMoved` con la nuova
+ *  data/ora.
  *
  *  La griglia si adatta al ridimensionamento: sotto le dimensioni base mostra
  *  le scrollbar (dimensione minima), sopra scala giorno/ora (e font) per
@@ -47,7 +53,6 @@ public:
     static constexpr int kHourHeight = 60;    // pixel base per ora
     static constexpr int kDaysPerWeek = 7;
     static constexpr int kMinOccurrenceHeight = 18;  // chip per durata zero
-    static constexpr int kDragThresholdPx = 8;       // soglia per avviare il drag
 
     /** @brief Anteprima di un evento in fase di creazione/modifica. */
     struct Preview {
@@ -109,11 +114,13 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
-    bool event(QEvent* event) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dragLeaveEvent(QDragLeaveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
 
 private:
     /** @brief Inizio verticale della griglia oraria (sotto la striscia all-day). */
@@ -121,35 +128,32 @@ private:
     int dayWidth() const;   // larghezza corrente di una colonna giorno
     int hourHeight() const; // altezza corrente di un'ora
 
-    // Layout a colonne: rect di ogni occorrenza (eventi sovrapposti affiancati)
-    void ensureRects();
-    QTime localTimeOf(const events::Occurrence& occurrence) const;
-    int minuteOf(const QTime& time) const;
+    /** @brief Ricrea i widget delle occorrenze (uno per occorrenza). */
+    void rebuildWidgets();
+    /** @brief Ricalcola e applica la geometria di ogni OccurrenceWidget
+     *  (striscia "tutto il giorno" impilata + colonne nella griglia oraria). */
+    void relayout();
 
-    /** @brief Riga di una cella (giorno/ora) dalle coordinate locali. */
+    /** @brief Cella (giorno/ora) dalle coordinate locali, o nullopt se fuori
+     *  dalla griglia oraria (bordo/intestazione/striscia all-day). */
     std::optional<QDateTime> cellAt(const QPoint& pos) const;
 
-    /** @brief Rettangolo di un'occorrenza "gettonata" (drag) in una data/ora. */
-    QRect dragGhostRect(const QDateTime& localStart,
-                        const events::Duration duration) const;
+    /** @brief Rettangolo occupato da un'occorrenza ipotetica che iniziasse a
+     *  `localStart` con la durata indicata (per l'anteprima live). */
+    QRect slotRect(const QDateTime& localStart, const events::Duration duration) const;
 
-    int hitTest(const QPoint& pos) const;
+    void setSelected(int index);
 
     std::vector<events::Occurrence> m_occurrences;
-    std::vector<QRect> m_rects;           // layout corrente (parallelo a m_occurrences)
-    std::vector<QRect> m_checkRects;      // spunta di ogni occorrenza
-    int m_allDayHeight = kAllDayHeight;   // altezza corrente striscia "tutto il giorno"
+    std::vector<OccurrenceWidget*> m_widgets;  // parallelo a m_occurrences
+    int m_allDayHeight = kAllDayHeight;        // altezza corrente striscia "tutto il giorno"
     QDate m_monday;
     int m_dayCount = kDaysPerWeek;
     int m_selected = -1;
-    std::optional<Preview> m_preview;     // anteprima evento in modifica
+    std::optional<Preview> m_preview;          // anteprima evento in modifica
+    QLabel* m_previewLabel = nullptr;          // widget dell'anteprima (nascosto se assente)
 
-    // Stato del drag&drop
-    bool m_dragActive = false;
-    bool m_dragMoved = false;
-    int m_dragIndex = -1;
-    QPoint m_dragPressPos;
-    std::optional<QDateTime> m_dropCell;
+    QRubberBand* m_dropIndicator = nullptr;    // evidenzia la cella di destinazione durante il drag
 };
 
 } // namespace app

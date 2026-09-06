@@ -19,7 +19,7 @@
 #include <QVBoxLayout>
 
 #include "CalendarController.h"
-#include "events/builders/ActivityBuilder.h"
+#include "events/builders/ActivityConfig.h"
 #include "views/ActivityDetailDialog.h"
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
@@ -609,12 +609,11 @@ void MainWindow::onChoiceInstance() {
         // "Sposta solo questo evento": l'occorrenza esce dalla serie
         // (eccezione interna: buco in origine) e diventa un evento standard
         // alla data/ora di destinazione del trascinamento.
-        auto replacement = events::ActivityBuilder(
-                occurrence.source->getTitle(),
-                events::TimePoint(std::chrono::seconds(
-                    m_pendingDragTarget.toSecsSinceEpoch())))
-                .withDuration(occurrence.duration)
-                .build();
+        auto replacement = events::makeActivity(events::ActivityConfig{
+            .title = occurrence.source->getTitle(),
+            .start = events::TimePoint(std::chrono::seconds(
+                m_pendingDragTarget.toSecsSinceEpoch())),
+            .duration = occurrence.duration});
         m_controller->modifyOccurrence(occurrence, std::move(replacement));
         return;
     }

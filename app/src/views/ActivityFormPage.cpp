@@ -25,12 +25,10 @@
 #include <algorithm>
 
 #include "CalendarController.h"
-#include "events/builders/ActivityBuilder.h"
-#include "events/builders/GeneratorBuilder.h"
+#include "events/builders/ActivityConfig.h"
 #include "events/domain/Meeting.h"
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MaxOccurrencesDecorator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
 #include "views/ViewShared.h"
@@ -604,19 +602,14 @@ void ActivityFormPage::populateEventLike(const events::Activity& activity) {
   }
   const int startDow = m_startDateE->date().dayOfWeek();
 
-  // Legge la regola dal generatore (il limite di occorrenze vive nel
-  // MaxOccurrencesDecorator, che avvolge il generatore concreto).
-  std::size_t maxOcc = 0;
-  events::TimePoint end = events::TimePoint::max();
+  // La fine della serie vive sull'Activity (i generatori sono stateless e
+  // non hanno piu' un proprio "end"). Il limite "dopo N occorrenze" non e'
+  // rappresentabile nel modello attuale (rimosso col MaxOccurrencesDecorator):
+  // in modifica una serie limitata si vede sempre come "Fino al" [end].
+  const events::TimePoint end = activity.getEnd();
   const events::DateGenerator* gen = &activity.getGenerator();
-  if (const auto* decorator =
-          dynamic_cast<const events::MaxOccurrencesDecorator*>(gen)) {
-    maxOcc = decorator->getMaxOccurrences();
-    gen = &decorator->getWrappedGenerator();
-  }
   if (const auto* fixed =
           dynamic_cast<const events::FixedIntervalGenerator*>(gen)) {
-    end = fixed->getEnd();
     const qint64 intervalDays = fixed->getInterval().count() / 86400;
     if (intervalDays % 7 == 0) {
       m_unitCombo->setCurrentIndex(kUnitWeeks);
@@ -628,21 +621,15 @@ void ActivityFormPage::populateEventLike(const events::Activity& activity) {
     }
   } else if (const auto* monthly =
                  dynamic_cast<const events::MonthlyGenerator*>(gen)) {
-    end = monthly->getEnd();
     m_unitCombo->setCurrentIndex(kUnitMonths);
     m_everySpin->setValue(monthly->getMonths());
-  } else if (const auto* yearly =
-                 dynamic_cast<const events::YearlyGenerator*>(gen)) {
-    end = yearly->getEnd();
+  } else if (dynamic_cast<const events::YearlyGenerator*>(gen)) {
     m_unitCombo->setCurrentIndex(kUnitYears);
     m_everySpin->setValue(1);
   }
   onUnitChanged(m_unitCombo->currentIndex());
 
-  if (maxOcc > 0) {
-    m_endCountRadio->setChecked(true);
-    m_countSpin->setValue(static_cast<int>(maxOcc));
-  } else if (end != events::TimePoint::max()) {
+  if (end != events::TimePoint::max()) {
     m_endDateRadio->setChecked(true);
     m_endDate->setDate(toLocal(end).date());
   } else {
@@ -741,52 +728,68 @@ ActivityFormPage::buildEventActivities() const {
   if (allDay && !m_repeatCheck->isChecked()) {
     // Evento che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno
     // dopo): la striscia in alto lo riconosce perche' copre un giorno intero.
-    auto allday = events::ActivityBuilder(title.toStdString(), start)
-            .withDuration(std::chrono::seconds(86400))
-            .build();
-    result.push_back(std::move(allday));
+    result.push_back(events::makeActivity(events::ActivityConfig{
+        .title = title.toStdString(),
+        .start = start,
+        .duration = std::chrono::seconds(86400)}));
     return result;
   }
 
   // Niente ripetizione -> un semplice Event
   if (!m_repeatCheck->isChecked()) {
-    auto event = events::ActivityBuilder(title.toStdString(), start)
-            .withDuration(duration)
-            .build();
-    result.push_back(std::move(event));
+    result.push_back(events::makeActivity(events::ActivityConfig{
+        .title = title.toStdString(), .start = start, .duration = duration}));
     return result;
   }
 
-  // Fine della ricorrenza
+  // Fine della ricorrenza scelta dall'utente ("Mai" -> resta max())
   events::TimePoint end = events::TimePoint::max();
-  std::size_t maxOcc = 0;
   if (m_endDateRadio->isChecked()) {
     end = toTimePoint(QDateTime(m_endDate->date().addDays(1), QTime(0, 0)).addSecs(-1));
   }
-  if (m_endCountRadio->isChecked()) {
-    maxOcc = static_cast<std::size_t>(m_countSpin->value());
-  }
+  const int countLimit = m_endCountRadio->isChecked() ? m_countSpin->value() : 0;
 
-  auto pushRecurrent = [&](std::unique_ptr<events::DateGenerator> generator) {
-    result.push_back(std::make_unique<events::Activity>(
-        title.toStdString(), duration, std::move(generator)));
+  // Il modello non ha piu' un limite di conteggio nel generatore (rimosso
+  // col MaxOccurrencesDecorator): "dopo N occorrenze" si traduce qui in un
+  // `end` pari alla data dell'N-esima occorrenza, calcolata avanzando il
+  // generatore stesso (align + next), cosi' il clamping di calendario
+  // (fine mese, anni bisestili, ...) resta corretto.
+  auto endAfterCount = [](const events::DateGenerator& generator,
+                          events::TimePoint seriesStart, int count) {
+    events::TimePoint current = generator.align(seriesStart, seriesStart);
+    for (int i = 1; i < count && current != events::TimePoint::max(); ++i) {
+      current = generator.next(current);
+    }
+    return current;
+  };
+
+  auto pushRecurrent = [&](std::shared_ptr<const events::DateGenerator> generator,
+                           events::TimePoint seriesStart,
+                           events::TimePoint seriesEnd) {
+    if (countLimit > 0) {
+      seriesEnd = endAfterCount(*generator, seriesStart, countLimit);
+    }
+    result.push_back(events::makeActivity(events::ActivityConfig{
+        .title = title.toStdString(),
+        .start = seriesStart,
+        .duration = duration,
+        .end = seriesEnd,
+        .generator = std::move(generator)}));
   };
 
   const int unit = m_unitCombo->currentIndex();
   const int every = m_everySpin->value();
   if (unit == kUnitDays) {
-    auto gen = events::GeneratorBuilder::from(start)
-                   .repeatEvery(events::Days(every))
-                   .until(end)
-                   .limitTo(maxOcc)
-                   .build();
-    pushRecurrent(std::move(gen));
+    pushRecurrent(std::make_shared<events::FixedIntervalGenerator>(
+                      events::Duration(events::Days(every))),
+                  start, end);
   } else if (unit == kUnitWeeks) {
     // Una o piu' serie ricorrenti, una per giorno della settimana scelto.
     // Il limite "dopo N occorrenze" vale sul CALENDARIO COMBINATO, non per
     // singola serie: es. lun+mar+mer con N=5 -> sett1 lun/mar/mer + sett2
     // lun/mar = 5 eventi totali. La fine e' quindi la data della N-esima
-    // occorrenza complessiva.
+    // occorrenza complessiva (non e' rappresentabile avanzando un solo
+    // generatore, quindi si calcola con l'aritmetica sui giorni scelti).
     const int baseDow = m_startDateE->date().dayOfWeek();
     const QDate startDate = m_startDateE->date();
     const QTime time = allDay ? QTime(0, 0) : m_startTimeE->time();
@@ -804,9 +807,8 @@ ActivityFormPage::buildEventActivities() const {
 
     // Fine: fino-a (data) / dopo-N (data della N-esima occorrenza combinata)
     events::TimePoint effectiveEnd = end;
-    std::size_t effectiveMax = maxOcc;
-    if (m_endCountRadio->isChecked()) {
-      const int n = m_countSpin->value();
+    if (countLimit > 0) {
+      const int n = countLimit;
       QList<int> offsets;
       for (int dow : selected) {
         offsets.append((dow - baseDow + 7) % 7);
@@ -818,7 +820,6 @@ ActivityFormPage::buildEventActivities() const {
           startDate.addDays(offsets[idx] + period * every * 7);
       effectiveEnd = toTimePoint(
           QDateTime(nthDate.addDays(1), QTime(0, 0)).addSecs(-1));
-      effectiveMax = 0;  // il limite e' gia' nella fine combinata
     }
 
     for (int dow : selected) {
@@ -829,27 +830,18 @@ ActivityFormPage::buildEventActivities() const {
           allDay ? toTimePoint(QDateTime(startDate.addDays(offset), QTime(0, 0),
                                          QTimeZone(0)))
                  : toTimePoint(QDateTime(startDate.addDays(offset), time));
-      auto gen = events::GeneratorBuilder::from(anchor)
-                     .repeatEvery(events::Days(7 * every))
-                     .until(effectiveEnd)
-                     .limitTo(effectiveMax)
-                     .build();
-      pushRecurrent(std::move(gen));
+      result.push_back(events::makeActivity(events::ActivityConfig{
+          .title = title.toStdString(),
+          .start = anchor,
+          .duration = duration,
+          .end = effectiveEnd,
+          .generator = std::make_shared<events::FixedIntervalGenerator>(
+              events::Duration(events::Days(7 * every)))}));
     }
   } else if (unit == kUnitMonths) {
-    auto gen = events::GeneratorBuilder::from(start)
-                   .repeatMonthly(every)
-                   .until(end)
-                   .limitTo(maxOcc)
-                   .build();
-    pushRecurrent(std::move(gen));
-  } else {  // anno
-    auto gen = events::GeneratorBuilder::from(start)
-                   .repeatYearly()
-                   .until(end)
-                   .limitTo(maxOcc)
-                   .build();
-    pushRecurrent(std::move(gen));
+    pushRecurrent(std::make_shared<events::MonthlyGenerator>(every), start, end);
+  } else {  // anno ("ogni N" e' disabilitato in UI per questa unita': passo 1)
+    pushRecurrent(std::make_shared<events::YearlyGenerator>(1), start, end);
   }
   return result;
 }
@@ -865,14 +857,13 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   case kMeetingPanel: {
     const events::Duration duration = std::chrono::seconds(
         m_durationMt->time().msecsSinceStartOfDay() / 1000);
-    auto meeting = events::MeetingBuilder(title.toStdString(),
-                                          toTimePoint(m_startMt->dateTime()))
-                       .withDuration(duration)
-                       .withLocation(m_locationMt->text().trimmed().toStdString())
-                       .build();
-    auto* meetingTyped = dynamic_cast<events::Meeting*>(meeting.get());
+    auto meeting = events::makeMeeting(events::MeetingConfig(
+        events::ActivityConfig{.title = title.toStdString(),
+                               .start = toTimePoint(m_startMt->dateTime()),
+                               .duration = duration},
+        m_locationMt->text().trimmed().toStdString()));
     for (int i = 0; i < m_attendeesList->count(); ++i) {
-      meetingTyped->addAttendee(m_attendeesList->item(i)->text().toStdString());
+      meeting->addAttendee(m_attendeesList->item(i)->text().toStdString());
     }
     return meeting;
   }
@@ -889,11 +880,12 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
     default:
       break;
     }
-    auto task = events::TaskBuilder(title.toStdString(), toTimePoint(m_dueT->dateTime()))
-                 .withPriority(priority)
-                 .build();
+    auto task = events::makeTask(events::TaskConfig(
+        events::ActivityConfig{.title = title.toStdString(),
+                               .start = toTimePoint(m_dueT->dateTime())},
+        priority));
     if (m_doneCheck->isEnabled()) {
-      dynamic_cast<events::Task*>(task.get())->setDone(m_doneCheck->isChecked());
+      task->setDone(m_doneCheck->isChecked());
     }
     return task;
   }
@@ -901,12 +893,11 @@ std::unique_ptr<events::Activity> ActivityFormPage::buildActivity() const {
   case kAnniversaryPanel: {
     const events::TimePoint date =
         toTimePoint(QDateTime(m_dateAn->date(), QTime(0, 0)));
-    return 
-        events::ActivityBuilder(title.toStdString(), date)
-            .withDuration(std::chrono::hours(24) - std::chrono::seconds(1))
-            .addGenerator(
-                events::GeneratorBuilder::from(date).repeatYearly().build())
-            .build();
+    return events::makeActivity(events::ActivityConfig{
+        .title = title.toStdString(),
+        .start = date,
+        .duration = std::chrono::hours(24) - std::chrono::seconds(1),
+        .generator = std::make_shared<events::YearlyGenerator>(1)});
   }
 
   default:
