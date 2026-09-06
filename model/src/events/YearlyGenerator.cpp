@@ -1,130 +1,90 @@
-
-#include <algorithm>
-#include <vector>
-#include <chrono>
-#include <sstream>
-
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGeneratorVisitor.h"
 #include "events/generators/YearlyGenerator.h"
-
-using namespace std::chrono;
+#include <chrono>
+#include <algorithm>
 
 namespace events {
 
-
-///Implementazione di DateGenerator - Ciclo di Vita
-
-YearlyGenerator::YearlyGenerator(TimePoint start, TimePoint end)
-    : m_start(start), m_end(end) {}
-
-std::unique_ptr<DateGenerator> YearlyGenerator::clone() const {
-  return std::make_unique<YearlyGenerator>(m_start, m_end);
-}
-
-
-/// Query dello Stato e Accessor Specifici
-
-TimePoint YearlyGenerator::getStart() const { return m_start; }
-
-TimePoint YearlyGenerator::getEnd() const { return m_end; }
-
-void YearlyGenerator::setStart(TimePoint start) {
-  if (start > m_end) {
-    m_end = start;  // la fine non resta antecedente al nuovo inizio
-  }
-  m_start = start;
-}
-
-void YearlyGenerator::setEnd(TimePoint end) { m_end = end; }
-
-Duration YearlyGenerator::getInterval() const { 
-    return duration_cast<Duration>(days{365}); 
-}
-
-
-/// Algoritmi di Generazione e Verifica Date
-
-std::vector<TimePoint> YearlyGenerator::generateDates(TimePoint from, TimePoint to) const {
-    std::vector<TimePoint> dates;
-
-    // 1. Estraiamo il "giorno del compleanno" (Mese e Giorno)
-    // Convertiamo il TimePoint m_start in year_month_day
-    auto start_ds = floor<days>(m_start);
-    year_month_day original = year_month_day{start_ds};
-    auto month = original.month();
-    auto day = original.day();
-
-    // 2. Determiniamo il range di anni da controllare
-    year start_year = year_month_day{floor<days>(from)}.year();
-    year end_year = year_month_day{floor<days>(to)}.year();
-
-    // 3. Iteriamo solo sugli anni del range
-    for (year y = start_year; y <= end_year; ++y) {
-
-        // Creiamo il candidato per l'anno corrente
-        year_month_day candidate = y / month / day;
-
-        // Gestione Bisestili: se il 29 Febbraio non esiste in questo anno, 
-        // la convenzione standard è spostarlo al 28 Febbraio (o 1 Marzo)
-        if (!candidate.ok()) {
-            candidate = y / month / 28;
-        }
-
-        // Convertiamo il candidato in TimePoint (a mezzanotte)
-        // Manteniamo però l'offset orario originale di m_start se presente
-        auto candidate_tp = time_point_cast<Duration>(sys_days{candidate}) + (m_start - start_ds);
-
-        // Verifichiamo che sia nel range richiesto [from, to] 
-        // e che non superi la fine del generatore m_end
-        if (candidate_tp >= from && candidate_tp <= to && candidate_tp <= m_end && candidate_tp >= m_start) {
-            dates.push_back(candidate_tp);
+YearlyGenerator::YearlyGenerator(int years)
+    : m_years(years) {
+        if (years < 1) {
+            throw std::invalid_argument("Il numero di anni deve essere positivo");
         }
     }
 
-    return dates;
-}
+TimePoint YearlyGenerator::next(TimePoint point) const {
+    namespace sys = std::chrono;
 
-bool YearlyGenerator::isIn(TimePoint tp) const {
-  if (tp < m_start || tp > m_end) {
-    return false;
-  }
+    // 1. Isoliamo la componente giorno/mese/anno e l'orario del giorno
+    auto sysDays = sys::floor<sys::days>(point);
+    sys::year_month_day ymd{sysDays};
+    auto timeOfDay = point - sysDays;
 
-  auto start_ds = floor<days>(m_start);
-  year_month_day original = year_month_day{start_ds};
-  auto month = original.month();
-  auto day = original.day();
+    // 2. Avanziamo di m_years anni
+    auto targetYear = ymd.year() + sys::years(m_years);
+    sys::year_month_day nextYmd = targetYear / ymd.month() / ymd.day();
 
-  auto tp_ds = floor<days>(tp);
-  // l'ora del giorno deve corrispondere a quella di m_start
-  if (tp_ds + (m_start - start_ds) != tp) {
-    return false;
-  }
-
-  year_month_day candidate = year_month_day{tp_ds}.year() / month / day;
-  if (!candidate.ok()) {
-    candidate = year_month_day{tp_ds}.year() / month / 28;
-  }
-
-  return sys_days{candidate} == tp_ds;
-}
-
-
-/// Ispezione e Serializzazione
-
-String YearlyGenerator::describe() const {
-    std::ostringstream oss;
-    auto start_ymd = year_month_day{floor<days>(m_start)};
-    oss << "[YearlyGenerator] starting on " << start_ymd.month() << "/" << start_ymd.day();
-    if (m_end != TimePoint::max()) {
-        auto end_ymd = year_month_day{floor<days>(m_end)};
-        oss << " until " << end_ymd.year() << "/" << end_ymd.month() << "/" << end_ymd.day();
+    // 3. Clamping per anni non bisestili (es. 29 Feb 2024 + 1 anno -> 28 Feb 2025)
+    if (!nextYmd.ok()) {
+        nextYmd = targetYear / ymd.month() / sys::last;
     }
-    return oss.str();
+
+    // 4. Ricomponiamo il TimePoint mantenendo l'orario originale
+    return sys::sys_days{nextYmd} + timeOfDay;
+}
+
+TimePoint YearlyGenerator::align(TimePoint start, TimePoint from) const {
+    namespace sys = std::chrono;
+
+    if (from <= start) {
+        return start;
+    }
+
+    auto startDays = sys::floor<sys::days>(start);
+    auto fromDays  = sys::floor<sys::days>(from);
+
+    sys::year_month_day startYmd{startDays};
+    sys::year_month_day fromYmd{fromDays};
+
+    auto startTimeOfDay = start - startDays;
+
+    // 1. Calcolo della differenza in anni in O(1)
+    int startYear = static_cast<int>(startYmd.year());
+    int fromYear  = static_cast<int>(fromYmd.year());
+
+    int diffYears = std::max(0, fromYear - startYear);
+
+    // 2. Calcolo dei passi di intervallo trascorsi (arrotondamento per difetto)
+    int numIntervals = diffYears / m_years;
+
+    // 3. Costruzione della prima data candidata <= from
+    auto candidateYear = startYmd.year() + sys::years(numIntervals * m_years);
+    sys::year_month_day candidateYmd = candidateYear / startYmd.month() / startYmd.day();
+
+    if (!candidateYmd.ok()) {
+        candidateYmd = candidateYear / startYmd.month() / sys::last;
+    }
+
+    TimePoint candidate = sys::sys_days{candidateYmd} + startTimeOfDay;
+
+    // 4. Se l'arrotondamento per difetto cade prima di 'from', saltiamo al ciclo successivo
+    if (candidate < from) {
+        candidate = next(candidate);
+    }
+
+    return candidate;
 }
 
 void YearlyGenerator::accept(DateGeneratorVisitor& visitor) const {
-  visitor.visit(*this);
+    visitor.visit(*this);
 }
 
-} // namespace events  
+bool YearlyGenerator::isEqualImpl(const utils::Cacheable& other) const {
+    const auto& typedOther = static_cast<const YearlyGenerator&>(other);
+    return m_years == typedOther.m_years;
+}
+
+std::size_t YearlyGenerator::hash() const {
+    return std::hash<int>{}(m_years);
+}
+
+} // namespace events

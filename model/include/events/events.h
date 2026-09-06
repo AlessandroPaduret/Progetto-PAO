@@ -10,6 +10,9 @@
 #include "events/core/DateGenerator.h"
 #include "events/core/DateGeneratorVisitor.h"
 
+//utils
+#include "events/utils/Cacheable.h"
+
 // Domain
 #include "events/domain/Task.h"
 #include "events/domain/Meeting.h"
@@ -17,14 +20,11 @@
 
 // Builders
 #include "events/builders/ActivityBuilder.h"
-#include "events/builders/GeneratorBuilder.h"
-
 
 // Generators
 #include "events/generators/SingleGenerator.h"
 #include "events/generators/FixedIntervalGenerator.h"
 #include "events/generators/MonthlyGenerator.h"
 #include "events/generators/YearlyGenerator.h"
-#include "events/generators/MaxOccurrencesDecorator.h"
 
 #endif  // EVENTS_ALL_H

@@ -105,6 +105,9 @@ signals:
 
 private:
     events::Calendar m_calendar;
+
+    /** @brief Se un'attività non genera occorrenze la toglie dall calendario */
+    void cleanupActivity(const events::Activity* activity);
 };
 
 } // namespace app

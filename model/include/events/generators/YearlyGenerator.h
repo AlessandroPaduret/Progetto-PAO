@@ -1,97 +1,45 @@
 #ifndef YEARLY_GENERATOR_H
 #define YEARLY_GENERATOR_H
 
-#include <vector>
 #include <chrono>
-
-#include "events/core/CommonTypes.h"
+#include <cstddef>
 #include "events/core/DateGenerator.h"
 
 namespace events {
 
 /**
  * @class YearlyGenerator
- * @brief Generatore concreto per serie temporali ad intervallo di anni con gestione degli anni bisestili.
- *
- * Rappresenta la regola logica di ricorrenza di un'attivita' che si ripete
- * a cadenza annuale (es. ogni 3 Gennaio, ogni 7 Settembre, ecc.).
- *
- * @details
- * - **Mutabilita'**: Il giorno/mese di ricorrenza (da `m_start`) resta fisso dopo
- *   la costruzione, ma i limiti temporali (`m_start`, `m_end`) sono modificabili
- *   tramite @ref setStart e @ref setEnd (spostamento e troncamento della serie).
- * - **Polimorfismo**: Implementa l'interfaccia @ref DateGenerator fornendo sia 
- *   l'algoritmo di generazione delle date sia la capacita' di duplicazione profonda tramite @ref clone().
+ * @brief Generatore per serie temporali con ricorrenza annuale di calendario.
+ * 
+ * Gestisce l'avanzamento a passi di N anni preservando mese, giorno e orario
+ * (con gestione del clamping per il 29 febbraio negli anni non bisestili).
  */
 class YearlyGenerator : public DateGenerator {
-
 private:
-    TimePoint m_start;
-    TimePoint m_end;
+    int m_years; ///< Passo in anni (>= 1).
 
 public:
-    //@{
-    /**
-     * @name Implementazione di DateGenerator - Ciclo di Vita
-     */
-    
-    /** @brief Costruttore (immutabile: configurazione solo da qui).
-     * 
-     *  @param start Prima occorrenza (giorno/mese definiscono la ricorrenza)
-     *  @param end Fine della ricorrenza (default: senza fine)
-     */
-    YearlyGenerator(TimePoint start, TimePoint end = TimePoint::max());
-
-    /// @inheritdoc
-    [[nodiscard]] std::unique_ptr<DateGenerator> clone() const override;
-    
-    /// @inheritdoc
+    explicit YearlyGenerator(int years = 1);
     ~YearlyGenerator() override = default;
-    //@}
 
-
-    //@{
-    /** @name Query dello Stato e Accessor Specifici */
+    /// @brief Restituisce il passo in anni.
+    [[nodiscard]] int getYears() const { return m_years; }
 
     /// @inheritdoc
-    TimePoint getStart() const override;
-
-    /** @brief Ritorna l'intervallo di tempo tra le date generate
-    *  @return L'intervallo di tempo tra le date generate
-    */    
-   Duration getInterval() const;
+    [[nodiscard]] TimePoint next(TimePoint point) const override;
 
     /// @inheritdoc
-    TimePoint getEnd() const override;
-
-    /// @inheritdoc
-    void setStart(TimePoint start) override;
-
-    /// @inheritdoc
-    void setEnd(TimePoint end) override;
-    //@}
-    
-
-    //@{
-    /** @name Algoritmi di Generazione e Verifica Date */
-
-    /// @inheritdoc
-    std::vector<TimePoint> generateDates(TimePoint from, TimePoint to) const override;
-
-    /// @inheritdoc
-    bool isIn(TimePoint tp) const override;
-    //@}
-
-
-    //@{
-    /** @name Ispezione e Serializzazione */
-
-    /// @inheritdoc
-    String describe() const override;
+    [[nodiscard]] TimePoint align(TimePoint start, TimePoint from) const override;
 
     /// @inheritdoc
     void accept(DateGeneratorVisitor& visitor) const override;
-    //@}
+
+protected:
+    /// @inheritdoc
+    [[nodiscard]] bool isEqualImpl(const utils::Cacheable& other) const override;
+
+    /// @inheritdoc
+    [[nodiscard]] std::size_t hash() const override;
 };
 
 } // namespace events

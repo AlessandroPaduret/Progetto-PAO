@@ -4,71 +4,75 @@
 #include <chrono>
 #include <memory>
 #include <vector>
+#include <cstddef>
 
 #include "events/core/Activity.h"
 #include "events/core/CommonTypes.h"
 #include "events/core/DateGenerator.h"
-#include "events/core/Occurrence.h"
 
 namespace events {
 
 /**
  * @class Meeting
  * @brief Riunione: sotto-classe di Activity con luogo e partecipanti.
- *
- * Eredita da Activity l'intervallo temporale (inizio + durata) e la
- * regola di ricorrenza (per default un evento singolo).
  */
 class Meeting : public Activity {
 private:
-    String m_location;                    ///< Luogo o link
-    std::vector<String> m_attendees;      ///< Partecipanti (senza duplicati)
+    String m_location;               ///< Luogo o link della riunione
+    std::vector<String> m_attendees;  ///< Elenco dei partecipanti (senza duplicati)
 
 public:
-    /** @brief Costruttore.
-     *  @param title Titolo della riunione
-     *  @param duration Durata (default: zero)
-     *  @param location Luogo o link (default: vuoto)
-     *  @param generator Regola di ricorrenza (default: nullptr = SingleGenerator(now))
-     *  @throws std::invalid_argument se la durata e' negativa
+    /**
+     * @brief Costruttore della riunione.
+     * @param title Titolo della riunione (obbligatorio)
+     * @param start Data e ora d'inizio (obbligatorio)
+     * @param duration Durata della riunione (default: 0)
+     * @param location Luogo o link (default: vuoto)
+     * @param generator Regola di ricorrenza (default: nullptr = SingleGenerator)
+     * @param end Data limite di fine serie (default: max)
+     * @param maxOccurrences Limite massimo di occorrenze (default: 0 = illimitate)
      */
-    Meeting(const String& title = "",
-            const Duration duration = Duration::zero(),
-            const String& location = "",
-            std::unique_ptr<DateGenerator> generator = nullptr);
+    explicit Meeting(String title,
+                     TimePoint start,
+                     Duration duration = Duration::zero(),
+                     String location = "",
+                     std::shared_ptr<const DateGenerator> generator = nullptr,
+                     TimePoint end = TimePoint::max());
+
+    ~Meeting() override = default;
 
     /** @return Il luogo o link della riunione */
-    String getLocation() const;
+    String getLocation() const { return m_location; }
 
     /** @brief Imposta il luogo o link della riunione */
-    void setLocation(const String& location);
+    void setLocation(const String& location) { m_location = location; }
 
     /** @return Il numero di partecipanti */
-    size_t attendeeCount() const;
+    std::size_t attendeeCount() const { return m_attendees.size(); }
 
     /** @return L'elenco dei partecipanti (riferimento read-only) */
-    const std::vector<String>& getAttendees() const;
+    const std::vector<String>& getAttendees() const { return m_attendees; }
 
-    /** @brief Aggiunge un partecipante (i duplicati sono rifiutati)
-     *  @return true se il partecipante e' stato aggiunto
+    /** 
+     * @brief Aggiunge un partecipante (i duplicati vengono rifiutati).
+     * @return true se il partecipante e' stato aggiunto.
      */
     bool addAttendee(const String& attendee);
 
-    /** @brief Rimuove un partecipante
-     *  @return true se il partecipante era presente ed e' stato rimosso
+    /** 
+     * @brief Rimuove un partecipante.
+     * @return true se il partecipante era presente ed e' stato rimosso.
      */
     bool removeAttendee(const String& attendee);
 
-    /// Implementazione dei metodi virtuali di Activity
-
-    /** @return Descrizione testuale della riunione (solo visualizzazione) */
+    /// @inheritdoc
     String describe() const override;
 
-    /** @brief Doppio dispatch verso ActivityVisitor::visit(const Meeting&) */
+    /// @inheritdoc
     void accept(ActivityVisitor& visitor) const override;
 
-    /** @brief Crea una copia della riunione */
-    std::unique_ptr<Activity> clone() const override;
+    /// @inheritdoc
+    [[nodiscard]] std::unique_ptr<Activity> clone() const override;
 };
 
 } // namespace events

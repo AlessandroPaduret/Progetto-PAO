@@ -20,15 +20,6 @@ events::TimePoint toTimePoint(const QDateTime& utc) {
   return events::TimePoint(std::chrono::seconds(utc.toSecsSinceEpoch()));
 }
 
-// La ricorrenza si deduce dal generatore: un'attivita' e' una serie se il suo
-// generatore produce piu' date (Fixed/Monthly/Yearly), non Single.
-bool isRecurrentActivity(const events::Activity* activity) {
-  const events::DateGenerator* gen = &activity->getGenerator();
-  return dynamic_cast<const events::FixedIntervalGenerator*>(gen) != nullptr ||
-         dynamic_cast<const events::MonthlyGenerator*>(gen) != nullptr ||
-         dynamic_cast<const events::YearlyGenerator*>(gen) != nullptr;
-}
-
 } // namespace
 
 CalendarController::CalendarController(QObject* parent) : QObject(parent) {}
@@ -128,7 +119,7 @@ bool CalendarController::moveActivity(const events::Activity* activity,
 
 bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
                                          const QDateTime& newStart) {
-  if (!occurrence.source || !isRecurrentActivity(occurrence.source) || !newStart.isValid()) {
+  if (!occurrence.source || !newStart.isValid()) {
     return false;
   }
 
@@ -143,8 +134,10 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
   // 2. Clona l'attività originale per creare la nuova serie (restituisce std::unique_ptr)
   auto newActivity = foundActivity->clone();
 
-  // 3. Modifica la prima serie direttamente in-place (è ancora dentro m_calendar!)
-  foundActivity->setEnd(occurrence.start - events::Duration(1));
+  // 3. Modifica la prima serie direttamente in-place
+  foundActivity->setEnd(occurrence.start);
+  foundActivity->addException(occurrence.start);
+  cleanupActivity(foundActivity);
 
   // 4. Configura la nuova serie clonata
   newActivity->setStart(target);
@@ -164,13 +157,12 @@ bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
     return false; // L'attività non è presente nel calendario
   }
 
-  if (isRecurrentActivity(occurrence.source) && !andFollowing) {
-    foundActivity->addException(occurrence.start);  // EXDATE: solo questa
-  } else if (isRecurrentActivity(occurrence.source)) {
-    foundActivity->setEnd(occurrence.start - events::Duration(1));  // questa e le successive
-  } else {
-    m_calendar.remove(occurrence.source);
-  }
+  if ( andFollowing ) foundActivity->setEnd(occurrence.start);
+  
+  foundActivity->addException(occurrence.start);
+
+  cleanupActivity(foundActivity);
+
   emit activitiesChanged();
   return true;
 }
@@ -187,11 +179,10 @@ bool CalendarController::modifyOccurrence(
   if (!foundActivity) return false; // L'attività non è presente nel calendario
   
 
-  if (isRecurrentActivity(foundActivity)) {
-    foundActivity->addException(occurrence.start);  // Togli l'occorrenza dall'attività
-  } else {
-    m_calendar.remove(foundActivity);
-  }
+  foundActivity->addException(occurrence.start);  // Togli l'occorrenza dall'attività
+
+  cleanupActivity(foundActivity);
+  
   m_calendar.add(std::move(replacement));
   emit activitiesChanged();
   return true;
@@ -223,6 +214,11 @@ bool CalendarController::loadFromFile(const QString& filePath, QString* error) {
   }
   emit activitiesChanged();
   return true;
+}
+
+void CalendarController::cleanupActivity(const events::Activity* activity){
+  if(activity->getEnd() != events::TimePoint::max() && activity->occurrencesIn(activity->getStart(),activity->getEnd()).size() < 1)
+    m_calendar.remove(activity);
 }
 
 } // namespace app

@@ -7,7 +7,6 @@ class FixedIntervalGenerator;
 class MonthlyGenerator;
 class YearlyGenerator;
 class SingleGenerator;
-class MaxOccurrencesDecorator;
 
 /**
  * @brief Visitor per la gerarchia dei generatori di date (Strategy).
@@ -23,7 +22,6 @@ public:
     virtual void visit(const MonthlyGenerator& generator) = 0;
     virtual void visit(const YearlyGenerator& generator) = 0;
     virtual void visit(const SingleGenerator& generator) = 0;
-    virtual void visit(const MaxOccurrencesDecorator& generator) = 0;
 };
 
 } // namespace events

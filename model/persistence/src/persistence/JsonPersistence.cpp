@@ -8,23 +8,14 @@
 #include <stdexcept>
 #include <vector>
 
-#include "events/core/ActivityVisitor.h"
-#include "events/core/DateGeneratorVisitor.h"
-#include "events/core/Format.h"
-#include "events/domain/Meeting.h"
-#include "events/domain/Task.h"
-#include "events/generators/FixedIntervalGenerator.h"
-#include "events/generators/MaxOccurrencesDecorator.h"
-#include "events/generators/MonthlyGenerator.h"
-#include "events/generators/SingleGenerator.h"
-#include "events/generators/YearlyGenerator.h"
+#include "events/events.h"
+
+using events::Duration;
+using events::TimePoint;
 
 namespace persistence {
 
 namespace {
-
-using events::Duration;
-using events::TimePoint;
 
 void setError(QString *error, const QString &message) {
   if (error) {
@@ -36,7 +27,7 @@ QString iso(const TimePoint tp) {
   return QString::fromStdString(events::formatIso8601(tp));
 }
 
-// ------------- lettura dei campi con validazione -------------
+// ------------- Lettura dei campi con validazione -------------
 
 bool timePointFromJson(const QJsonObject &json, const char *key,
                        TimePoint &out, QString *error) {
@@ -84,8 +75,7 @@ bool stringFromJson(const QJsonObject &json, const char *key, QString &out,
   return true;
 }
 
-// ------------- Visitor di serializzazione dei generatori -------------
-// ------------- Visitor di serializzazione dei generatori -------------
+// ------------- Visitor di serializzazione dei generatori (Stateless) -------------
 
 class JsonGeneratorVisitor : public events::DateGeneratorVisitor {
 public:
@@ -93,41 +83,24 @@ public:
 
   void visit(const events::FixedIntervalGenerator &generator) override {
     object.insert(QLatin1String("type"), QLatin1String("fixed"));
-    object.insert(QLatin1String("start"), iso(generator.getStart()));
     object.insert(QLatin1String("interval_seconds"),
                   QJsonValue(qint64(generator.getInterval().count())));
-    if (generator.getEnd() != TimePoint::max()) {
-      object.insert(QLatin1String("end"), iso(generator.getEnd()));
-    }
   }
 
   void visit(const events::MonthlyGenerator &generator) override {
     object.insert(QLatin1String("type"), QLatin1String("monthly"));
-    object.insert(QLatin1String("start"), iso(generator.getStart()));
     object.insert(QLatin1String("interval_months"),
                   QJsonValue(generator.getMonths()));
-    if (generator.getEnd() != TimePoint::max()) {
-      object.insert(QLatin1String("end"), iso(generator.getEnd()));
-    }
   }
 
   void visit(const events::YearlyGenerator &generator) override {
     object.insert(QLatin1String("type"), QLatin1String("yearly"));
-    object.insert(QLatin1String("start"), iso(generator.getStart()));
-    if (generator.getEnd() != TimePoint::max()) {
-      object.insert(QLatin1String("end"), iso(generator.getEnd()));
-    }
+    object.insert(QLatin1String("interval_years"),
+                  QJsonValue(generator.getYears()));
   }
 
-  void visit(const events::SingleGenerator &generator) override {
+  void visit(const events::SingleGenerator &/*generator*/) override {
     object.insert(QLatin1String("type"), QLatin1String("single"));
-    object.insert(QLatin1String("start"), iso(generator.getStart()));
-  }
-
-  void visit(const events::MaxOccurrencesDecorator &generator) override {
-    generator.getWrappedGenerator().accept(*this);
-    object.insert(QLatin1String("max_occurrences"),
-                    QJsonValue(qint64(generator.getMaxOccurrences())));
   }
 };
 
@@ -139,48 +112,44 @@ public:
 
   void visit(const events::Activity &activity) override {
     object.insert(QLatin1String("type"), QLatin1String("event"));
-    object.insert(QLatin1String("title"),
-                  QString::fromStdString(activity.getTitle()));
-    object.insert(QLatin1String("start"), iso(activity.getStart()));
-    object.insert(QLatin1String("duration_seconds"),
-                  QJsonValue(qint64(activity.getDuration().count())));
-    writeRecurrence(activity);
+    writeCommonActivityFields(activity);
   }
 
   void visit(const events::Task &task) override {
     object.insert(QLatin1String("type"), QLatin1String("task"));
-    object.insert(QLatin1String("title"),
-                  QString::fromStdString(task.getTitle()));
-    object.insert(QLatin1String("due"), iso(task.getDue()));
-    object.insert(QLatin1String("priority"),
-                  priorityKey(task.getPriority()));
+    writeCommonActivityFields(task);
+    object.insert(QLatin1String("priority"), priorityKey(task.getPriority()));
+
     QJsonArray done;
     for (const TimePoint tp : task.getDoneOccurrences()) {
       done.append(iso(tp));
     }
     object.insert(QLatin1String("done_occurrences"), done);
-    writeRecurrence(task);
   }
 
   void visit(const events::Meeting &meeting) override {
     object.insert(QLatin1String("type"), QLatin1String("meeting"));
-    object.insert(QLatin1String("title"),
-                  QString::fromStdString(meeting.getTitle()));
-    object.insert(QLatin1String("start"), iso(meeting.getStart()));
-    object.insert(QLatin1String("duration_seconds"),
-                  QJsonValue(qint64(meeting.getDuration().count())));
+    writeCommonActivityFields(meeting);
     object.insert(QLatin1String("location"),
                   QString::fromStdString(meeting.getLocation()));
+
     QJsonArray attendees;
     for (const events::String &name : meeting.getAttendees()) {
       attendees.append(QString::fromStdString(name));
     }
     object.insert(QLatin1String("attendees"), attendees);
-    writeRecurrence(meeting);
   }
 
 private:
-  void writeRecurrence(const events::Activity &activity) {
+  void writeCommonActivityFields(const events::Activity &activity) {
+    object.insert(QLatin1String("title"), QString::fromStdString(activity.getTitle()));
+    object.insert(QLatin1String("start"), iso(activity.getStart()));
+    object.insert(QLatin1String("duration_seconds"), QJsonValue(qint64(activity.getDuration().count())));
+
+    if (activity.getEnd() != TimePoint::max()) {
+      object.insert(QLatin1String("end"), iso(activity.getEnd()));
+    }
+
     JsonGeneratorVisitor generatorVisitor;
     activity.getGenerator().accept(generatorVisitor);
     object.insert(QLatin1String("generator"), generatorVisitor.object);
@@ -205,23 +174,86 @@ private:
   }
 };
 
-// ------------- deserializzazione dei singoli tipi -------------
+// ------------- Deserializzazione Generatori e Attivita' -------------
 
-std::unique_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json,
-                                                         QString *error);
+std::shared_ptr<const events::DateGenerator> generatorFromJson(const QJsonObject &json,
+                                                               QString *error) {
+  const QString type = json.value(QLatin1String("type")).toString();
 
-// Legge la regola di ricorrenza ("generator") e le eccezioni di un'attivita'.
-// Se il campo generator manca, usa il fallback SingleGenerator(start).
-bool readRecurrence(const QJsonObject &json, TimePoint start,
-                    std::unique_ptr<events::DateGenerator> &generator,
-                    std::unordered_set<TimePoint, events::TimePointHasher> &exceptions,
-                    QString *error) {
-  const QJsonValue generatorValue = json.value(QLatin1String("generator"));
-  if (generatorValue.isObject()) {
-    generator = generatorFromJson(generatorValue.toObject(), error);
-    if (!generator) return false;
+  if (type == QLatin1String("single")) {
+    return std::make_shared<events::SingleGenerator>();
+  }
+
+  if (type == QLatin1String("fixed")) {
+    Duration interval;
+    if (!secondsFromJson(json, "interval_seconds", interval, false, error)) {
+      return nullptr;
+    }
+    if (interval <= Duration::zero()) {
+      setError(error, "L'intervallo del generatore deve essere positivo");
+      return nullptr;
+    }
+    return std::make_shared<events::FixedIntervalGenerator>(interval);
+  }
+
+  if (type == QLatin1String("monthly")) {
+    const QJsonValue monthsValue = json.value(QLatin1String("interval_months"));
+    if (!monthsValue.isDouble() || monthsValue.toInteger() <= 0) {
+      setError(error, "Campo interval_months non valido");
+      return nullptr;
+    }
+    return std::make_shared<events::MonthlyGenerator>(
+        static_cast<int>(monthsValue.toInteger()));
+  }
+
+  if (type == QLatin1String("yearly")) {
+    const QJsonValue yearsValue = json.value(QLatin1String("interval_years"));
+    int years = 1;
+    if (yearsValue.isDouble() && yearsValue.toInteger() > 0) {
+      years = static_cast<int>(yearsValue.toInteger());
+    }
+    return std::make_shared<events::YearlyGenerator>(years);
+  }
+
+  setError(error, "Tipo di generatore sconosciuto: " + type);
+  return nullptr;
+}
+
+struct CommonActivityData {
+  QString title;
+  TimePoint start;
+  TimePoint end = TimePoint::max();
+  Duration duration = Duration::zero();
+  std::size_t maxOccurrences = 0;
+  std::shared_ptr<const events::DateGenerator> generator;
+  std::unordered_set<TimePoint> exceptions;
+};
+
+bool readCommonActivityData(const QJsonObject &json, CommonActivityData &out, QString *error) {
+  if (!stringFromJson(json, "title", out.title, error)) return false;
+  if (!timePointFromJson(json, "start", out.start, error)) return false;
+  if (!secondsFromJson(json, "duration_seconds", out.duration, false, error)) return false;
+
+  if (json.contains(QLatin1String("end"))) {
+    if (!timePointFromJson(json, "end", out.end, error)) return false;
+  }
+
+  if (json.contains(QLatin1String("max_occurrences"))) {
+    const QJsonValue maxVal = json.value(QLatin1String("max_occurrences"));
+    if (maxVal.isDouble() && maxVal.toInteger() >= 0) {
+      out.maxOccurrences = static_cast<std::size_t>(maxVal.toInteger());
+    } else {
+      setError(error, "Campo max_occurrences non valido");
+      return false;
+    }
+  }
+
+  const QJsonValue genVal = json.value(QLatin1String("generator"));
+  if (genVal.isObject()) {
+    out.generator = generatorFromJson(genVal.toObject(), error);
+    if (!out.generator) return false;
   } else {
-    generator = std::make_unique<events::SingleGenerator>(start);
+    out.generator = std::make_shared<events::SingleGenerator>();
   }
 
   const QJsonValue exceptionsValue = json.value(QLatin1String("exceptions"));
@@ -236,125 +268,31 @@ bool readRecurrence(const QJsonObject &json, TimePoint start,
         setError(error, "Data di eccezione non valida: " + value.toString());
         return false;
       }
-      exceptions.insert(tp);
+      out.exceptions.insert(tp);
     }
   }
   return true;
 }
 
-std::unique_ptr<events::Activity> eventFromJson(const QJsonObject &json,
-                                                QString *error) {
-  QString title;
-  TimePoint start;
-  Duration duration;
-  if (!stringFromJson(json, "title", title, error)) return nullptr;
-  if (!timePointFromJson(json, "start", start, error)) return nullptr;
-  if (!secondsFromJson(json, "duration_seconds", duration, false, error))
-    return nullptr;
-
-  std::unique_ptr<events::DateGenerator> generator;
-  std::unordered_set<TimePoint, events::TimePointHasher> exceptions;
-  if (!readRecurrence(json, start, generator, exceptions, error)) return nullptr;
+std::unique_ptr<events::Activity> eventFromJson(const QJsonObject &json, QString *error) {
+  CommonActivityData data;
+  if (!readCommonActivityData(json, data, error)) return nullptr;
 
   auto result = std::make_unique<events::Activity>(
-      title.toStdString(), duration, std::move(generator));
-  for (const TimePoint tp : exceptions) {
+      data.title.toStdString(), data.start, data.duration, data.generator, data.end
+  );
+  for (const TimePoint tp : data.exceptions) {
     result->addException(tp);
   }
   return result;
 }
 
-std::unique_ptr<events::DateGenerator> generatorFromJson(const QJsonObject &json,
-                                                         QString *error) {
-  const QString type = json.value(QLatin1String("type")).toString();
-  TimePoint start;
-  TimePoint end = TimePoint::max();
-
-  auto readMaxOccurrences = [&json, error](std::size_t &out) -> bool {
-    if (!json.contains(QLatin1String("max_occurrences"))) {
-      out = 0;
-      return true;
-    }
-    const QJsonValue value = json.value(QLatin1String("max_occurrences"));
-    if (!value.isDouble() || value.toInteger() < 0) {
-      setError(error, "Campo max_occurrences non valido");
-      return false;
-    }
-    out = static_cast<std::size_t>(value.toInteger());
-    return true;
-  };
-
-  // Applica il limite di occorrenze tramite MaxOccurrencesDecorator (0 = illimitate).
-  auto maybeDecorate = [](std::unique_ptr<events::DateGenerator> gen,
-                          std::size_t maxOcc) -> std::unique_ptr<events::DateGenerator> {
-    if (maxOcc > 0) {
-      return std::make_unique<events::MaxOccurrencesDecorator>(std::move(gen), maxOcc);
-    }
-    return gen;
-  };
-
-  if (type == QLatin1String("single")) {
-    if (!timePointFromJson(json, "start", start, error)) return nullptr;
-    return std::make_unique<events::SingleGenerator>(start);
-  }
-
-  if (type == QLatin1String("fixed")) {
-    Duration interval;
-    if (!timePointFromJson(json, "start", start, error)) return nullptr;
-    if (!secondsFromJson(json, "interval_seconds", interval, false, error))
-      return nullptr;
-    if (interval <= Duration::zero()) {
-      setError(error, "L'intervallo del generatore deve essere positivo");
-      return nullptr;
-    }
-    if (json.contains(QLatin1String("end")) &&
-        !timePointFromJson(json, "end", end, error))
-      return nullptr;
-    std::size_t maxOcc = 0;
-    if (!readMaxOccurrences(maxOcc)) return nullptr;
-    return maybeDecorate(
-        std::make_unique<events::FixedIntervalGenerator>(start, interval, end), maxOcc);
-  }
-  if (type == QLatin1String("monthly")) {
-    if (!timePointFromJson(json, "start", start, error)) return nullptr;
-    const QJsonValue monthsValue = json.value(QLatin1String("interval_months"));
-    if (!monthsValue.isDouble() || monthsValue.toInteger() <= 0) {
-      setError(error, "Campo interval_months non valido");
-      return nullptr;
-    }
-    if (json.contains(QLatin1String("end")) &&
-        !timePointFromJson(json, "end", end, error))
-      return nullptr;
-    std::size_t maxOcc = 0;
-    if (!readMaxOccurrences(maxOcc)) return nullptr;
-    return maybeDecorate(
-        std::make_unique<events::MonthlyGenerator>(
-            start, static_cast<int>(monthsValue.toInteger()), end),
-        maxOcc);
-  }
-  if (type == QLatin1String("yearly")) {
-    if (!timePointFromJson(json, "start", start, error)) return nullptr;
-    if (json.contains(QLatin1String("end")) &&
-        !timePointFromJson(json, "end", end, error))
-      return nullptr;
-    std::size_t maxOcc = 0;
-    if (!readMaxOccurrences(maxOcc)) return nullptr;
-    return maybeDecorate(std::make_unique<events::YearlyGenerator>(start, end), maxOcc);
-  }
-  setError(error, "Tipo di generatore sconosciuto: " + type);
-  return nullptr;
-}
-
-std::unique_ptr<events::Task> taskFromJson(const QJsonObject &json,
-                                           QString *error) {
-  QString title;
-  TimePoint due;
-  if (!stringFromJson(json, "title", title, error)) return nullptr;
-  if (!timePointFromJson(json, "due", due, error)) return nullptr;
+std::unique_ptr<events::Task> taskFromJson(const QJsonObject &json, QString *error) {
+  CommonActivityData data;
+  if (!readCommonActivityData(json, data, error)) return nullptr;
 
   events::Priority priority = events::Priority::Medium;
-  const QString priorityText =
-      json.value(QLatin1String("priority")).toString();
+  const QString priorityText = json.value(QLatin1String("priority")).toString();
   if (priorityText == QLatin1String("low")) {
     priority = events::Priority::Low;
   } else if (priorityText == QLatin1String("high")) {
@@ -366,15 +304,13 @@ std::unique_ptr<events::Task> taskFromJson(const QJsonObject &json,
     return nullptr;
   }
 
-  std::unique_ptr<events::DateGenerator> generator;
-  std::unordered_set<TimePoint, events::TimePointHasher> exceptions;
-  if (!readRecurrence(json, due, generator, exceptions, error)) return nullptr;
-
-  auto task = std::make_unique<events::Task>(title.toStdString(), due, priority,
-                                             std::move(generator));
-  for (const TimePoint tp : exceptions) {
+  auto task = std::make_unique<events::Task>(
+      data.title.toStdString(), data.start, data.duration, priority, data.generator, data.end
+  );
+  for (const TimePoint tp : data.exceptions) {
     task->addException(tp);
   }
+
   const QJsonValue doneValue = json.value(QLatin1String("done_occurrences"));
   if (doneValue.isArray()) {
     for (const QJsonValue &value : doneValue.toArray()) {
@@ -393,25 +329,17 @@ std::unique_ptr<events::Task> taskFromJson(const QJsonObject &json,
   return task;
 }
 
-std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json,
-                                                 QString *error) {
-  QString title;
+std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json, QString *error) {
+  CommonActivityData data;
+  if (!readCommonActivityData(json, data, error)) return nullptr;
+
   QString location;
-  TimePoint start;
-  Duration duration;
-  if (!stringFromJson(json, "title", title, error)) return nullptr;
-  if (!timePointFromJson(json, "start", start, error)) return nullptr;
-  if (!secondsFromJson(json, "duration_seconds", duration, false, error))
-    return nullptr;
   if (!stringFromJson(json, "location", location, error)) return nullptr;
 
-  std::unique_ptr<events::DateGenerator> generator;
-  std::unordered_set<TimePoint, events::TimePointHasher> exceptions;
-  if (!readRecurrence(json, start, generator, exceptions, error)) return nullptr;
-
   auto meeting = std::make_unique<events::Meeting>(
-      title.toStdString(), duration, location.toStdString(), std::move(generator));
-  for (const TimePoint tp : exceptions) {
+      data.title.toStdString(), data.start, data.duration, location.toStdString(), data.generator, data.end
+  );
+  for (const TimePoint tp : data.exceptions) {
     meeting->addException(tp);
   }
 
@@ -431,7 +359,7 @@ std::unique_ptr<events::Meeting> meetingFromJson(const QJsonObject &json,
 
 } // namespace
 
-// ------------- API pubbliche -------------
+// ------------- API Pubbliche -------------
 
 QJsonObject activityToJson(const events::Activity &activity) {
   JsonActivityVisitor visitor;
@@ -486,8 +414,7 @@ bool saveToFile(const events::Calendar &calendar, const QString &filePath,
                 QString *error) {
   QFile file(filePath);
   if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-    setError(error, QString("Impossibile aprire il file in scrittura: %1")
-                        .arg(filePath));
+    setError(error, QString("Impossibile aprire il file in scrittura: %1").arg(filePath));
     return false;
   }
   const QJsonDocument document(calendarToJson(calendar));
@@ -502,16 +429,13 @@ bool loadFromFile(events::Calendar &calendar, const QString &filePath,
                   QString *error) {
   QFile file(filePath);
   if (!file.open(QIODevice::ReadOnly)) {
-    setError(error, QString("Impossibile aprire il file in lettura: %1")
-                        .arg(filePath));
+    setError(error, QString("Impossibile aprire il file in lettura: %1").arg(filePath));
     return false;
   }
   QJsonParseError parseError;
-  const QJsonDocument document =
-      QJsonDocument::fromJson(file.readAll(), &parseError);
+  const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
   if (parseError.error != QJsonParseError::NoError) {
-    setError(error, QString("File JSON non valido: %1")
-                        .arg(parseError.errorString()));
+    setError(error, QString("File JSON non valido: %1").arg(parseError.errorString()));
     return false;
   }
   if (!document.isObject()) {

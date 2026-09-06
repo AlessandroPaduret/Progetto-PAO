@@ -1,5 +1,4 @@
-#ifndef ACTIVITYVISITOR_H
-#define ACTIVITYVISITOR_H
+#pragma once
 
 namespace events {
 
@@ -28,5 +27,3 @@ public:
 };
 
 } // namespace events
-
-#endif // ACTIVITYVISITOR_H

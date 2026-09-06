@@ -1,72 +1,57 @@
+#include "events/domain/Meeting.h"
+
 #include <algorithm>
-#include <chrono>
-#include <memory>
-#include <stdexcept>
 #include <utility>
-#include <vector>
 
 #include "events/core/ActivityVisitor.h"
-#include "events/core/CommonTypes.h"
-#include "events/core/DateGenerator.h"
 #include "events/core/Format.h"
-#include "events/domain/Meeting.h"
-#include "events/generators/SingleGenerator.h"
 
 namespace events {
 
-Meeting::Meeting(const String &title, const Duration duration,
-                 const String &location,
-                 std::unique_ptr<DateGenerator> generator)
-    : Activity(title, duration,
-               generator ? std::move(generator)
-                         : std::make_unique<SingleGenerator>(
-                               std::chrono::time_point_cast<std::chrono::seconds>(
-                                   Clock::now()))),
-      m_location(location) {}
+Meeting::Meeting(String title,
+                 TimePoint start,
+                 Duration duration,
+                 String location,
+                 std::shared_ptr<const DateGenerator> generator,
+                 TimePoint end)
+    : Activity(std::move(title), start, duration, std::move(generator), end),
+      m_location(std::move(location)) {}
 
 std::unique_ptr<Activity> Meeting::clone() const {
-  return std::make_unique<Meeting>(getTitle(), getDuration(), m_location,
-                                   getGenerator().clone());
+    return std::make_unique<Meeting>(*this);
 }
 
-String Meeting::getLocation() const { return m_location; }
-
-void Meeting::setLocation(const String &location) { m_location = location; }
-
-size_t Meeting::attendeeCount() const { return m_attendees.size(); }
-
-const std::vector<String> &Meeting::getAttendees() const { return m_attendees; }
-
-bool Meeting::addAttendee(const String &attendee) {
-  if (std::find(m_attendees.begin(), m_attendees.end(), attendee) !=
-      m_attendees.end()) {
-    return false;
-  }
-  m_attendees.push_back(attendee);
-  return true;
+bool Meeting::addAttendee(const String& attendee) {
+    if (std::find(m_attendees.begin(), m_attendees.end(), attendee) != m_attendees.end()) {
+        return false;
+    }
+    m_attendees.push_back(attendee);
+    return true;
 }
 
-bool Meeting::removeAttendee(const String &attendee) {
-  const auto it = std::find(m_attendees.begin(), m_attendees.end(), attendee);
-  if (it == m_attendees.end()) {
-    return false;
-  }
-  m_attendees.erase(it);
-  return true;
+bool Meeting::removeAttendee(const String& attendee) {
+    const auto it = std::find(m_attendees.begin(), m_attendees.end(), attendee);
+    if (it == m_attendees.end()) {
+        return false;
+    }
+    m_attendees.erase(it);
+    return true;
 }
 
 String Meeting::describe() const {
-  String out = "Riunione: " + getTitle() + " - " + formatDateTime(getStart()) +
-               ", durata " + formatDuration(getDuration());
-  if (!m_location.empty()) {
-    out += ", luogo " + m_location;
-  }
-  if (!m_attendees.empty()) {
-    out += " (" + std::to_string(m_attendees.size()) + " partecipanti)";
-  }
-  return out;
+    String out = "Riunione: " + getTitle() + " - " + formatDateTime(getStart()) +
+                 ", durata " + formatDuration(getDuration());
+    if (!m_location.empty()) {
+        out += ", luogo " + m_location;
+    }
+    if (!m_attendees.empty()) {
+        out += " (" + std::to_string(m_attendees.size()) + " partecipanti)";
+    }
+    return out;
 }
 
-void Meeting::accept(ActivityVisitor &visitor) const { visitor.visit(*this); }
+void Meeting::accept(ActivityVisitor& visitor) const {
+    visitor.visit(*this);
+}
 
 } // namespace events

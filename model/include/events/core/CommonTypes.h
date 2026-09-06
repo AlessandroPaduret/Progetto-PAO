@@ -17,20 +17,22 @@ using String = std::string;
 using Days = std::chrono::duration<int, std::ratio<86400>>; // 24 ore
 using Years = std::chrono::duration<int, std::ratio<31536000>>; // 365 giorni
 
-struct TimePointHasher {
-    std::size_t operator()(const TimePoint& tp) const {
-        return std::hash<long long>{}(tp.time_since_epoch().count());
-    }
-};
 
-constexpr auto operator"" _weeks(unsigned long long w) {
+constexpr auto operator""_weeks(unsigned long long w) {
     return std::chrono::weeks(w);
 }
 
-constexpr auto operator"" _years(unsigned long long y) {
+constexpr auto operator""_years(unsigned long long y) {
     return std::chrono::years(y);
 }
 
 } // namespace events
+
+template <>
+struct std::hash<events::TimePoint> {
+    std::size_t operator()(const events::TimePoint& tp) const noexcept {
+        return std::hash<long long>{}(tp.time_since_epoch().count());
+    }
+};
 
 #endif  // COMMONTYPES_H
