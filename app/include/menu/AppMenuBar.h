@@ -1,5 +1,4 @@
-#ifndef APP_APPMENUBAR_H
-#define APP_APPMENUBAR_H
+#pragma once
 
 #include <QMenuBar>
 
@@ -54,5 +53,3 @@ private:
 };
 
 } // namespace app
-
-#endif // APP_APPMENUBAR_H

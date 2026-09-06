@@ -14,6 +14,9 @@ add_compile_options(-Wall -Wextra)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+# compile_commands.json in build/: usato da clangd (vedi .clangd) per
+# risolvere i veri include path del progetto invece di indovinarli.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- Dipendenze -------------------------------------------------------------
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
@@ -24,53 +27,53 @@ add_subdirectory(../model model)
 # --- Libreria core (controller: logica di applicazione senza Widgets) -------
 # L'header e' elencato esplicitamente tra i sorgenti (oltre al .cpp): AUTOMOC
 # nella maggior parte dei casi accoppia un .cpp al proprio header cercandolo
-# nella STESSA cartella; siccome qui gli header vivono in src/include/ (per
+# nella STESSA cartella; siccome qui gli header vivono in include/ (per
 # separare header/implementazione come in model/), va reso un sorgente del
 # target anche lui, altrimenti Q_OBJECT non verrebbe visto e il link fallisce
 # per vtable/staticMetaObject mancanti.
 add_library(pao_core STATIC
     src/controller/CalendarController.cpp
-    src/include/controller/CalendarController.h
+    include/controller/CalendarController.h
 )
-target_include_directories(pao_core PUBLIC src src/include)
+target_include_directories(pao_core PUBLIC src include)
 target_link_libraries(pao_core PUBLIC events events_persistence Qt6::Core)
 
 # --- Applicazione Qt (menu + views + main) -----------------------------------
-# Stesso motivo per gli header sotto src/include/{menu,views}/: elencati
+# Stesso motivo per gli header sotto include/{menu,views}/: elencati
 # esplicitamente perche' non sono nella stessa cartella del .cpp associato.
 add_executable(pao_app
     resources/app.qrc
     src/main.cpp
     src/menu/AppMenuBar.cpp
-    src/include/menu/AppMenuBar.h
-    src/include/menu/MenuShortcutStyle.h
+    include/menu/AppMenuBar.h
+    include/menu/MenuShortcutStyle.h
     src/views/MainWindow.cpp
-    src/include/views/MainWindow.h
+    include/views/MainWindow.h
     src/views/WeekView.cpp
-    src/include/views/WeekView.h
+    include/views/WeekView.h
     src/views/DayView.cpp
-    src/include/views/DayView.h
+    include/views/DayView.h
     src/views/MonthView.cpp
-    src/include/views/MonthView.h
+    include/views/MonthView.h
     src/views/YearView.cpp
-    src/include/views/YearView.h
+    include/views/YearView.h
     src/views/ActivityListPage.cpp
-    src/include/views/ActivityListPage.h
+    include/views/ActivityListPage.h
     src/views/ActivityDetailDialog.cpp
-    src/include/views/ActivityDetailDialog.h
+    include/views/ActivityDetailDialog.h
     src/views/ActivityFormPage.cpp
-    src/include/views/ActivityFormPage.h
+    include/views/ActivityFormPage.h
     src/views/ActivityFormDialog.cpp
-    src/include/views/ActivityFormDialog.h
+    include/views/ActivityFormDialog.h
     src/views/ActivityViewHelpers.cpp
-    src/include/views/ActivityViewHelpers.h
+    include/views/ActivityViewHelpers.h
     src/views/RecurrenceChoiceDialog.cpp
-    src/include/views/RecurrenceChoiceDialog.h
+    include/views/RecurrenceChoiceDialog.h
     src/views/OccurrenceWidget.cpp
-    src/include/views/OccurrenceWidget.h
-    src/include/views/ViewShared.h
-    src/include/views/WidgetUtils.h
-    src/include/views/Theme.h
+    include/views/OccurrenceWidget.h
+    include/views/ViewShared.h
+    include/views/WidgetUtils.h
+    include/views/Theme.h
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 

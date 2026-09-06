@@ -8,7 +8,7 @@ CONFIG -= app_bundle
 TEMPLATE = app
 TARGET = attivita
 
-INCLUDEPATH += model/include model/persistence/include app/src app/src/include
+INCLUDEPATH += model/include model/persistence/include app/src app/include
 
 RESOURCES += app/resources/app.qrc
 
@@ -42,24 +42,24 @@ SOURCES += \
     model/persistence/src/persistence/JsonPersistence.cpp
 
 HEADERS += \
-    app/src/include/controller/CalendarController.h \
-    app/src/include/menu/AppMenuBar.h \
-    app/src/include/menu/MenuShortcutStyle.h \
-    app/src/include/views/ActivityDetailDialog.h \
-    app/src/include/views/OccurrenceWidget.h \
-    app/src/include/views/Theme.h \
-    app/src/include/views/ActivityFormPage.h \
-    app/src/include/views/ActivityFormDialog.h \
-    app/src/include/views/ActivityListPage.h \
-    app/src/include/views/ActivityViewHelpers.h \
-    app/src/include/views/MainWindow.h \
-    app/src/include/views/RecurrenceChoiceDialog.h \
-    app/src/include/views/WeekView.h \
-    app/src/include/views/DayView.h \
-    app/src/include/views/MonthView.h \
-    app/src/include/views/YearView.h \
-    app/src/include/views/ViewShared.h \
-    app/src/include/views/WidgetUtils.h \
+    app/include/controller/CalendarController.h \
+    app/include/menu/AppMenuBar.h \
+    app/include/menu/MenuShortcutStyle.h \
+    app/include/views/ActivityDetailDialog.h \
+    app/include/views/OccurrenceWidget.h \
+    app/include/views/Theme.h \
+    app/include/views/ActivityFormPage.h \
+    app/include/views/ActivityFormDialog.h \
+    app/include/views/ActivityListPage.h \
+    app/include/views/ActivityViewHelpers.h \
+    app/include/views/MainWindow.h \
+    app/include/views/RecurrenceChoiceDialog.h \
+    app/include/views/WeekView.h \
+    app/include/views/DayView.h \
+    app/include/views/MonthView.h \
+    app/include/views/YearView.h \
+    app/include/views/ViewShared.h \
+    app/include/views/WidgetUtils.h \
     model/include/events/events.h \
     model/include/events/builders/ActivityBuilder.h \
     model/include/events/builders/GeneratorBuilder.h \

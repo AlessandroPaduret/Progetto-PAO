@@ -8,6 +8,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # AUTOMOC e' necessario per elaborare le macro Q_OBJECT nei file di test QTest
 set(CMAKE_AUTOMOC ON)
+# compile_commands.json in build/: usato da clangd (vedi .clangd) per
+# risolvere i veri include path del progetto invece di indovinarli.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
