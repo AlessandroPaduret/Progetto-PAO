@@ -101,7 +101,13 @@ inline bool coversFullDay(const events::Occurrence& occ) {
     if (start > dayStart) {
         dayStart = dayStart.addDays(1);
     }
-    const QDateTime dayEnd = dayStart.addDays(1);
+    // -1s: le attivita' "tutto il giorno" sono salvate con durata 24h - 1s
+    // (vedi isAllDayActivity), non 24h esatte, quindi l'ultimo istante
+    // coperto e' l'ultimo secondo prima della mezzanotte successiva, non
+    // la mezzanotte stessa. Senza questo margine le serie ricorrenti
+    // "tutto il giorno" (che usano sempre 24h - 1s, a differenza
+    // dell'evento singolo che usa 24h esatte) non risultano mai all-day.
+    const QDateTime dayEnd = dayStart.addDays(1).addSecs(-1);
     return dayEnd <= utcTime(occ.end());
 }
 
