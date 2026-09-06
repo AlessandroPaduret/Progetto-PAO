@@ -14,7 +14,7 @@
 
 #include <algorithm>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "views/ActivityViewHelpers.h"
 #include "views/Theme.h"
 #include "views/ViewShared.h"

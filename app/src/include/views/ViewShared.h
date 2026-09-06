@@ -3,9 +3,7 @@
 
 #include <QColor>
 #include <QDateTime>
-#include <QStyle>
 #include <QTimeZone>
-#include <QWidget>
 
 #include "events/events.h"
 #include "events/generators/FixedIntervalGenerator.h"
@@ -111,17 +109,6 @@ inline bool coversFullDay(const events::Occurrence& occ) {
     // dell'evento singolo che usa 24h esatte) non risultano mai all-day.
     const QDateTime dayEnd = dayStart.addDays(1).addSecs(-1);
     return dayEnd <= utcTime(occ.end());
-}
-
-/** @brief Rivaluta le regole del foglio di stile (resources/style.qss) che
- *  dipendono da una proprieta' dinamica dopo che il C++ l'ha cambiata con
- *  setProperty(): Qt non lo fa da solo (a differenza del semplice
- *  ridisegno). Va chiamata subito dopo ogni setProperty rilevante per lo
- *  stile (es. "selected", "inMonth", "dayState"). */
-inline void repolish(QWidget* widget) {
-    widget->style()->unpolish(widget);
-    widget->style()->polish(widget);
-    widget->update();
 }
 
 /** @brief Nome corto del giorno della settimana (1 = lunedi', 7 = domenica). */

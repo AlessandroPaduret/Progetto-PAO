@@ -2,7 +2,7 @@
 #include <QFile>
 #include <QTextStream>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "views/MainWindow.h"
 
 int main(int argc, char* argv[]) {

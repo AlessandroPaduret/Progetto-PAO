@@ -8,7 +8,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "views/ActivityViewHelpers.h"
 
 namespace app {

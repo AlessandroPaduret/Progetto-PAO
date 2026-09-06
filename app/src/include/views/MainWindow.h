@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "events/events.h"
-#include "views/AppMenuBar.h"
+#include "menu/AppMenuBar.h"
 
 class QLabel;
 class QStackedWidget;

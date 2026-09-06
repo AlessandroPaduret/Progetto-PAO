@@ -22,27 +22,55 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 add_subdirectory(../model model)
 
 # --- Libreria core (controller: logica di applicazione senza Widgets) -------
-add_library(pao_core STATIC src/CalendarController.cpp)
-target_include_directories(pao_core PUBLIC src)
+# L'header e' elencato esplicitamente tra i sorgenti (oltre al .cpp): AUTOMOC
+# nella maggior parte dei casi accoppia un .cpp al proprio header cercandolo
+# nella STESSA cartella; siccome qui gli header vivono in src/include/ (per
+# separare header/implementazione come in model/), va reso un sorgente del
+# target anche lui, altrimenti Q_OBJECT non verrebbe visto e il link fallisce
+# per vtable/staticMetaObject mancanti.
+add_library(pao_core STATIC
+    src/controller/CalendarController.cpp
+    src/include/controller/CalendarController.h
+)
+target_include_directories(pao_core PUBLIC src src/include)
 target_link_libraries(pao_core PUBLIC events events_persistence Qt6::Core)
 
-# --- Applicazione Qt (views + main) -----------------------------------------
+# --- Applicazione Qt (menu + views + main) -----------------------------------
+# Stesso motivo per gli header sotto src/include/{menu,views}/: elencati
+# esplicitamente perche' non sono nella stessa cartella del .cpp associato.
 add_executable(pao_app
     resources/app.qrc
     src/main.cpp
-    src/views/AppMenuBar.cpp
+    src/menu/AppMenuBar.cpp
+    src/include/menu/AppMenuBar.h
+    src/include/menu/MenuShortcutStyle.h
     src/views/MainWindow.cpp
+    src/include/views/MainWindow.h
     src/views/WeekView.cpp
+    src/include/views/WeekView.h
     src/views/DayView.cpp
+    src/include/views/DayView.h
     src/views/MonthView.cpp
+    src/include/views/MonthView.h
     src/views/YearView.cpp
+    src/include/views/YearView.h
     src/views/ActivityListPage.cpp
+    src/include/views/ActivityListPage.h
     src/views/ActivityDetailDialog.cpp
+    src/include/views/ActivityDetailDialog.h
     src/views/ActivityFormPage.cpp
+    src/include/views/ActivityFormPage.h
     src/views/ActivityFormDialog.cpp
+    src/include/views/ActivityFormDialog.h
     src/views/ActivityViewHelpers.cpp
+    src/include/views/ActivityViewHelpers.h
     src/views/RecurrenceChoiceDialog.cpp
+    src/include/views/RecurrenceChoiceDialog.h
     src/views/OccurrenceWidget.cpp
+    src/include/views/OccurrenceWidget.h
+    src/include/views/ViewShared.h
+    src/include/views/WidgetUtils.h
+    src/include/views/Theme.h
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 

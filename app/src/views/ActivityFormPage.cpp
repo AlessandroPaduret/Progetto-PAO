@@ -24,7 +24,7 @@
 
 #include <algorithm>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "events/builders/ActivityConfig.h"
 #include "events/domain/Meeting.h"
 #include "events/domain/Task.h"

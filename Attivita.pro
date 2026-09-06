@@ -8,15 +8,15 @@ CONFIG -= app_bundle
 TEMPLATE = app
 TARGET = attivita
 
-INCLUDEPATH += model/include model/persistence/include app/src
+INCLUDEPATH += model/include model/persistence/include app/src app/src/include
 
 RESOURCES += app/resources/app.qrc
 
 SOURCES += \
     app/src/main.cpp \
-    app/src/CalendarController.cpp \
+    app/src/controller/CalendarController.cpp \
+    app/src/menu/AppMenuBar.cpp \
     app/src/views/ActivityDetailDialog.cpp \
-    app/src/views/AppMenuBar.cpp \
     app/src/views/ActivityFormPage.cpp \
     app/src/views/ActivityFormDialog.cpp \
     app/src/views/ActivityListPage.cpp \
@@ -27,6 +27,7 @@ SOURCES += \
     app/src/views/DayView.cpp \
     app/src/views/MonthView.cpp \
     app/src/views/YearView.cpp \
+    app/src/views/OccurrenceWidget.cpp \
     model/src/events/Activity.cpp \
     model/src/events/ActivityBuilder.cpp \
     model/src/events/Calendar.cpp \
@@ -41,23 +42,24 @@ SOURCES += \
     model/persistence/src/persistence/JsonPersistence.cpp
 
 HEADERS += \
-    app/src/CalendarController.h \
-    app/src/views/ActivityDetailDialog.h \
-    app/src/views/AppMenuBar.h \
-    app/src/views/MenuShortcutStyle.h \
-    app/src/views/OccurrenceWidget.h \
-    app/src/views/Theme.h \
-    app/src/views/ActivityFormPage.h \
-    app/src/views/ActivityFormDialog.h \
-    app/src/views/ActivityListPage.h \
-    app/src/views/ActivityViewHelpers.h \
-    app/src/views/MainWindow.h \
-    app/src/views/RecurrenceChoiceDialog.h \
-    app/src/views/WeekView.h \
-    app/src/views/DayView.h \
-    app/src/views/MonthView.h \
-    app/src/views/YearView.h \
-    app/src/views/ViewShared.h \
+    app/src/include/controller/CalendarController.h \
+    app/src/include/menu/AppMenuBar.h \
+    app/src/include/menu/MenuShortcutStyle.h \
+    app/src/include/views/ActivityDetailDialog.h \
+    app/src/include/views/OccurrenceWidget.h \
+    app/src/include/views/Theme.h \
+    app/src/include/views/ActivityFormPage.h \
+    app/src/include/views/ActivityFormDialog.h \
+    app/src/include/views/ActivityListPage.h \
+    app/src/include/views/ActivityViewHelpers.h \
+    app/src/include/views/MainWindow.h \
+    app/src/include/views/RecurrenceChoiceDialog.h \
+    app/src/include/views/WeekView.h \
+    app/src/include/views/DayView.h \
+    app/src/include/views/MonthView.h \
+    app/src/include/views/YearView.h \
+    app/src/include/views/ViewShared.h \
+    app/src/include/views/WidgetUtils.h \
     model/include/events/events.h \
     model/include/events/builders/ActivityBuilder.h \
     model/include/events/builders/GeneratorBuilder.h \

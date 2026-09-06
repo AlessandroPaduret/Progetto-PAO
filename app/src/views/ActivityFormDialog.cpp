@@ -5,7 +5,7 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "views/ActivityFormPage.h"
 
 namespace app {

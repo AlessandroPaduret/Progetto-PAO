@@ -1,4 +1,4 @@
-#include "views/AppMenuBar.h"
+#include "menu/AppMenuBar.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -7,7 +7,7 @@
 #include <QMenu>
 #include <QShortcut>
 
-#include "views/MenuShortcutStyle.h"
+#include "menu/MenuShortcutStyle.h"
 
 namespace app {
 

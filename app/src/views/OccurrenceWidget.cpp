@@ -15,6 +15,7 @@
 
 #include "views/Theme.h"
 #include "views/ViewShared.h"
+#include "views/WidgetUtils.h"
 
 namespace app {
 

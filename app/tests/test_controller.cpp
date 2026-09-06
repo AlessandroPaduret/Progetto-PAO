@@ -7,7 +7,7 @@
 #include <chrono>
 #include <memory>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "events/builders/ActivityConfig.h"
 #include "events/domain/Task.h"
 #include "events/generators/FixedIntervalGenerator.h"

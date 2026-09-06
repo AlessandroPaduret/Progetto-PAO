@@ -12,7 +12,7 @@
 #include <QTimeZone>
 #include <QVBoxLayout>
 
-#include "CalendarController.h"
+#include "controller/CalendarController.h"
 #include "events/builders/ActivityConfig.h"
 #include "views/ActivityDetailDialog.h"
 #include "views/ActivityFormDialog.h"
