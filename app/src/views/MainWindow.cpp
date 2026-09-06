@@ -24,7 +24,7 @@
 #include "views/ActivityFormDialog.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
-#include "views/LeftShortcutStyle.h"
+#include "views/MenuShortcutStyle.h"
 #include "views/MonthView.h"
 #include "views/RecurrenceChoiceDialog.h"
 #include "views/ViewShared.h"
@@ -135,7 +135,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
 
     // Stile dei menu: la scorciatoia va a sinistra, in grigio/trasparente.
     // La MainWindow possiede lo stile; il menu (figlio) lo usa per il paint.
-    m_menuStyle = std::make_unique<LeftShortcutStyle>(QApplication::style());
+    m_menuStyle = std::make_unique<MenuShortcutStyle>(QApplication::style());
     fileMenu->setStyle(m_menuStyle.get());
 
     // Ctrl+N: nuova attivita' (form con tipo predefinito Evento)

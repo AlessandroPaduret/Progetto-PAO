@@ -22,7 +22,7 @@ class ActivityFormDialog;
 class ActivityListPage;
 class CalendarController;
 class DayView;
-class LeftShortcutStyle;
+class MenuShortcutStyle;
 class MonthView;
 class RecurrenceChoiceDialog;
 class WeekView;
@@ -120,7 +120,7 @@ private:
     QWidget* m_navBar = nullptr;
     QLabel* m_navLabel = nullptr;
     QMenu* m_viewMenu = nullptr;
-    std::unique_ptr<LeftShortcutStyle> m_menuStyle;  // scorciatoie a sinistra
+    std::unique_ptr<MenuShortcutStyle> m_menuStyle;  // scorciatoie a destra, grigie
     QAction* m_viewListAction = nullptr;
     QAction* m_viewDayAction = nullptr;
     QAction* m_viewWeekAction = nullptr;

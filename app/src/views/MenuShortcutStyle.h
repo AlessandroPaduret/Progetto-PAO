@@ -1,5 +1,5 @@
-#ifndef APP_LEFT_SHORTCUT_STYLE_H
-#define APP_LEFT_SHORTCUT_STYLE_H
+#ifndef APP_MENU_SHORTCUT_STYLE_H
+#define APP_MENU_SHORTCUT_STYLE_H
 
 #include <QColor>
 #include <QPainter>
@@ -9,12 +9,13 @@
 namespace app {
 
 /** @brief Stile dei menu: la scorciatoia (es. Ctrl+O) viene disegnata a
- *  SINISTRA della voce, in grigio/trasparente, invece che a destra come il
- *  default. Qt6 passa la scorciatoia dentro `QStyleOptionMenuItem::text`
- *  dopo un tab ("testo\tCtrl+O"). */
-class LeftShortcutStyle : public QProxyStyle {
+ *  DESTRA della voce (posizione standard) ma in un grigio piu' marcato del
+ *  testo normale, per restare leggibile senza competere con l'etichetta.
+ *  Qt6 passa la scorciatoia dentro `QStyleOptionMenuItem::text` dopo un tab
+ *  ("testo\tCtrl+O"). */
+class MenuShortcutStyle : public QProxyStyle {
 public:
-    explicit LeftShortcutStyle(QStyle* baseStyle) : QProxyStyle(baseStyle) {}
+    explicit MenuShortcutStyle(QStyle* baseStyle) : QProxyStyle(baseStyle) {}
 
     void drawControl(ControlElement element, const QStyleOption* option,
                      QPainter* painter, const QWidget* widget) const override {
@@ -34,22 +35,23 @@ public:
                     }
                     painter->save();
                     painter->setFont(item->font);
-                    // Scorciatoia a sinistra, grigio/trasparente
+                    // Scorciatoia a destra (posizione standard), grigio marcato
                     const int shortcutW =
                         item->fontMetrics.horizontalAdvance(shortcut) + 14;
-                    painter->setPen(selected ? QColor(255, 255, 255, 180)
-                                             : QColor(0, 0, 0, 100));
-                    painter->drawText(
-                        QRect(item->rect.left() + 8, item->rect.top(),
-                              shortcutW - 8, item->rect.height()),
-                        Qt::AlignLeft | Qt::AlignVCenter, shortcut);
-                    // Etichetta dopo la scorciatoia, elisa se non ci sta
+                    const QRect shortcutRect(
+                        item->rect.right() - shortcutW, item->rect.top(),
+                        shortcutW - 8, item->rect.height());
+                    painter->setPen(selected ? QColor(255, 255, 255, 200)
+                                             : QColor(90, 90, 90));
+                    painter->drawText(shortcutRect,
+                                      Qt::AlignRight | Qt::AlignVCenter, shortcut);
+                    // Etichetta a sinistra, elisa se non ci sta prima della scorciatoia
                     painter->setPen(
                         selected ? item->palette.highlightedText().color()
                                  : item->palette.text().color());
                     const QRect labelRect(
-                        item->rect.left() + shortcutW, item->rect.top(),
-                        item->rect.width() - shortcutW, item->rect.height());
+                        item->rect.left() + 8, item->rect.top(),
+                        item->rect.width() - shortcutW - 8, item->rect.height());
                     painter->drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
                                       item->fontMetrics.elidedText(
                                           label, Qt::ElideRight,
@@ -65,4 +67,4 @@ public:
 
 } // namespace app
 
-#endif // APP_LEFT_SHORTCUT_STYLE_H
+#endif // APP_MENU_SHORTCUT_STYLE_H
