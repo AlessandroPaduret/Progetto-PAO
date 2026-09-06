@@ -146,7 +146,18 @@ void WeekView::setOccurrences(const std::vector<events::Occurrence>& occurrences
 }
 
 void WeekView::rebuildWidgets() {
-    qDeleteAll(m_widgets);
+    // deleteLater(), non delete: setOccurrences puo' essere chiamata
+    // ricorsivamente MENTRE un'occorrenza sta gestendo il proprio drag&drop
+    // (activityMoved -> CalendarController -> activitiesChanged -> refresh()
+    // -> setOccurrences), cioe' mentre QDrag::exec() e' ancora sullo stack
+    // dentro il widget che stiamo per distruggere. Cancellarlo subito
+    // libererebbe (come figlio) anche il QDrag ancora in esecuzione: crash.
+    // deleteLater() rimanda la distruzione a dopo che il nested event loop
+    // del drag e' tornato al livello in cui e' stato richiesto.
+    for (OccurrenceWidget* w : m_widgets) {
+        w->hide();
+        w->deleteLater();
+    }
     m_widgets.clear();
     m_selected = -1;
     m_widgets.reserve(m_occurrences.size());

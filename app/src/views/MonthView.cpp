@@ -74,7 +74,16 @@ public:
     }
 
     void setOccurrences(const std::vector<events::Occurrence>& dayOccurrences) {
-        qDeleteAll(m_chips);
+        // deleteLater(), non delete: per coerenza/robustezza con lo stesso
+        // pattern usato in WeekView (dove e' necessario perche' un chip puo'
+        // essere in mezzo al proprio QDrag::exec() quando questa viene
+        // richiamata ricorsivamente da un cambiamento che lui stesso ha
+        // causato). Qui i chip non sono trascinabili, ma non c'e' motivo di
+        // rischiare la stessa classe di bug se in futuro lo diventassero.
+        for (OccurrenceWidget* chip : m_chips) {
+            chip->hide();
+            chip->deleteLater();
+        }
         m_chips.clear();
 
         std::vector<events::Occurrence> sorted = dayOccurrences;
