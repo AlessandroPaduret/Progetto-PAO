@@ -47,6 +47,12 @@ QScrollArea* makeScroll(QWidget* content) {
 MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     : QMainWindow(parent), m_controller(controller) {
     setWindowTitle(tr("Le mie attivita'"));
+    // Esplicito (invece di affidarsi al default Qt::Window): garantisce chiudi,
+    // ridimensiona/massimizza e riduci a icona anche sotto window manager che
+    // altrimenti non li mostrerebbero tutti.
+    setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
+                   Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint |
+                   Qt::WindowCloseButtonHint);
 
     // --- Pagine -----------------------------------------------------------------
     m_weekView = new WeekView(this);
