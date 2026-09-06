@@ -1,65 +1,38 @@
 # AGENTS.md
 
-C++20 library for calendar/personal activities (domain model). Namespace `events` (lowercase). The whole logical model lives in `model/`; the repo root only holds the Dockerfile (builds the model), README, LICENSE and this file.
+C++23 library for calendar/personal activities (domain model). Namespace `events` (lowercase). The whole logical model lives in `model/`; the repo root holds `docker-compose.yml` (builds the model service), README, LICENSE, this file, plus the standalone `app/` and the delivery artifacts (`Attivita.pro`, `examples/`, `relazione/`). **`server/` and `db/` (REST API + PostgreSQL) were removed from the repo entirely** (commit "rimosso stack db/server e servizi docker-compose collegati") — the parts of this file below that still describe them are kept only as historical/aspirational spec, not as current layout.
 
 > **Git workflow:** ogni volta che vengono fatte modifiche al codice, va creato un commit (branch corrente: `refactor`). Commit atomic, messaggi concisi in italiano, coerenti con lo stile del log esistente. Non fare push/PR a meno che non sia esplicitamente richiesto.
 
 > **Delivery target (PAO course spec 2025/26):** the app to be delivered must compile in the professor's container (`unipd-oop/qt-env:2025`, Ubuntu 24.04 + g++ 13.3 + cmake 3.28 + **Qt 6.4.2 + qmake 3.1**, NO Catch2/nlohmann/libpqxx) and run **standalone** with local JSON file persistence. The REST server + PostgreSQL stack is an optional extra, off the evaluation critical path. Roadmap: Fase 0 (env check) + Fase 1 (Activity hierarchy) + Fase 2 (JSON persistence via Visitor) + Fase 3 (standalone Qt single-window app) + Fase 4 (delivery: `Attivita.pro` qmake, `examples/attivita_esempio.json`, `pack_delivery.sh` zip script, verified build-from-zip in the prof container) + Fase 5 (PDF report: `relazione/relazione.tex`, compiles 4pp) DONE. Remaining for the student: UML figure (`relazione/figura/`), name/matricola, actual hours in the report table.
 
-## Refactoring in corso (branch `refactor`) — paletti + TODO
+## Stato del modello (branch `snello`, derivato da `refactor`)
 
-> Stato intermedio: il modello è stato ridisegnato e `app/` è stato allineato (compila); `server/` e `db/` NON sono ancora aggiornati e quindi non compilano. Scopo del refactor: `model/` + `model/persistence/` (+ `app/`).
+> Il modello (`model/`), la persistenza JSON (`model/persistence/`) e l'applicazione Qt (`app/`) sono rifattorizzati e **compilano/passano i test con successo**. L'architettura dei generatori è **stateless e immutabile**; la deduplicazione (Flyweight) e il limite di occorrenze descritti in versioni precedenti di questo file **non sono implementati nel codice attuale** — vedi sotto.
 
-## Refactoring completato (branch `refactor`) — Architettura finale + TODO
-
-> **Stato attuale:** Il modello (`model/`), la persistenza JSON (`model/persistence/`) e l'applicazione Qt (`app/`) sono stati completamente rifattorizzati e **compilano/passano i test con successo**. L'architettura dei generatori è ora **stateless, immutabile e deduplicata** (Flyweight Pattern).
-
-- [x] **`Activity` concreta & derivati (`Task`, `Meeting`)**:
-  - `Activity` possiede lo **stato dell'evento**: `m_title`, `m_start`, `m_end` (default: `TimePoint::max()`), `m_duration`, `m_maxOccurrences` (0 = illimitate), le eccezioni (`m_exceptions`) e un puntatore condiviso immutabile al generatore (`std::shared_ptr<const DateGenerator>`).
-  - `title` e `start` sono **obbligatori** nei costruttori di `Activity`, `Task` e `Meeting` (senza parametri di default ambigui).
-  - `Task` e `Meeting` sono sottoclassi di `Activity`. `Task` gestisce il completamento per-occorrenza (`m_doneOccurrences`).
-  - `Activity` supporta copia e assegnamento in $O(1)$ (Value Semantics) e clonazione tramite `clone()`.
+- [x] **`Activity` concreta (non astratta) & derivati (`Task`, `Meeting`)**:
+  - `Activity` **non è astratta**: è la classe concreta "evento singolo/ricorrente" e possiede `m_title`, `m_start`, `m_end` (default: `TimePoint::max()`), `m_duration`, le eccezioni (`m_exceptions`) e un puntatore condiviso immutabile al generatore (`std::shared_ptr<const DateGenerator>`). **Non esiste `m_maxOccurrences`**: il limite di occorrenze non è (più) una feature del modello.
+  - `title` e `start` sono **obbligatori** nei costruttori di `Activity`, `Task` e `Meeting`.
+  - `Task` e `Meeting` sono le uniche due sottoclassi di `Activity` (**3 tipi concreti in totale**, non 5: non esistono `Event`, `RecurrentEvent` né `Anniversary`, rimossi durante il refactor). `Task` gestisce il completamento per-occorrenza (`m_doneOccurrences`).
+  - `Activity` supporta copia e assegnamento (Value Semantics, generatore condiviso via `shared_ptr`) e clonazione tramite `clone()`.
 - [x] **DateGenerator STATELESS & IMMUTABILI**:
   - `DateGenerator` è una pura regola di calcolo matematico/calendariale (senza `m_start` né `m_end`).
-  - Interfaccia: `next(TimePoint current)` e `align(TimePoint start, TimePoint from)` per calcoli algoritmici in $O(1)$ senza cicli d'espansione.
-  - Implementa l'interfaccia **`utils::Cacheable`** (`isEqualImpl` + `hash`) e il Visitor pattern (`accept(DateGeneratorVisitor&)`).
-  - Classi concrete: `SingleGenerator` (stateless, `next` restituisce `TimePoint::max()`), `FixedIntervalGenerator(interval)`, `MonthlyGenerator(months)` (leap/end-of-month clamping aware), `YearlyGenerator(years)` (29/2→28/2 fallback).
-- [] **Deduplicazione via Flyweight Pattern (`GeneratorPool`)**:
-  - La `GeneratorPool` gestisce la deduplicazione in memoria dei generatori tramite `std::unordered_set<std::weak_ptr<const DateGenerator>, WeakCacheableHash, WeakCacheableEqual>`.
-  - Se due attività usano la stessa regola (es. "ogni 24 ore"), condividono lo stesso indirizzo di memoria RAM. La pulizia dei nodi non più usati dalle attività avviene automaticamente quando il `shared_ptr` scade (`ref count == 0`).
-- [] **Builder aggiornati**:
-  - `ActivityBuilder`, `TaskBuilder` e `MeetingBuilder` accettano `title` e `start` nel costruttore e permettono configurazioni fluenti (`withEnd`, `withDuration`, `addGenerator`, `withMaxOccurrences`, `addException`). Fallback: `SingleGenerator` condiviso statico.
-- [] **Persistenza JSON (`JsonPersistence`)**:
-  - Adeguata al Visitor pattern aggiornato: i generatori serializzano solo la propria frequenza/regola (`type`, `interval_seconds`, `interval_months`, `interval_years`), mentre `start`, `end` e `max_occurrences` sono serializzati e deserializzati al livello dell' `Activity`.
+  - Interfaccia: `next(TimePoint current)`, `align(TimePoint start, TimePoint from)` (O(1)) e `occurrences(TimePoint start, TimePoint from, TimePoint limit) -> std::generator<TimePoint>` — un **coroutine generator C++23** (header `<generator>`, non un `view_interface` custom) che produce pigramente la sequenza di date.
+  - Implementa l'interfaccia **`utils::Cacheable`** (`isEqualImpl` + `hash`, usata da `operator==` con confronto per `typeid`) e il Visitor pattern (`accept(DateGeneratorVisitor&)`).
+  - Classi concrete: `SingleGenerator()` (stateless, `next` restituisce `TimePoint::max()`), `FixedIntervalGenerator(interval)`, `MonthlyGenerator(months = 1)` (leap/end-of-month clamping aware), `YearlyGenerator(years = 1)` (29/2→28/2 fallback).
+- [ ] **NON implementato: deduplicazione via Flyweight (`GeneratorPool`)**: nessun file `GeneratorPool`/`WeakCacheableHash`/`WeakCacheableEqual` esiste in `model/`. `utils::Cacheable.h` fornisce solo i functor non-weak `CacheableHash`/`CacheableEqual`, non ancora usati per una pool condivisa.
+- [x] **Costruzione via Config + factory (non Builder)**:
+  - Le classi `ActivityBuilder`/`TaskBuilder`/`MeetingBuilder`/`GeneratorBuilder` descritte in versioni precedenti **non esistono**: sostituite da struct aggregate in `events/builders/ActivityConfig.h` (`ActivityConfig`, `TaskConfig : ActivityConfig`, `MeetingConfig : ActivityConfig`) e da funzioni libere `makeActivity(ActivityConfig)`, `makeTask(TaskConfig)`, `makeMeeting(MeetingConfig)` che restituiscono l'`unique_ptr` corrispondente. Fallback generatore: `nullptr` → `SingleGenerator` condiviso statico (gestito nel costruttore di `Activity`). Non esistono `withMaxOccurrences`/`limitTo`/`MaxOccurrencesDecorator`.
+- [x] **Persistenza JSON (`JsonPersistence`)** — aggiornata e funzionante:
+  - Discriminatore `"type"` con **soli 3 valori**: `event | task | meeting` (non `recurrent`/`anniversary`, che non esistono più).
+  - I generatori serializzano solo `type` (`single|fixed|monthly|yearly`) + la propria frequenza (`interval_seconds`/`interval_months`/`interval_years`); `title`, `start`, `duration_seconds`, `end` (opzionale), `exceptions` sono a livello di `Activity`. **Non esiste `max_occurrences`** nel formato JSON.
   - Deserializzazione tramite `std::shared_ptr<const DateGenerator>`.
-- [ ] `server/`, `db/`, `examples/*.json` — da aggiornare in un secondo momento (fuori scope attuale). `app/` compila (viste e form aggiornati ai builder; `ActivityFactory`, `MoveGeneratorVisitor` e `truncateBefore` non esistono piu').
-
-### 📋 TODO: Inserimento Pipeline C++20 Ranges (`std::ranges::view_interface`)
-
-Rifattorizzare il calcolo e la materializzazione delle occorrenze in `Activity::occurrencesIn` tramite la composizione pigra (lazy evaluation) di **C++20 Ranges**:
-
-- [ ] **Implementazione di `OccurrenceRange`**:
-  - Definire `OccurrenceRange` derivandolo da `std::ranges::view_interface<OccurrenceRange>` per avvolgere `GeneratorIterator(gen, from, to)`.
-- [ ] **Pipeline lazy per filtraggio eccezioni e limiti**:
-  - Sostituire l'espansione manuale in `Activity::occurrencesIn` con una composizione fluente di range views:
-    ```cpp
-    OccurrenceRange range{m_generator.get(), from, std::min(to, getEnd())};
-
-    // 1. Filtraggio eccezioni via std::views::filter
-    auto validDatesView = range | std::views::filter([this](TimePoint tp) {
-        return !m_exceptions.contains(tp);
-    });
-
-    // 2. Troncamento limitato via std::views::take (se m_maxOccurrences > 0)
-    // auto limitedView = validDatesView | std::views::take(m_maxOccurrences);
-    ```
-  - Materializzare il `std::vector<TimePoint>`/`std::vector<Occurrence>` finale iterando sulla pipeline costruita in un unico passaggio lazy.
-- [ ] **Allineamento moduli esterni**:
-  - Aggiornare `server/` e `db/` in un secondo momento per allinearli ai nuovi tipi di `model/`.
+- [x] **Pipeline C++23 Ranges per le occorrenze** — già implementata in `Activity::occurrencesIn`: compone `m_generator->occurrences(...)` (coroutine `std::generator`) con `std::views::filter` (eccezioni) + `std::views::transform` (→ `Occurrence`) + `std::ranges::to<std::vector>()`, in un unico passaggio lazy. Non usa una classe `OccurrenceRange`/`view_interface` dedicata.
+- `server/`, `db/` — **rimossi dal repository** (non solo "da aggiornare"): la directory non esiste più su questo branch. `app/` compila (viste e form aggiornati alle Config; `ActivityFactory`, `MoveGeneratorVisitor` e `truncateBefore` non esistono più).
 
 ## Build & test
 
-CMake is the primary build. Run from `model/` (the `model/Dockerfile` installs all deps, incl. Catch2):
+CMake is the primary build. Run from `model/` (needs Qt6 — or Qt5 — with the Core and Test components; tests are QTest-based, registered as `EventsTest`/`PersistenceTest`):
 
 ```bash
 cmake -B build && cmake --build build -j
@@ -77,25 +50,11 @@ docker compose up --build model
 - `model/` — the entire logical model (the `events` library + its tests):
   - `model/include/events/` — public headers; code includes them as `events/events.h` (require `-Iinclude`).
   - `model/src/events/` — implementation (matches headers 1:1).
-  - `model/tests/test.cpp` + `model/tests/test_persistence.cpp` — the test files (Catch2 v3).
-  - `model/persistence/` — JSON persistence module, library `events_persistence` (Qt Core ONLY, no Widgets): `persistence::activityToJson/calendarToJson/activityFromJson/calendarFromJsonArray/saveToFile/loadFromFile`. Serialization uses the Visitor pattern (`JsonActivityVisitor` + `JsonGeneratorVisitor`); deserialization is a discriminator-based factory ("type" field `event|recurrent|task|meeting|anniversary`, validated strictly). File format: `{"version":1, "activities":[...]}`, times as ISO-8601 UTC `YYYY-MM-DDTHH:MM:SS`. Solo il **Task** serializza il flag `done`; Meeting `location`+`attendees`, Task `priority`. Built only when Qt6 Core is found (present on host AND in the professor's container; NOT in the server's Dockerfile).
+  - `model/tests/test.cpp` + `model/tests/test_persistence.cpp` — the test files. **QTest** (`QObject`-derived `TestModel`, `private slots:`, `QCOMPARE`/`QVERIFY`), NOT Catch2 — model tests no longer use Catch2 at all.
+  - `model/persistence/` — JSON persistence module, library `events_persistence` (Qt Core ONLY, no Widgets): `persistence::activityToJson/calendarToJson/activityFromJson/calendarFromJsonArray/saveToFile/loadFromFile`. Serialization uses the Visitor pattern (`JsonActivityVisitor` + `JsonGeneratorVisitor`); deserialization is a discriminator-based factory ("type" field `event|task|meeting`, validated strictly — only 3 activity types exist). File format: `{"version":1, "activities":[...]}`, times as ISO-8601 UTC `YYYY-MM-DDTHH:MM:SS`. Solo il **Task** serializza il flag `done` (per-occorrenza, `done_occurrences`); Meeting `location`+`attendees`, Task `priority`. Built only when Qt6 Core is found.
   - `model/Doxyfile` + `model/docs/` — Doxygen config (docs/ is gitignored).
-  - `model/Dockerfile` + `model/.dockerignore` — builds the tests and generates the docs (installs qt6-base-dev so persistence tests run in CI).
-  - CMake: `find_package(Catch2 3 QUIET)` — tests are built ONLY when Catch2 is available (it is NOT in the professor's container; the library itself must always compile there). `find_package(Qt6 COMPONENTS Core QUIET)` gates the persistence module.
-- `db/` — persistence layer, library `db_repository` (no dependency on the model):
-  - `db/include/db/` — public headers: `ConnectionPool` (thread-safe pool of libpqxx connections, RAII `Lease`), `PasswordHasher` (bcrypt via libxcrypt, `$2b$`, cost 12, self-generated salt), `UserRepository`, `EventRepository`.
-  - `db/src/db/` — implementations on libpqxx. Timestamps are epoch-seconds (BIGINT) to match the model's seconds precision.
-  - `db/schema.sql` — DDL (tables `utenti`, `eventi` with `SINGLE|FIXED|YEARLY`, `eccezioni`), applied at container init.
-  - `db/tests/` — `hash_smoke` (bcrypt, no DB; registered in ctest) and `repo_smoke` (needs a live PostgreSQL via `DATABASE_URL`; not in ctest).
-  - `db/Dockerfile` + `db/.dockerignore` — reproducible build env: installs `libpqxx-dev` + `libcrypt-dev`, builds the library and runs the smoke tests.
-- `server/` — REST API server, executable `api_server` (links `events` + `db_repository`):
-  - `server/src/main.cpp` — cpp-httplib routes + Bearer middleware.
-  - `server/src/auth.*` — JWT (jwt-cpp, HS256, `sub`=userId, exp 24h).
-  - `server/src/mappers.*` — `EventRecord` → `Event`/`RecurrentEvent` (the db filters candidates, the model expands occurrences). Note the ns→s `time_point_cast` conversion (db uses `system_clock::time_point`, the model uses seconds).
-  - `server/src/iso8601.*` — ISO-8601 (UTC) parse/format ↔ `events::TimePoint`. Strict parser (`sscanf` + `year_month_day::ok()`): rejects partial dates like `2026-01-01`.
-  - `server/tests/` — Catch2 unit tests (no DB): `test_time`, `test_auth`, `test_mappers`; registered as one ctest entry `server_tests`.
-  - `server/CMakeLists.txt` — `add_subdirectory(../model)` + `(../db)` with `BUILD_TESTING OFF`; library `api_core` (auth/mappers/iso8601, testable) + executable `api_server`; deps: `nlohmann_json` (apt) + `cpp-httplib` and `jwt-cpp` (FetchContent, pinned tags — cpp-httplib must be ≥ 0.19 for GCC 13.2).
-  - `server/Dockerfile` — build context = repo root (needs `model/` + `db/`); builds + runs `server_tests` during image build; root `.dockerignore` excludes artifacts.
+  - `model/Dockerfile` + `model/.dockerignore` — builds the tests and generates the docs. Installs `qt6-base-dev` (needed for both QTest and the persistence module). It also still apt-installs `catch2`, a **stale leftover** from before the switch to QTest — no CMake target references Catch2 in `model/` anymore.
+  - CMake (`model/CMakeLists.txt`, `CMAKE_CXX_STANDARD 23`): `find_package(Qt6 COMPONENTS Core Test QUIET)` (Qt5 fallback) — tests (`events_tests`, `persistence_tests`) are built only when the **Qt Test** component is found; `TARGET Qt::Core OR TARGET Qt5::Core` gates the persistence module. No Catch2 dependency anywhere in `model/`.
 - `app/` — Qt6 desktop app **standalone** (single-window, deliverable PAO; native build, NOT containerized; MVC: `CalendarController` + views):
   - `app/src/CalendarController.*` — controller MVC (QObject): possiede `events::Calendar`, CRUD + `search` + `occurrencesIn`, `addActivities` (piu' serie in un colpo), azioni sulle occorrenze (`deleteOccurrence` → EXDATE o truncate "questa e le successive", `modifyOccurrence` → eccezione interna + evento singolo, `updateActivity` conserva le eccezioni), **`toggleDone(Occurrence)`** (inverte lo stato evaso/da fare solo di un COMPITO, l'unico tipo con stato), persistenza via `events_persistence`. Segnale `activitiesChanged` → le viste si aggiornano.
   - `app/src/views/` — viste Qt (MVC, mai path cablati):
@@ -110,22 +69,19 @@ docker compose up --build model
   - `app/tests/test_controller.cpp` — test Catch2 del controller (headless, in ctest).
   - `app/CMakeLists.txt` — Qt6 Widgets+Core, AUTOMOC; `add_subdirectory(../model)`; target `pao_core` (controller, testabile senza Widgets) + `pao_app` + `app_controller_tests` (solo se Catch2).
   - Build: `cmake -B build && cmake --build build -j && ctest --test-dir build` da `app/`. Compila nel container del professore (Qt 6.4.2): attenzione a NON usare API Qt ≥ 6.5 (es. `QTimeZone::UTC` non esiste lì — usare `QTimeZone(0)`); `QDateTime` UTC via `QTimeZone(0)` o `Qt::UTC` (deprecato solo su Qt recenti).
-- `docker-compose.yml` (repo root) — services `model` (test+docs pipeline), `db` (postgres:15-alpine, schema auto-init, volume `db_data`, port 5432 NOT exposed, network `pao-backend`) and `api` (builds `server/`, waits for `db` health, exposes 8080).
-- **Delivery artifacts** (repo root): `Attivita.pro` (qmake single-target app build, verified with `qmake6 && make` in the prof container), `examples/attivita_esempio.json` (sample persistence file, generated and round-trip validated by `events_persistence`), `relazione/relazione.tex` (PAO report, 10pt ≤8pp, compiled with pdflatex; UML placeholder in `relazione/figura/uml_attivita.png` — to be drawn by the student; student name/matricola via `\studente`/`\matricola`), `pack_delivery.sh` (builds the Moodle zip: `relazione.pdf` auto-included if present + `sorgenti/` with model+app+`.pro` + `examples/`; excludes server/db, build artifacts, docs). Verified end-to-end: unzip in clean dir inside `qt-env-prof:2025` → `qmake6 && make` (0 errors/warnings) and `cmake -B build -DBUILD_TESTING=OFF && cmake --build build` → app runs offscreen.
+- `docker-compose.yml` (repo root) — **single service** `model` (test+docs pipeline, builds `model/Dockerfile`, mounts `./model:/app`). The previous `db`/`api` services were removed along with `db/` and `server/`.
+- **Delivery artifacts** (repo root): `Attivita.pro` (qmake single-target app build, verified with `qmake6 && make` in the prof container), `examples/attivita_esempio.json` + `examples/ex.json` (sample persistence files for `events_persistence`), `relazione/relazione.tex` (PAO report, 10pt ≤8pp, compiled with pdflatex; UML placeholder in `relazione/figura/uml_attivita.png` — to be drawn by the student; student name/matricola via `\studente`/`\matricola`). `pack_delivery.sh` is documented as the Moodle-zip script but **was not found anywhere in the repository or its history** — verify it still exists (it may be untracked, `.gitignore` excludes `*.sh`) before relying on this description.
 
-DB semantics: `EventRepository::getEvents(userId, from, to)` filters in SQL — SINGLE events by `start ∈ [from,to]`; FIXED/YEARLY by `start <= to AND (fine IS NULL OR fine >= from)` (the precise occurrence expansion is delegated to the model's `getSchedulable`). `setRecurrenceEnd(eventId, userId, end)` truncates a FIXED/YEARLY recurrence (UPDATE `fine`, refused on SINGLE).
-
-API: all routes except `/api/login` and `/api/register` require `Authorization: Bearer <token>`. Dates in requests/responses are ISO-8601 UTC (`YYYY-MM-DDTHH:MM:SS`). Endpoints: `POST /api/register` (`{username,password}` → 201/409), `POST /api/login` (→ `{token}`/401), `GET /api/events?from=&to=` (→ `[{event_id,title,start,end,type}]` occurrences, `type` is `single|fixed|yearly`, 400 without valid from/to), `POST /api/create-event` (`{title,start,duration,type:"single|fixed|yearly",interval?,end?}` → 201 `{id}`/400), `DELETE /api/events/{id}` — body `{"exception":ISO}` adds an EXDATE (internal), `{"truncate":ISO}` ends the recurrence just before that occurrence (only for recurrent events), no body deletes the event; 404 if not owned. Server config via env: `DATABASE_URL`, `JWT_SECRET`, `PORT` (default 8080).
+> The "DB semantics" and REST "API" endpoint table that used to live here described `server/`+`db/`, both **removed from the repo**. See the "Summary project intentions" section at the bottom of this file for that spec, kept only as historical/aspirational reference.
 
 ## Gotchas
 
-- `FixedIntervalGenerator::generateDates` / `Activity::occurrencesIn` ranges are INCLUSIVE on both ends (`while (current <= to)`). To get N weekly occurrences from a recurrence starting at `start`, query `[start, start + (N-1)*1_weeks]`.
-- I test del modello (`tests/test.cpp`, `tests/test_persistence.cpp`) NON definiscono un proprio `main()`: il target CMake linka `Catch2::Catch2WithMain`. (Nota: `app/tests/test_controller.cpp` definisce il proprio `main` via `Catch::Session` e linka `Catch2::Catch2`.)
-- Calendar literals like `2026y/2/28` compile under `-std=c++20` without extra flags; `_weeks`/`_years` literals live in `namespace events` (`CommonTypes.h`). There is NO `_days` literal — use `Days(n)`.
-- In `server/`, headers live in `server/src/` which is on the include path: do NOT name one `time.h` (it shadows `<time.h>` included by `<ctime>` → circular include, cryptic compile errors). The ISO-8601 helpers are `iso8601.h`.
-- `cpp-httplib` < 0.19 does not compile with GCC 13.2 (Ubuntu 24.04); the CMake pins v0.20.0. Regex route captures are exposed via `req.matches` (v0.20.0 handlers take `(req, res)` only).
-- Library is header+source with no Qt dependency; the `model/Dockerfile` installs only build tools + Catch2 + doxygen + qt6-base-dev to compile/test the model in `model/` and generate `model/docs/`.
-- **Professor's delivery container** (`qt-env-prof:2025`, reproduced from `unipd-oop/qt-env:2025` Dockerfile): Ubuntu 24.04, g++ 13.3, cmake 3.28.3, Qt 6.4.2 + qmake 3.1 (qt6-base/svg/charts/multimedia/declarative), libsqlite3; NO Catch2, NO nlohmann-json, NO libpqxx. The `events` library MUST compile there (Catch2 optional). GUI code must stay Qt ≤ 6.4 compatible. The server/db stack can only build natively or via its own Dockerfile (network needed for FetchContent).
+- `DateGenerator::occurrences` / `Activity::occurrencesIn` ranges are INCLUSIVE on both ends. To get N weekly occurrences from a recurrence starting at `start`, query `[start, start + (N-1)*1_weeks]`.
+- **Model tests use QTest, not Catch2**: `model/tests/test.cpp` and `test_persistence.cpp` are `QObject`-derived classes with `private slots:` and `QCOMPARE`/`QVERIFY`, gated by `find_package(Qt6 COMPONENTS Core Test)`. There is no Catch2 anywhere under `model/` — do not add `Catch2::Catch2WithMain` there. (`app/tests/test_controller.cpp` is a separate CMake project and still uses Catch2 — see the `app/` layout entry.)
+- **`<generator>`/`std::generator` risk on the delivery container**: `DateGenerator::occurrences` is a C++23 coroutine generator (`model/CMakeLists.txt` sets `CMAKE_CXX_STANDARD 23`). libstdc++ only gained `<generator>` support starting with **GCC 14**; the professor's container ships **g++ 13.3**. Verify `#include <generator>` actually compiles there before delivery — if it doesn't, `Activity::occurrencesIn`/`DateGenerator::occurrences` need a non-coroutine fallback.
+- Calendar literals like `2026y/2/28` compile under `-std=c++23` without extra flags; `_weeks`/`_years` literals live in `namespace events` (`CommonTypes.h`). There is NO `_days` literal — use `Days(n)`.
+- Library is header+source with no Qt dependency (Qt is only used by the optional `events_persistence` module and its tests); `model/Dockerfile` installs build tools + `qt6-base-dev` + doxygen to compile/test `model/` and generate `model/docs/`. It also apt-installs `catch2`, which is now unused dead weight (tests moved to QTest).
+- **Professor's delivery container** (`qt-env-prof:2025`, reproduced from `unipd-oop/qt-env:2025` Dockerfile): Ubuntu 24.04, g++ 13.3, cmake 3.28.3, Qt 6.4.2 + qmake 3.1 (qt6-base/svg/charts/multimedia/declarative), libsqlite3; NO Catch2, NO nlohmann-json, NO libpqxx. The `events` library MUST compile there. GUI code must stay Qt ≤ 6.4 compatible. `server/`/`db/` no longer exist in this repo (see top of file).
 
 
 # Current Model Logic (implemented)
@@ -135,73 +91,71 @@ Namespace `events`. Abstractions in `model/include/events/core/`, concrete class
 ## Class hierarchy
 
 ```
-Activity (abstract)                         // root of the activity hierarchy (title + id-less)
-├── Activity                                   // single interval: title + start + duration
-├── Task                                    // Compito: due + Priority{Low,Medium,High} + done (unico con stato)
+Activity (CONCRETE, not abstract)           // root + "single/recurring event" type: title + start + duration + generator
+├── Task                                    // Compito: due (== start) + Priority{Low,Medium,High} + done per-occorrenza
 └── Meeting                                 // Riunione: interval + location + attendees
-DateGenerator (abstract)                    // produces occurrence timestamps (Strategy)
-├── FixedIntervalGenerator                  // start, interval (giorni/settimane), end (mutabili)
-├── MonthlyGenerator                        // start, passi di MESI di calendario, end, months (mutabili)
-└── YearlyGenerator                         // yearly, leap-year aware
+DateGenerator (abstract)                    // stateless recurrence rule (Strategy)
+├── SingleGenerator                         // no recurrence (next() -> TimePoint::max())
+├── FixedIntervalGenerator                  // fixed Duration interval
+├── MonthlyGenerator                        // calendar-month steps (leap/end-of-month clamping)
+└── YearlyGenerator                         // calendar-year steps, leap-year aware
 Calendar                                    // OWNS the polymorphic activities (vector<unique_ptr<Activity>>)
 ```
 
-The hierarchy has **5 concrete activity types** (course spec requires ≥3), each with genuinely different attributes/methods. Solo **Task** ha uno stato di completamento ("evaso/da fare", `isDone()/setDone()`); gli altri tipi non hanno stato. `Activity::addException/clearExceptions`, `Task::isOverdue/priorityLabel`, `Meeting::addAttendee/removeAttendee`.
+**Only 3 concrete activity types exist** (`Activity`, `Task`, `Meeting`) — there is **no** `Event`, `RecurrentEvent` or `Anniversary` class; those were removed in the refactor and any prior documentation mentioning them is stale. `Activity` itself is instantiated directly to represent both single and recurring events (recurrence comes entirely from the attached `DateGenerator`, not from a distinct subclass). Solo **Task** ha uno stato di completamento ("evaso/da fare", `isDone()/setDone()`, per-occorrenza via `m_doneOccurrences`); gli altri tipi non hanno stato. `Activity::addException/clearExceptions`, `Task::isOverdue/priorityLabel`, `Meeting::addAttendee/removeAttendee`.
 
-Il **limite di occorrenze** ("Dopo N occorrenze", 0 = illimitate) vive nel `MaxOccurrencesDecorator` (`GeneratorBuilder::limitTo` / `ActivityBuilder::withMaxOccurrences`) e viene serializzato come `max_occurrences`. `MonthlyGenerator` fa passi di mesi CALENDARIALI (il 31 clampa all'ultimo giorno del mese, 31/1→28/2).
+**Non esiste un limite di occorrenze** ("Dopo N occorrenze") nel modello attuale: nessun `MaxOccurrencesDecorator`, nessun campo `max_occurrences` (né in `Activity` né nel JSON). Solo `m_end` (`TimePoint::max()` di default) limita una serie nel tempo. `MonthlyGenerator` fa passi di mesi CALENDARIALI (il 31 clampa all'ultimo giorno del mese, 31/1→28/2).
 
-> **Nota (all-day):** NON esiste piu' un tipo `AllDayEvent`. Un evento "tutto il giorno" e' un normale `Event` (o occorrenza di serie) che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno dopo). La GUI decide se mostrarlo nella **striscia in alto** in base a date e durate: `coversFullDay(occ)` (ViewShared.h) e' true se l'occorrenza copre almeno un giorno di calendario intero.
+> **Nota (all-day):** NON esiste un tipo `AllDayEvent`. Un evento "tutto il giorno" e' una normale `Activity` (o occorrenza di serie) che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno dopo). La GUI decide se mostrarlo nella **striscia in alto** in base a date e durate: `coversFullDay(occ)` (ViewShared.h) e' true se l'occorrenza copre almeno un giorno di calendario intero.
 
 ### `Activity` (core/Activity.h)
-Abstract root: `m_title`, `getTitle()/setTitle()`, and the non-trivial polymorphic interface:
-- `occurrencesIn(from, to) -> vector<Occurrence>` — each type expands its own notion of "when it happens" (Event → 0/1, RecurrentEvent → recurrence minus exceptions, Task/Meeting → single block, Anniversary → yearly). **Range INCLUSIVE on both ends**, start-of-occurrence semantics.
-- `accept(ActivityVisitor&)` — double dispatch (Visitor pattern for persistence/GUI panels).
-- `describe() -> String` — per-type human summary (display only, allowed by spec vincolo 9).
-- `clone() -> unique_ptr<Activity>` — virtual, override diretta in `Task`/`Meeting` (Prototype; copia profonda del generatore e, per i Task, anche delle occorrenze evase).
+Classe **concreta** (non astratta): `m_title`, `m_start`, `m_end` (default `TimePoint::max()`), `m_duration`, `m_exceptions`, `std::shared_ptr<const DateGenerator> m_generator` (default `SingleGenerator` statico condiviso se non fornito nel costruttore). `title`/`start` obbligatori nel costruttore; supporta copia/assegnamento value-semantics. Interfaccia non banale:
+- `occurrencesIn(from, to) -> vector<Occurrence>` — espande `m_generator->occurrences(m_start, from, min(m_end, to))` (coroutine `std::generator<TimePoint>`), filtra le eccezioni con `std::views::filter` e mappa a `Occurrence` con `std::views::transform`, materializzando con `std::ranges::to<std::vector>()`. `Task`/`Meeting` ereditano l'implementazione senza override. **Range INCLUSIVE on both ends**.
+- `accept(ActivityVisitor&)` — double dispatch (Visitor pattern, usato da `JsonPersistence`).
+- `describe() -> String` — per-type human summary (display only), override in `Task`/`Meeting`.
+- `clone() -> unique_ptr<Activity>` — virtual (`std::make_unique<Derived>(*this)`), override in `Task`/`Meeting`.
 
 ### `Occurrence` (core/Occurrence.h)
 Value type: `{const Activity* source (non-owning), start, duration}`, `end()`, `overlaps(from,to)`. Lightweight timeline view; valid while the source activity is alive and unmodified.
 
 ### `ActivityVisitor` (core/ActivityVisitor.h)
-`visit(const Event&/const RecurrentEvent&/const Task&/const Meeting&/const Anniversary&)` = 0. Used by tests (CountingVisitor); JSON persistence (Fase 2) and GUI detail panels (Fase 3) will implement it.
+`visit(const Activity&) / visit(const Task&) / visit(const Meeting&)` = 0 (solo 3 overload, non 5). Implementato da `JsonActivityVisitor` in `model/persistence/` per la serializzazione.
 
-### Concrete classes (domain/)
-- `Event(title, start, duration)` — throws `std::invalid_argument` on negative duration (ctor and `setDuration`). `getEnd() = start + duration`, `isIn` (fully contained), `overlapsWith(const Event&)`.
-- `RecurrentEvent(shared_ptr<DateGenerator>, Event template)` — `m_exceptions` set; `getSchedulable(from,to)` returns **clones** of the template (legacy API, used by the REST server — do not remove); `occurrencesIn` returns lightweight `Occurrence`s. `getGenerator()/getTemplateEvent()/getExceptions()` exposed for persistence.
-- `Task(title, due, Priority)` — `isOverdue(now)` (only if not done), `timeRemaining(now)`, `isDone()/setDone()` (stato proprio del Task), `priorityLabel(Priority)` static (display only). Occurrences have zero duration.
-- `Meeting(title, start, duration, location)` — `getLocation/setLocation`, `addAttendee/removeAttendee/attendeeCount/getAttendees`; negative duration throws.
-- `Anniversary(title, date, end = max)` — ricorrenza annuale leap-aware (29/2→28/2) riusando `YearlyGenerator` per composizione; durata all-day (24h−1s).
+### Concrete classes (core/ + domain/)
+- `Activity(title, start, duration = 0, generator = nullptr, end = TimePoint::max())` — throws `std::invalid_argument` on negative duration (ctor and `setDuration`). Rappresenta sia l'evento singolo (generator = `SingleGenerator`) sia una serie ricorrente (generator = `FixedIntervalGenerator`/`MonthlyGenerator`/`YearlyGenerator`).
+- `Task(title, due, duration = 0, priority = Medium, generator = nullptr, end = max)` — `isOverdue(tp, now)`/`isDone(tp)` per-occorrenza (`m_doneOccurrences`, un `unordered_set<TimePoint>`) oltre agli alias senza `tp` per l'occorrenza a `getStart()`; `timeRemaining(tp, now)`, `priorityLabel(Priority)` static (display only), `isCheckable()/isChecked()/setChecked()`.
+- `Meeting(title, start, duration = 0, location = "", generator = nullptr, end = max)` — `getLocation/setLocation`, `addAttendee/removeAttendee/attendeeCount/getAttendees` (niente duplicati).
 
 ### `Calendar` (domain/Calendar.h)
-Owns the heterogeneous activities. `add(unique_ptr<Activity>)` (throws on null), `remove(const Activity*)` (by identity), `clear()`, `size()/empty()`, `occurrencesIn(from,to)` (aggregates all types, sorted by start), `search(needle)` (case-insensitive title substring, empty = all), const `begin()/end()` iteration (for persistence).
+Owns the heterogeneous activities (`vector<unique_ptr<Activity>>`). `add(unique_ptr<Activity>)` (throws on null, ritorna `Activity&`), `remove(const Activity*)` (by identity), `find(const Activity*)` (const/non-const overload, ricerca per identità), `pop(const Activity*)` (rimuove e restituisce l'`unique_ptr`, `nullptr` se non trovata), `clear()`, `size()/empty()`, `occurrencesIn(from,to)` (aggrega tutte le attività, ordinate per `start` con `std::ranges::sort`), `search(needle)` (case-insensitive title substring, empty = all), const `begin()/end()` iteration (for persistence). Supporta move-assignment (usato da `persistence::loadFromFile`).
 
-### Builders (builders/)
-Percorso di creazione raccomandato (le factory sono state eliminate): `ActivityBuilder` (con `start` e `title` obbligatori, fallback `SingleGenerator(now)` se non definisci nessun' altro generator), `TaskBuilder`, `MeetingBuilder`, `GeneratorBuilder`.
+### Costruzione: Config + factory (`builders/ActivityConfig.h`), non Builder
+Non esistono classi `ActivityBuilder`/`TaskBuilder`/`MeetingBuilder`/`GeneratorBuilder`. Al loro posto, struct aggregate con default espliciti — `ActivityConfig{title, start, duration, end, generator, exceptions}`, `TaskConfig : ActivityConfig {priority, done}`, `MeetingConfig : ActivityConfig {location, attendees}` — passate a funzioni libere `makeActivity(ActivityConfig)`, `makeTask(TaskConfig)`, `makeMeeting(MeetingConfig)` che restituiscono l'`unique_ptr<Activity>`/`unique_ptr<Task>`/`unique_ptr<Meeting>` corrispondente (usate sia dai test sia da `app/`). Il generatore di default (nullptr → `SingleGenerator`) è gestito dal costruttore di `Activity`, non dalla config.
 
 ### `Format` (core/Format.h)
-Header-only display helpers: `formatDateTime(TimePoint)` → "YYYY-MM-DD HH:MM" UTC, `formatDuration(Duration)` → "1g 2h 30m". Used by `describe()`.
+Header-only display helpers: `formatDateTime(TimePoint)` → "YYYY-MM-DD HH:MM" UTC, `formatDuration(Duration)` → "1g 2h 30m", più `formatIso8601`/`parseIso8601` (strict, 19-char `YYYY-MM-DDTHH:MM:SS`) usati dalla persistenza.
 
-### Generators (generators/) — limiti mutabili con setStart/setEnd
-- `SingleGenerator(point)` — un'unica data (`getPoint()`); `setStart`/`setEnd` spostano il punto.
-- `FixedIntervalGenerator(start, interval, end = TimePoint::max())` — occurrences every `interval` from `start`; `setStart`/`setEnd` per spostare/troncare (l'intervallo resta fisso).
-- `MonthlyGenerator(start, months = 1, end = TimePoint::max())` — passi di mesi CALENDARIALI con clamping (31/1→28/2); `setMonths` cambia il passo.
-- `YearlyGenerator(start, end = TimePoint::max())` — one occurrence per year on the month/day of `start`; Feb 29 → Feb 28 fallback in non-leap years.
-- All generators implement `accept(DateGeneratorVisitor&)` (core/DateGeneratorVisitor.h): the persistence layer serializes the recurrence rule through a second Visitor (no `getType` strings in the model).
+### Generators (generators/) — stateless, senza `setStart`/`setEnd`
+- `SingleGenerator()` — nessuno stato; `align` restituisce `start` se `start >= from`, altrimenti `TimePoint::max()`; `next` restituisce sempre `TimePoint::max()`.
+- `FixedIntervalGenerator(Duration interval)` — passo fisso; `getInterval()`.
+- `MonthlyGenerator(int months = 1)` — passi di mesi CALENDARIALI con clamping (31/1→28/2); `getMonths()`.
+- `YearlyGenerator(int years = 1)` — passo annuale sul mese/giorno di `start`; Feb 29 → Feb 28 fallback negli anni non bisestili; `getYears()`.
+- Tutti implementano `next(current)`, `align(start, from)` (O(1)), `accept(DateGeneratorVisitor&)` e l'interfaccia `utils::Cacheable` (`hash()`/`isEqualImpl()`, usata per un futuro pool di deduplicazione — non ancora presente). `DateGenerator::occurrences(start, from, limit)` è il metodo non-virtuale, condiviso da tutti, che genera pigramente le date (coroutine `std::generator<TimePoint>`, definito in `DateGenerator.cpp`).
 
 ## Design decisions & invariants
 
-1. **Ranges are inclusive on both ends** everywhere (`generateDates`, `occurrencesIn`, `getSchedulable`). To get N weekly occurrences from a recurrence starting at `start`, query `[start, start + (N-1)*1_weeks]`.
-2. **Exceptions live on the event, not on the generator.** Decorators and provider machinery were removed long ago — do not reintroduce them.
-3. **`RecurrentEvent` accepts any `DateGenerator`** via `shared_ptr`; shared ownership means a caller holding a typed `shared_ptr` can mutate the generator after event creation.
-4. `Event::getEnd() == getStart() + getDuration()`; negative durations throw (same for negative `Reminder` repeat).
-5. **No `getType()`-style string dispatch**: type-dependent behavior goes through the Visitor (double dispatch) or virtual methods. Type strings may exist only for display.
-6. `Schedulable`, `GroupSchedulable<T>`, `Events` and `EventFactory` were **removed** in the Fase-1 restructure (absorbed/replaced by `Activity`, `Calendar`, poi dai builder `ActivityBuilder`/`GeneratorBuilder`) — do not reintroduce them. The REST server still compiles because `Event`/`RecurrentEvent` keep their public APIs (incl. `getSchedulable`).
-7. JSON persistence (Fase 2) lives in `model/persistence/` (library `events_persistence`, namespace `persistence`, Qt Core only): the `events` library itself stays pure C++ and keeps compiling without Catch2 and without Qt Widgets. `Format.h` provides `formatIso8601/parseIso8601` (strict, exact 19-char `YYYY-MM-DDTHH:MM:SS`, used by persistence).
+1. **Ranges are inclusive on both ends** everywhere (`DateGenerator::occurrences`, `Activity::occurrencesIn`, `Calendar::occurrencesIn`). To get N weekly occurrences from a recurrence starting at `start`, query `[start, start + (N-1)*1_weeks]`.
+2. **Exceptions live on the activity, not on the generator.** Decorators and provider machinery were removed long ago — do not reintroduce them (this includes `MaxOccurrencesDecorator`, which no longer exists).
+3. **`Activity` accepts any `DateGenerator`** via `shared_ptr<const DateGenerator>`; the generator itself is immutable, so shared ownership is safe (no aliasing-mutation hazard like the old typed-`shared_ptr` design).
+4. `Activity::getEnd() == m_end` (indipendente da `start+duration`, quello è il limite della serie); negative durations throw in the ctor and in `setDuration`.
+5. **No `getType()`-style string dispatch**: type-dependent behavior goes through the Visitor (double dispatch) or virtual methods (`describe()`, `clone()`, `accept()`). Type strings exist only for display/persistence (`"type"` JSON field: `event|task|meeting`).
+6. `Schedulable`, `GroupSchedulable<T>`, `Events`, `EventFactory`, `Event`, `RecurrentEvent`, `Anniversary` and any Builder classes were **all removed** — do not reintroduce them. `server/`/`db/` (the REST server that used to depend on `Event`/`RecurrentEvent::getSchedulable`) were removed from the repository entirely; there is no external module currently depending on the model's public API besides `app/`.
+7. JSON persistence lives in `model/persistence/` (library `events_persistence`, namespace `persistence`, Qt Core only): the `events` library itself stays pure C++23 and keeps compiling without Qt Widgets. Model **tests use QTest** (Qt Test module), not Catch2 (see Gotchas).
 
 
 # Summary project intentions
 
-> NOTE: this is the original project specification, kept as reference for the roadmap (server, client, persistence). Parts of it do NOT match the current code: `Exception`/`Modification` domain classes and `RecurrenceStrategy` are **not implemented** (exceptions are `TimePoint`s in a set; modification is a client-side flow); the `ActivityVisitor` interface IS implemented (see "Current Model Logic") and will be used by JSON persistence (Fase 2) and GUI detail panels (Fase 3). The implemented model is described in "Current Model Logic" above.
+> NOTE: this is the original project specification, kept as reference for the roadmap (server, client, persistence). It does NOT match the current code in several ways: `Exception`/`Modification` domain classes and `RecurrenceStrategy` are **not implemented** (exceptions are `TimePoint`s in a set; modification is a client-side flow); `Event`/`RecurrentEvent`/`Anniversary` **do not exist** (the model has only `Activity`/`Task`/`Meeting`, see "Current Model Logic"); and the entire **`server`/database macro-area below was built, then removed from the repository** (`server/`, `db/` no longer exist — commit "rimosso stack db/server e servizi docker-compose collegati"). The `ActivityVisitor` interface IS implemented and used by JSON persistence (`model/persistence/`); the Qt client is the standalone `app/`, not a REST client. The implemented model is described in "Current Model Logic" above.
 
 Here is the updated specification document, translated into English and with the `/api/events` endpoint modified to include the mandatory `from` and `to` time range parameters.
 
