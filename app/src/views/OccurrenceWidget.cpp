@@ -10,12 +10,12 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QPalette>
 #include <QVBoxLayout>
 
 #include "views/utils/Theme.h"
 #include "views/utils/ViewShared.h"
-#include "views/utils/WidgetUtils.h"
 
 namespace app {
 
@@ -26,10 +26,6 @@ OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style s
       m_style(style),
       m_recurrent(recurrent),
       m_draggable(draggable) {
-    // Un QWidget "nudo" ignora background/border del suo stesso stylesheet
-    // (a differenza dei widget con uno stile nativo, es. QPushButton) finche'
-    // non si chiede esplicitamente lo sfondo "stilizzato".
-    setAttribute(Qt::WA_StyledBackground, true);
     const QString title = QString::fromStdString(occurrence.source->getTitle());
     const bool task = isTask(occurrence.source);
 
@@ -74,32 +70,42 @@ OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style s
 }
 
 void OccurrenceWidget::applyPalette() {
-    // La FORMA (bordo, raggio) e lo stato "selected" sono in
-    // resources/style.qss; qui si imposta solo il COLORE, che dipende
-    // dall'attivita' e non puo' stare in un foglio di stile statico. Lo si
-    // passa via QPalette (Window = riempimento, Mid = bordo, WindowText =
-    // testo), letta dal file con palette(...): niente stringhe CSS create
-    // a runtime.
+    // Sfondo e bordo sono dipinti direttamente in paintEvent(), NON via QSS:
+    // con un foglio di stile applicativo attivo, ogni style()->polish()
+    // ririsolve i token `palette(...)` dello style sheet contro l'istantanea
+    // di QPalette scattata al PRIMO polish del widget, non contro l'ultima
+    // setPalette() — quindi qualunque colore per-istanza impostato dopo (il
+    // caso di ogni occorrenza, che ha il proprio colore) veniva scartato al
+    // polish successivo e tutte finivano con lo sfondo di default
+    // dell'applicazione (bug: occorrenze tutte dello stesso colore/nere).
     const QColor color = activityColor(m_occurrence.source);
     const bool done = isTaskDone(m_occurrence.source);
-    QColor fill = color.lighter(done ? 180 : 150);
+    m_fillColor = color.lighter(done ? 180 : 150);
     if (done && m_style == Style::Chip) {
-        fill = theme::kDoneGray;
+        m_fillColor = theme::kDoneGray;
     }
-    const QColor textColor = done ? theme::kMutedText : theme::kPrimaryText;
+    m_borderColor = m_selected ? theme::kAccentBlue : color.darker(120);
 
+    // Il testo (QLabel/QCheckBox) non e' invece toccato da nessuna regola
+    // di resources/style.qss: una QPalette semplice, senza polish, basta.
+    const QColor textColor = done ? theme::kMutedText : theme::kPrimaryText;
     QPalette pal = palette();
-    pal.setColor(QPalette::Window, fill);
-    pal.setColor(QPalette::Mid, color.darker(120));
     pal.setColor(QPalette::WindowText, m_style == Style::Chip ? Qt::white : textColor);
-    setPalette(pal);
     if (m_checkBox) m_checkBox->setPalette(pal);
     if (m_label) m_label->setPalette(pal);
 
-    setProperty("selected", m_selected);
-    repolish(this);
-    if (m_checkBox) repolish(m_checkBox);
-    if (m_label) repolish(m_label);
+    update();
+}
+
+void OccurrenceWidget::paintEvent(QPaintEvent* /*event*/) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const qreal borderWidth = m_selected ? 2.0 : 1.0;
+    const QRectF rect = QRectF(this->rect()).adjusted(
+        borderWidth / 2, borderWidth / 2, -borderWidth / 2, -borderWidth / 2);
+    painter.setPen(QPen(m_borderColor, borderWidth));
+    painter.setBrush(m_fillColor);
+    painter.drawRoundedRect(rect, 3, 3);
 }
 
 void OccurrenceWidget::setSelected(bool selected) {

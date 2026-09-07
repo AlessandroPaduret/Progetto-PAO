@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QColor>
 #include <QPoint>
 #include <QWidget>
 
@@ -7,6 +8,7 @@
 
 class QCheckBox;
 class QLabel;
+class QPaintEvent;
 
 namespace app {
 
@@ -51,6 +53,7 @@ signals:
     void deleteRequested(const events::Occurrence& occurrence);
 
 protected:
+    void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
@@ -68,6 +71,14 @@ private:
     QPoint m_dragStartPos;
     QCheckBox* m_checkBox = nullptr;  // solo per i Compiti
     QLabel* m_label = nullptr;        // per tutti gli altri tipi
+
+    // Sfondo/bordo dipinti direttamente (vedi applyPalette()): un colore
+    // per-istanza impostato via QPalette + QSS "palette(...)" non regge a un
+    // successivo style()->polish() con un foglio di stile applicativo attivo
+    // (ririsolve contro l'istantanea del PRIMO polish, non contro l'ultima
+    // setPalette(), quindi scarta silenziosamente il colore aggiornato).
+    QColor m_fillColor;
+    QColor m_borderColor;
 };
 
 } // namespace app
