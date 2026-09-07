@@ -10,6 +10,9 @@
 #include <QPainter>
 #include <QRubberBand>
 
+#include <algorithm>
+#include <chrono>
+
 #include "views/OccurrenceWidget.h"
 #include "views/utils/Theme.h"
 #include "views/utils/ViewShared.h"
@@ -118,8 +121,29 @@ void DayColumnWidget::setPreview(const std::optional<WeekView::Preview>& preview
 }
 
 void DayColumnWidget::relayout() {
-    const std::vector<QRect> rects =
-        WeekGridLayout::layoutDayColumn(m_occurrences, m_date, width());
+    // WeekGridLayout non conosce QDateTime/Occurrence: per ogni occorrenza
+    // ricava qui il TimeSlot [startMinutes, endMinutes) gia' ritagliato
+    // sull'intervallo visibile in m_date (inizio a 0 se iniziata il giorno
+    // prima, fine a 1440 se finisce il giorno dopo; almeno 1 minuto anche a
+    // durata zero, per non sparire dal coloring).
+    std::vector<TimeSlot> timeSlots;
+    timeSlots.reserve(m_occurrences.size());
+    const QDateTime dayStart(m_date, QTime(0, 0));
+    const QDateTime dayEnd = dayStart.addDays(1);
+    for (const events::Occurrence& occ : m_occurrences) {
+        const events::TimePoint effectiveEnd = occ.duration > events::Duration::zero()
+                                                   ? occ.end()
+                                                   : occ.start + std::chrono::minutes(1);
+        const QDateTime localStart = std::max(localTime(occ.start), dayStart);
+        const QDateTime localEnd = std::min(localTime(effectiveEnd), dayEnd);
+        const int startMinutes = localStart.time().msecsSinceStartOfDay() / 60000;
+        const int endMinutes = localEnd == dayEnd ? kMinutesPerDay
+                                                   : localEnd.time().msecsSinceStartOfDay() / 60000;
+        timeSlots.push_back({qBound(0, startMinutes, kMinutesPerDay),
+                         qBound(0, endMinutes, kMinutesPerDay)});
+    }
+
+    const std::vector<QRect> rects = WeekGridLayout::layoutDayColumn(timeSlots, width());
     for (int i = 0; i < static_cast<int>(m_widgets.size()); ++i) {
         m_widgets[i]->setGeometry(rects[i]);
     }

@@ -53,12 +53,34 @@ void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occ
     }
     m_chips.clear();
 
-    const std::vector<AllDayItem> items =
-        WeekGridLayout::layoutAllDayRows(occurrences, m_viewStart, m_dayCount);
+    // WeekGridLayout non conosce QDate/Occurrence: filtra qui le "tutto il
+    // giorno" e converti ciascuna nel suo DaySpan (offset in giorni da
+    // m_viewStart), tenendo `fullDayIndices` per tornare indietro dal
+    // risultato (parallelo ai DaySpan) all'Occurrence originale.
+    std::vector<int> fullDayIndices;
+    std::vector<DaySpan> spans;
+    for (int i = 0; i < static_cast<int>(occurrences.size()); ++i) {
+        const events::Occurrence& occ = occurrences[i];
+        if (!coversFullDay(occ)) {
+            continue;
+        }
+        const QDate startDate = localTime(occ.start).date();
+        const QDate endExclusive = localTime(occ.end()).date();
+        int startDay = m_viewStart.daysTo(startDate);
+        int endDay = m_viewStart.daysTo(endExclusive) - 1;
+        if (endDay < startDay) {
+            endDay = startDay;
+        }
+        fullDayIndices.push_back(i);
+        spans.push_back({startDay, endDay});
+    }
+
+    const std::vector<AllDayPlacement> placements =
+        WeekGridLayout::layoutAllDayRows(spans, m_dayCount);
 
     int maxRow = 0;
-    for (const AllDayItem& item : items) {
-        const events::Occurrence& occ = occurrences[item.index];
+    for (const AllDayPlacement& placement : placements) {
+        const events::Occurrence& occ = occurrences[fullDayIndices[placement.index]];
         auto* chip = new OccurrenceWidget(occ, OccurrenceWidget::Style::Chip,
                                           isRecurrent(occ.source), /*draggable=*/false, this);
         connect(chip, &OccurrenceWidget::pressed, this,
@@ -79,11 +101,11 @@ void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occ
                         emit activityEditRequested(o);
                     }
                 });
-        m_grid->addWidget(chip, item.row, item.firstDay + 1, 1,
-                          item.lastDay - item.firstDay + 1);
+        m_grid->addWidget(chip, placement.row, placement.startDay + 1, 1,
+                          placement.endDay - placement.startDay + 1);
         chip->show();
         m_chips.push_back(chip);
-        maxRow = std::max(maxRow, item.row);
+        maxRow = std::max(maxRow, placement.row);
     }
 
     setFixedHeight((maxRow + 1) * kWeekAllDayRowHeight);

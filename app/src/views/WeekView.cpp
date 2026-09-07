@@ -6,6 +6,8 @@
 #include <QVBoxLayout>
 
 #include <chrono>
+#include <functional>
+#include <ranges>
 
 #include "views/AllDayAreaWidget.h"
 #include "views/DayColumnWidget.h"
@@ -147,31 +149,35 @@ void WeekView::setOccurrences(const std::vector<events::Occurrence>& occurrences
 void WeekView::distributeOccurrences() {
     m_allDayArea->setOccurrences(m_occurrences);
 
-    for (int i = 0; i < m_dayCount; ++i) {
-        const QDate date = m_monday.addDays(i);
-        const QDateTime dayStart(date, QTime(0, 0));
-        const QDateTime dayEnd = dayStart.addDays(1);
-        std::vector<events::Occurrence> dayOccurrences;
-        for (const events::Occurrence& occ : m_occurrences) {
-            // Sovrapposizione (non solo "inizia oggi"): un'occorrenza a
-            // cavallo di mezzanotte finisce anche nella colonna del giorno
-            // dopo (ritagliata li' da WeekGridLayout::layoutDayColumn), cosi'
-            // non "sparisce" oltre la mezzanotte del giorno di inizio. La
-            // fine e' "effettiva" (>= 1 minuto anche a durata zero) per non
-            // escludere per errore un'occorrenza puntuale a mezzanotte esatta.
-            const events::TimePoint effectiveEnd = occ.duration > events::Duration::zero()
-                                                       ? occ.end()
-                                                       : occ.start + std::chrono::minutes(1);
-            if (!coversFullDay(occ) && localTime(occ.start) < dayEnd &&
-                localTime(effectiveEnd) > dayStart) {
-                dayOccurrences.push_back(occ);
-            }
+    // Un solo passaggio O(N) su m_occurrences invece di O(N * dayCount): per
+    // ogni occorrenza timed calcola direttamente i giorni [firstDay, lastDay]
+    // che tocca (invece di richiedere a ciascuna colonna di ri-scansionare
+    // tutte le occorrenze), clampati a [0, dayCount-1] cosi' un'occorrenza a
+    // cavallo di mezzanotte finisce nel bucket di ENTRAMBI i giorni toccati
+    // (ritagliata poi da WeekGridLayout::layoutDayColumn in ciascuna colonna,
+    // vedi il commento li').
+    std::vector<std::vector<events::Occurrence>> occurrencesPerDay(m_dayCount);
+    for (const events::Occurrence& occ : m_occurrences | std::views::filter(std::not_fn(coversFullDay))) {
+        // Fine "effettiva" (>= 1 minuto anche a durata zero), per non perdere
+        // per errore un'occorrenza puntuale a mezzanotte esatta.
+        const events::TimePoint effectiveEnd = occ.duration > events::Duration::zero()
+                                                   ? occ.end()
+                                                   : occ.start + std::chrono::minutes(1);
+        const int firstDay = m_monday.daysTo(localTime(occ.start).date());
+        const int lastDay = m_monday.daysTo(localTime(effectiveEnd).date());
+        if (lastDay < 0 || firstDay > m_dayCount - 1) {
+            continue;  // occorrenza interamente fuori dalla settimana mostrata
         }
-        m_columns[i]->setOccurrences(dayOccurrences);
+        const int startIdx = qBound(0, firstDay, m_dayCount - 1);
+        const int endIdx = qBound(0, lastDay, m_dayCount - 1);
+        for (int dayIdx : std::views::iota(startIdx, endIdx + 1)) {
+            occurrencesPerDay[dayIdx].push_back(occ);
+        }
     }
 
-    for (DayColumnWidget* column : m_columns) {
-        column->setPreview(m_preview);
+    for (int i = 0; i < m_dayCount; ++i) {
+        m_columns[i]->setOccurrences(occurrencesPerDay[i]);
+        m_columns[i]->setPreview(m_preview);
     }
 }
 

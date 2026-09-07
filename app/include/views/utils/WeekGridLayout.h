@@ -1,11 +1,9 @@
 #pragma once
 
-#include <QDate>
 #include <QRect>
+#include <QtGlobal>
 
 #include <vector>
-
-#include "core/Occurrence.h"
 
 namespace app {
 
@@ -22,43 +20,54 @@ inline constexpr int kWeekHourHeight = 60;           // altezza di un'ora
 inline constexpr int kWeekMinOccurrenceHeight = 18;  // altezza minima chip (durata zero)
 inline constexpr int kWeekDaysPerWeek = 7;
 
-/** @brief Una "tutto il giorno" impilata su una riga della striscia in alto:
- *  occupa le colonne [firstDay, lastDay] (offset da viewStart, gia' clampati
- *  a [0, dayCount-1]) sulla riga indicata. `index` e' la posizione
- *  dell'occorrenza nel vettore passato a layoutAllDayRows. */
-struct AllDayItem {
+/** @brief Estensione in giorni [startDay, endDay] (offset da viewStart,
+ *  INCLUSO, gia' clampati a [0, dayCount-1]) di una "tutto il giorno": il
+ *  chiamante la calcola da un'Occurrence, WeekGridLayout non conosce ne'
+ *  QDate ne' Occurrence. */
+struct DaySpan {
+    int startDay;
+    int endDay;
+};
+
+/** @brief Riga/colonne assegnate a una "tutto il giorno" nella striscia in
+ *  alto. `index` e' la posizione del DaySpan corrispondente nel vettore
+ *  passato a layoutAllDayRows (stesso ordine 1:1, nessun filtro qui: lo fa
+ *  gia' il chiamante prima di costruire i DaySpan). */
+struct AllDayPlacement {
     int index;
-    int firstDay;
-    int lastDay;
     int row;
+    int startDay;
+    int endDay;
+};
+
+/** @brief Intervallo [startMinutes, endMinutes) dalla mezzanotte del giorno
+ *  rappresentato da una colonna: il chiamante lo ricava da un'Occurrence gia'
+ *  RITAGLIATA sull'intervallo visibile in quel giorno (inizio a 0 se iniziata
+ *  il giorno prima, fine a 1440 se finisce il giorno dopo). */
+struct TimeSlot {
+    int startMinutes;
+    int endMinutes;
 };
 
 namespace WeekGridLayout {
 
-/** @brief Impila le occorrenze "tutto il giorno" (coversFullDay) su righe:
- *  ogni item occupa la prima riga libera per tutta la sua estensione
- *  [firstDay, lastDay]. Usata da AllDayAreaWidget per un QGridLayout con
- *  column-span (colonna = 1+giorno, la colonna 0 e' riservata al gutter;
- *  rowSpan sempre 1, colSpan = lastDay-firstDay+1). Le occorrenze che non
- *  coprono un giorno intero sono ignorate (non compaiono nel risultato). */
-std::vector<AllDayItem> layoutAllDayRows(const std::vector<events::Occurrence>& occurrences,
-                                         const QDate& viewStart, int dayCount);
+/** @brief Impila le "tutto il giorno" su righe: ognuna occupa la prima riga
+ *  libera per tutta la sua estensione [startDay, endDay]. Usata da
+ *  AllDayAreaWidget per un QGridLayout con column-span (colonna = 1+giorno,
+ *  la colonna 0 e' riservata al gutter; rowSpan sempre 1, colSpan =
+ *  endDay-startDay+1). Puro calcolo geometrico: nessuna nozione di data o di
+ *  Occurrence, il chiamante filtra e converte prima di chiamarla. */
+std::vector<AllDayPlacement> layoutAllDayRows(const std::vector<DaySpan>& spans, int dayCount);
 
-/** @brief Geometria (QRect) delle occorrenze NON "tutto il giorno" che
- *  toccano UN SINGOLO giorno (`date`), in coordinate LOCALI a quella colonna
- *  (0,0 = mezzanotte, x in [0, columnWidth)): le sovrapposte vengono
- *  affiancate in colonne come Google Calendar (interval-graph greedy
- *  coloring). Un'occorrenza a cavallo di mezzanotte viene RITAGLIATA
- *  sull'intervallo visibile in `date` (inizio clampato a 00:00 se iniziata
- *  il giorno prima, fine clampata a 24:00 se finisce il giorno dopo): la
- *  stessa occorrenza puo' comparire anche nella colonna del giorno adiacente
- *  (due OccurrenceWidget per la stessa attivita', una per meta'), vedi
- *  WeekView::distributeOccurrences. Il risultato e' parallelo a
- *  `dayOccurrences` (gia' filtrate sulle occorrenze che toccano `date`).
- *  Usata da DayColumnWidget, che possiede solo le occorrenze del proprio
- *  giorno. */
-std::vector<QRect> layoutDayColumn(const std::vector<events::Occurrence>& dayOccurrences,
-                                   const QDate& date, int columnWidth);
+/** @brief Geometria (QRect) di slot orari che si sovrappongono, affiancati in
+ *  colonne come Google Calendar (interval-graph greedy coloring), in
+ *  coordinate LOCALI a quella colonna (0,0 = mezzanotte, x in [0,
+ *  columnWidth)). Il risultato e' parallelo a `timeSlots`. Usata da
+ *  DayColumnWidget::relayout(), che ricava ogni TimeSlot dalla propria
+ *  Occurrence gia' ritagliata sul giorno di questa colonna (vedi
+ *  WeekView::distributeOccurrences per la duplicazione a cavallo di
+ *  mezzanotte). */
+std::vector<QRect> layoutDayColumn(const std::vector<TimeSlot>& timeSlots, int columnWidth);
 
 } // namespace WeekGridLayout
 
