@@ -9,23 +9,21 @@
 
 #include "events.h"
 
-class QButtonGroup;
 class QCheckBox;
 class QComboBox;
-class QCompleter;
-class QDateEdit;
 class QDateTimeEdit;
 class QFormLayout;
 class QLabel;
 class QLineEdit;
-class QListWidget;
 class QPushButton;
-class QRadioButton;
 class QSpinBox;
 
 namespace app {
 
 class CalendarController;
+class MeetingFormWidget;
+class RecurrenceFormWidget;
+class TaskFormWidget;
 
 /** @brief Pannello laterale (sidebar) per creare/modificare un'attivita': un
  *  QWidget integrato nella MainWindow tramite QSplitter (non un QDialog).
@@ -33,14 +31,14 @@ class CalendarController;
  *  Non esiste una vista di sola lettura separata: aprire un'attivita'
  *  esistente equivale ad aprirla direttamente in modifica.
  *
- *  I campi comuni a tutti i tipi (Titolo/Data/Durata: gli stessi che
- *  Activity possiede sempre) e la sezione "Tutto il giorno"/ricorrenza
- *  (anch'essa comune: Evento, Riunione e Compito possono tutti ripetersi)
- *  stanno in cima, costruite una sola volta; sotto, in base al tipo scelto
- *  nella combo, si rivela la sola sezione specifica di quel tipo (luogo/
- *  partecipanti per la Riunione, priorita'/stato per il Compito — l'Evento
- *  non ne ha una propria) invece di ripetere tutto in un pannello separato
- *  per tipo.
+ *  Agisce da semplice COORDINATORE: possiede solo i campi comuni a tutti i
+ *  tipi (Titolo/Data/Durata) e delega ogni sezione specifica a un widget
+ *  figlio autonomo -- RecurrenceFormWidget (Tutto il giorno/Si ripete,
+ *  comune a Evento/Riunione/Compito), MeetingFormWidget (luogo/partecipanti)
+ *  e TaskFormWidget (priorita'/evaso) -- mostrando/nascondendo solo quest
+ *  ultime due in base al tipo scelto nella combo. La logica di ciascuna
+ *  sezione (giorni della settimana, fine ricorrenza, elenco partecipanti,
+ *  ...) vive nel rispettivo widget figlio, non qui.
  */
 class ActivitySidebarWidget : public QWidget {
     Q_OBJECT
@@ -76,17 +74,10 @@ private slots:
     void onSave();
     void onDelete();
     void onTypeChanged(int index);
-    void onRepeatToggled(bool checked);
-    void onUnitChanged(int index);
-    void onAddAttendee();
-    void onRemoveAttendee();
+    void onAllDayToggled(bool on);
 
 private:
     enum class Mode { Create, EditActivity, EditOccurrence };
-
-    QWidget* buildRecurrenceSection();
-    QWidget* buildMeetingSection();
-    QWidget* buildTaskSection();
 
     /** @brief Mostra la sola sezione specifica del tipo scelto (Riunione o
      *  Compito; l'Evento non ne ha una propria). */
@@ -134,32 +125,10 @@ private:
     QSpinBox* m_durationEdit = nullptr;      // minuti
     QFormLayout* m_commonForm = nullptr;     // per setRowVisible(m_durationEdit, ...)
 
-    // --- Ricorrenza: "tutto il giorno" + "si ripete", comune ai 3 tipi ----------
-    QCheckBox* m_allDayCheck = nullptr;
-    QCheckBox* m_repeatCheck = nullptr;
-    QWidget* m_repeatBox = nullptr;          // contenitore delle impostazioni di ricorrenza
-    QFormLayout* m_repeatForm = nullptr;     // per setRowVisible(m_dayRow, ...)
-    QComboBox* m_unitCombo = nullptr;        // giorni / settimane / mesi / anni
-    QSpinBox* m_everySpin = nullptr;         // "ogni N"
-    QWidget* m_dayRow = nullptr;             // riga dei giorni della settimana
-    QButtonGroup* m_dayGroup = nullptr;      // NON esclusivo; id pulsante = giorno Qt (1=Lun..7=Dom)
-    QRadioButton* m_endNever = nullptr;
-    QRadioButton* m_endDateRadio = nullptr;
-    QDateEdit* m_endDate = nullptr;
-    QRadioButton* m_endCountRadio = nullptr;
-    QSpinBox* m_countSpin = nullptr;         // "dopo N occorrenze"
-
-    // --- Sezione Riunione: luogo + partecipanti ----------------------------------
-    QWidget* m_meetingSection = nullptr;
-    QLineEdit* m_locationEdit = nullptr;
-    QLineEdit* m_attendeeEdit = nullptr;
-    QCompleter* m_attendeeCompleter = nullptr;
-    QListWidget* m_attendeesList = nullptr;
-
-    // --- Sezione Compito: priorita' + evaso --------------------------------------
-    QWidget* m_taskSection = nullptr;
-    QComboBox* m_priorityCombo = nullptr;
-    QCheckBox* m_doneCheck = nullptr;
+    // --- Sezioni delegate ai widget figli -----------------------------------
+    RecurrenceFormWidget* m_recurrence = nullptr;  // comune a tutti e 3 i tipi
+    MeetingFormWidget* m_meetingSection = nullptr;
+    TaskFormWidget* m_taskSection = nullptr;
 
     QPushButton* m_deleteButton = nullptr;   // Elimina (visibile solo in modifica)
     QLabel* m_errorLabel = nullptr;
