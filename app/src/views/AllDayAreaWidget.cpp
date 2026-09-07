@@ -64,12 +64,29 @@ void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occ
         if (!coversFullDay(occ)) {
             continue;
         }
-        const QDate startDate = localTime(occ.start).date();
-        const QDate endExclusive = localTime(occ.end()).date();
+        // Le occorrenze "tutto il giorno" sono salvate a mezzanotte UTC:
+        // activityDisplayTime sceglie da sola la data UTC per queste (non
+        // quella locale, che in un fuso con offset positivo le farebbe
+        // apparire ancora in corso il giorno LOCALE successivo).
+        const QDate startDate = activityDisplayTime(occ.source, occ.start).date();
+        const QDate endExclusive = activityDisplayTime(occ.source, occ.end()).date();
         int startDay = m_viewStart.daysTo(startDate);
         int endDay = m_viewStart.daysTo(endExclusive) - 1;
         if (endDay < startDay) {
             endDay = startDay;
+        }
+        // Un'occorrenza il cui giorno (o intervallo di giorni) non tocca
+        // affatto quelli visibili va scartata, non ritagliata: MainWindow
+        // interroga il controller con una finestra LOCALE (necessaria per
+        // gli eventi con orario), ma un'attivita' tutto il giorno di IERI
+        // puo' comunque "sovrapporsi" per qualche ora a quella finestra in
+        // un fuso con offset rispetto a UTC (l'ultimo istante di ieri in UTC
+        // cade nel pomeriggio/sera di oggi in locale). Senza questo scarto,
+        // layoutAllDayRows() sotto RITAGLIA (qBound) qualunque span sul
+        // giorno visibile invece di escluderlo, facendo ricomparire la
+        // stessa occorrenza anche nel giorno successivo (vista Giorno).
+        if (endDay < 0 || startDay > m_dayCount - 1) {
+            continue;
         }
         fullDayIndices.push_back(i);
         spans.push_back({startDay, endDay});
