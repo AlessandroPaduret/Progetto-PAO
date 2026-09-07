@@ -14,8 +14,6 @@ add_compile_options(-Wall -Wextra)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-# compile_commands.json in build/: usato da clangd (vedi .clangd) per
-# risolvere i veri include path del progetto invece di indovinarli.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- Dipendenze -------------------------------------------------------------
@@ -25,13 +23,7 @@ find_package(Qt6 COMPONENTS Test QUIET)
 # Modello logico + persistenza JSON (gestisce da solo Qt Core e Catch2 opzionali)
 add_subdirectory(../model model)
 
-# --- Libreria core (controller: logica di applicazione senza Widgets) -------
-# L'header e' elencato esplicitamente tra i sorgenti (oltre al .cpp): AUTOMOC
-# nella maggior parte dei casi accoppia un .cpp al proprio header cercandolo
-# nella STESSA cartella; siccome qui gli header vivono in include/ (per
-# separare header/implementazione come in model/), va reso un sorgente del
-# target anche lui, altrimenti Q_OBJECT non verrebbe visto e il link fallisce
-# per vtable/staticMetaObject mancanti.
+# --- Libreria core ----------------------------------------------------------
 add_library(pao_core STATIC
     src/controller/CalendarController.cpp
     include/controller/CalendarController.h
@@ -39,9 +31,7 @@ add_library(pao_core STATIC
 target_include_directories(pao_core PUBLIC src include)
 target_link_libraries(pao_core PUBLIC events events_persistence Qt6::Core)
 
-# --- Applicazione Qt (menu + views + main) -----------------------------------
-# Stesso motivo per gli header sotto include/{menu,views}/: elencati
-# esplicitamente perche' non sono nella stessa cartella del .cpp associato.
+# --- Applicazione Qt --------------------------------------------------------
 add_executable(pao_app
     resources/app.qrc
     src/main.cpp
@@ -86,7 +76,7 @@ add_executable(pao_app
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 
-# --- Test del controller (QTest, headless, opzionali) ------------------------
+# --- Tests -----------00----------------------------------------------------
 include(CTest)
 if(BUILD_TESTING)
     if(TARGET Qt6::Test)
@@ -96,4 +86,24 @@ if(BUILD_TESTING)
     else()
         message(STATUS "Qt Test non trovato: test dell'app disabilitati")
     endif()
+endif()
+
+# --- Indentazione -----------------------------------------------------------
+find_program(CLANG_FORMAT_BIN NAMES clang-format clang-format-15 clang-format-14)
+
+if(CLANG_FORMAT_BIN)
+    # Corretto: raggruppa tutti i sorgenti e header nelle sottocartelle
+    file(GLOB_RECURSE ALL_SOURCE_FILES 
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
+    )
+
+    add_custom_target(
+        format
+        COMMAND ${CLANG_FORMAT_BIN} -i -style=file ${ALL_SOURCE_FILES}
+        COMMENT "Esecuzione di clang-format sui file sorgente..."
+    )
+else()
+    message(WARNING "clang-format non trovato! Il target 'format' non sarà disponibile.")
 endif()

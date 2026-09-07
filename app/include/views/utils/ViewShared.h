@@ -30,8 +30,14 @@ inline bool isAllDayActivity(const events::Activity* activity) {
 /** @brief Colore stabile per un'attivita': deriva dall'indirizzo dell'oggetto. */
 inline QColor activityColor(const events::Activity* activity) {
     static const QColor kPalette[] = {
-        QColor("#4285F4"), QColor("#EA4335"), QColor("#34A853"), QColor("#FBBC04"),
-        QColor("#A142F4"), QColor("#24C1E0"), QColor("#F28B82"), QColor("#81C995"),
+        QColor("#3B689C"), // Blu polvere / cobalto desaturato
+        QColor("#A34843"), // Rosso mattone / ruggine
+        QColor("#3D7A5A"), // Verde salvia scuro
+        QColor("#8C6239"), // Bronzo / terra d'ombra
+        QColor("#6B4C7D"), // Viola melanzana smorto
+        QColor("#366B73"), // Ciano scuro / ottanio opaco
+        QColor("#8C4356"), // Rosa antico scuro
+        QColor("#486B4D")  // Verde muschio desaturato
     };
     constexpr int count = sizeof(kPalette) / sizeof(kPalette[0]);
     const auto address = reinterpret_cast<quintptr>(activity);
