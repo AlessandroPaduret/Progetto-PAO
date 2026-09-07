@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 
+#include "controller/CalendarController.h"
 #include "views/OccurrenceWidget.h"
 #include "views/utils/Theme.h"
 #include "views/utils/ViewShared.h"
@@ -24,7 +25,8 @@ namespace {
 constexpr int kMinutesPerDay = 24 * 60;
 } // namespace
 
-DayColumnWidget::DayColumnWidget(QWidget* parent) : QWidget(parent) {
+DayColumnWidget::DayColumnWidget(CalendarController* controller, QWidget* parent)
+    : QWidget(parent), m_controller(controller) {
     setAcceptDrops(true);
     setFixedHeight(24 * kWeekHourHeight);
     setMinimumWidth(80);
@@ -86,8 +88,10 @@ void DayColumnWidget::setOccurrences(const std::vector<events::Occurrence>& dayO
         // Le occorrenze "tutto il giorno" non arrivano mai qui (restano in
         // AllDayAreaWidget): tutto cio' che possiede una DayColumnWidget e'
         // per costruzione trascinabile.
-        auto* w = new OccurrenceWidget(occ, OccurrenceWidget::Style::Block,
-                                       isRecurrent(occ.source), /*draggable=*/true, this);
+        auto* w = new OccurrenceWidget(
+            occ, OccurrenceWidget::Style::Block, isRecurrent(occ.source),
+            /*draggable=*/true, activityColor(occ.source, m_controller->colorFor(occ.source)),
+            this);
 
         connect(w, &OccurrenceWidget::pressed, this,
                 [this, w](const events::Occurrence& o) { emit chipPressed(w, o); });

@@ -7,13 +7,15 @@
 
 #include <algorithm>
 
+#include "controller/CalendarController.h"
 #include "views/OccurrenceWidget.h"
 #include "views/utils/ViewShared.h"
 #include "views/utils/WeekGridLayout.h"
 
 namespace app {
 
-AllDayAreaWidget::AllDayAreaWidget(QWidget* parent) : QWidget(parent) {
+AllDayAreaWidget::AllDayAreaWidget(CalendarController* controller, QWidget* parent)
+    : QWidget(parent), m_controller(controller) {
     setAttribute(Qt::WA_StyledBackground, true);
     setObjectName(QStringLiteral("weekAllDayArea"));
     m_grid = new QGridLayout(this);
@@ -81,8 +83,10 @@ void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occ
     int maxRow = 0;
     for (const AllDayPlacement& placement : placements) {
         const events::Occurrence& occ = occurrences[fullDayIndices[placement.index]];
-        auto* chip = new OccurrenceWidget(occ, OccurrenceWidget::Style::Chip,
-                                          isRecurrent(occ.source), /*draggable=*/false, this);
+        auto* chip = new OccurrenceWidget(
+            occ, OccurrenceWidget::Style::Chip, isRecurrent(occ.source),
+            /*draggable=*/false, activityColor(occ.source, m_controller->colorFor(occ.source)),
+            this);
         connect(chip, &OccurrenceWidget::pressed, this,
                 [this, chip](const events::Occurrence& o) { emit chipPressed(chip, o); });
         connect(chip, &OccurrenceWidget::doneToggled, this, &AllDayAreaWidget::doneToggled);

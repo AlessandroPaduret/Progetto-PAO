@@ -154,3 +154,32 @@ app--OccurrenceWidget QCheckBox {
     border: none;
     color: palette(window-text);
 }
+
+/* Swatch di colore nel form di creazione/modifica (ActivityFormPage): "Auto"
+ * (nessuna preferenza, contorno tratteggiato) + palette fissa. Gli stessi 8
+ * valori esadecimali sono in views/utils/ViewShared.h::kActivityColorPalette
+ * (usata anche per il colore "automatico" quando non se ne sceglie uno qui):
+ * tenerli allineati a mano se si cambia un colore. */
+QPushButton[colorSwatch="true"] {
+    min-width: 18px;
+    max-width: 18px;
+    min-height: 18px;
+    max-height: 18px;
+    border-radius: 9px;
+    border: 1px solid rgba(0, 0, 0, 40);
+}
+QPushButton[colorSwatch="true"]:checked {
+    border: 2px solid #202124;
+}
+QPushButton#colorSwatchAuto {
+    background: white;
+    border-style: dashed;
+}
+QPushButton#colorSwatch0 { background: #4285F4; }
+QPushButton#colorSwatch1 { background: #EA4335; }
+QPushButton#colorSwatch2 { background: #34A853; }
+QPushButton#colorSwatch3 { background: #FBBC04; }
+QPushButton#colorSwatch4 { background: #A142F4; }
+QPushButton#colorSwatch5 { background: #24C1E0; }
+QPushButton#colorSwatch6 { background: #F28B82; }
+QPushButton#colorSwatch7 { background: #81C995; }

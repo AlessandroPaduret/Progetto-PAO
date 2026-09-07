@@ -36,15 +36,37 @@ inline bool isAllDayActivity(const events::Activity* activity) {
                            std::chrono::hours(24) - std::chrono::seconds(1);
 }
 
-/** @brief Colore stabile per un'attivita': deriva dall'indirizzo dell'oggetto. */
-inline QColor activityColor(const events::Activity* activity) {
-    static const QColor kPalette[] = {
-        QColor("#4285F4"), QColor("#EA4335"), QColor("#34A853"), QColor("#FBBC04"),
-        QColor("#A142F4"), QColor("#24C1E0"), QColor("#F28B82"), QColor("#81C995"),
-    };
-    constexpr int count = sizeof(kPalette) / sizeof(kPalette[0]);
+/** @brief Palette di colori preimpostati proposti per le attivita': stessi 8
+ *  valori usati sia per il colore "automatico" (activityColor, sotto) sia
+ *  per gli swatch selezionabili nel form (ActivityFormPage). I valori
+ *  esadecimali sono duplicati come objectName in resources/style.qss
+ *  (#colorSwatch0..7, vedi il commento li'): tenerli allineati a mano se si
+ *  cambia un colore. */
+inline constexpr const char* kActivityColorPalette[] = {
+    "#4285F4", "#EA4335", "#34A853", "#FBBC04",
+    "#A142F4", "#24C1E0", "#F28B82", "#81C995",
+};
+inline constexpr int kActivityColorPaletteSize =
+    sizeof(kActivityColorPalette) / sizeof(kActivityColorPalette[0]);
+
+/** @brief Colore di un'attivita': `explicitColor` (tipicamente
+ *  CalendarController::colorFor(activity), "#RRGGBB" o vuota) se valida,
+ *  altrimenti un colore stabile dedotto dall'indirizzo dell'oggetto. Il
+ *  colore NON e' un dato del modello (events::Activity non lo conosce
+ *  affatto): vive solo nel CalendarController, i chiamanti lo passano qui
+ *  esplicitamente invece di lasciare che questa funzione lo vada a cercare
+ *  da sola, per non introdurre una dipendenza da CalendarController in
+ *  questo header (Qt Gui puro, incluso anche da app_controller_tests). */
+inline QColor activityColor(const events::Activity* activity,
+                            const QString& explicitColor = QString()) {
+    if (!explicitColor.isEmpty()) {
+        const QColor custom(explicitColor);
+        if (custom.isValid()) {
+            return custom;
+        }
+    }
     const auto address = reinterpret_cast<quintptr>(activity);
-    return kPalette[(address >> 4) % count];
+    return QColor(kActivityColorPalette[(address >> 4) % kActivityColorPaletteSize]);
 }
 
 /** @brief true se l'attivita' e' un Compito (l'unico tipo con stato "evaso").

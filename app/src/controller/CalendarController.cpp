@@ -1,6 +1,10 @@
 #include "controller/CalendarController.h"
 
 #include <QDateTime>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTimeZone>
 
 #include <memory>
@@ -28,17 +32,21 @@ const events::Calendar &CalendarController::calendar() const {
   return m_calendar;
 }
 
-bool CalendarController::addActivity(std::unique_ptr<events::Activity> activity) {
+bool CalendarController::addActivity(std::unique_ptr<events::Activity> activity,
+                                     const QString& color) {
   if (!activity) {
     return false;
   }
-  m_calendar.add(std::move(activity));
+  events::Activity& added = m_calendar.add(std::move(activity));
+  if (!color.isEmpty()) {
+    m_colors[&added] = color;
+  }
   emit activitiesChanged();
   return true;
 }
 
 bool CalendarController::addActivities(
-    std::vector<std::unique_ptr<events::Activity>> activities) {
+    std::vector<std::unique_ptr<events::Activity>> activities, const QString& color) {
   if (activities.empty()) {
     return false;
   }
@@ -46,7 +54,10 @@ bool CalendarController::addActivities(
     if (!activity) {
       return false;
     }
-    m_calendar.add(std::move(activity));
+    events::Activity& added = m_calendar.add(std::move(activity));
+    if (!color.isEmpty()) {
+      m_colors[&added] = color;
+    }
   }
   emit activitiesChanged();
   return true;
@@ -56,13 +67,20 @@ bool CalendarController::removeActivity(const events::Activity* activity) {
   if (!m_calendar.remove(activity)) {
     return false;
   }
+  m_colors.erase(activity);
   emit activitiesChanged();
   return true;
 }
 
+QString CalendarController::colorFor(const events::Activity* activity) const {
+  const auto it = m_colors.find(activity);
+  return it != m_colors.end() ? it->second : QString();
+}
+
 bool CalendarController::updateActivity(
     const events::Activity* oldActivity,
-    std::unique_ptr<events::Activity> replacement) {
+    std::unique_ptr<events::Activity> replacement,
+    const QString& color) {
   if (!replacement) {
     return false;
   }
@@ -74,6 +92,9 @@ bool CalendarController::updateActivity(
   if (!m_calendar.remove(oldActivity)) {
     return false;
   }
+  // Il vecchio puntatore non e' piu' valido come chiave: il colore per la
+  // versione sostituita si ristabilisce subito sotto sul NUOVO puntatore.
+  m_colors.erase(oldActivity);
 
   // Le eccezioni sono accettate solo se la data e' generabile dal nuovo
   // generatore (Activity::addException valida via isIn).
@@ -81,7 +102,10 @@ bool CalendarController::updateActivity(
     replacement->addException(exception);
   }
 
-  m_calendar.add(std::move(replacement));
+  events::Activity& added = m_calendar.add(std::move(replacement));
+  if (!color.isEmpty()) {
+    m_colors[&added] = color;
+  }
   emit activitiesChanged();
   return true;
 }
@@ -133,6 +157,11 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
 
   // 2. Clona l'attività originale per creare la nuova serie (restituisce std::unique_ptr)
   auto newActivity = foundActivity->clone();
+  // Il colore (se scelto dall'utente) va catturato PRIMA di cleanupActivity:
+  // se la prima serie si svuota del tutto viene rimossa dal calendario, e
+  // con lei la sua voce nella mappa colori (il vecchio puntatore non
+  // sarebbe piu' valido come chiave).
+  const QString color = colorFor(foundActivity);
 
   // 3. Modifica la prima serie direttamente in-place
   foundActivity->setEnd(occurrence.start);
@@ -143,8 +172,13 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
   newActivity->setStart(target);
   newActivity->setEnd(originalEnd);
 
-  // 5. Inserisce la seconda serie nel calendario (trasferendone l'ownership)
-  m_calendar.add(std::move(newActivity));
+  // 5. Inserisce la seconda serie nel calendario (trasferendone l'ownership):
+  // non e' un'operazione scelta dall'utente nel form, quindi eredita lo
+  // stesso colore della serie originale invece di tornare "automatico".
+  events::Activity& added = m_calendar.add(std::move(newActivity));
+  if (!color.isEmpty()) {
+    m_colors[&added] = color;
+  }
 
   emit activitiesChanged();
   return true;
@@ -169,21 +203,25 @@ bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
 
 bool CalendarController::modifyOccurrence(
     const events::Occurrence& occurrence,
-    std::unique_ptr<events::Activity> replacement) {
+    std::unique_ptr<events::Activity> replacement,
+    const QString& color) {
   if (!replacement) {
     return false;
   }
 
   events::Activity* foundActivity = m_calendar.find(occurrence.source);
-  
+
   if (!foundActivity) return false; // L'attività non è presente nel calendario
-  
+
 
   foundActivity->addException(occurrence.start);  // Togli l'occorrenza dall'attività
 
   cleanupActivity(foundActivity);
-  
-  m_calendar.add(std::move(replacement));
+
+  events::Activity& added = m_calendar.add(std::move(replacement));
+  if (!color.isEmpty()) {
+    m_colors[&added] = color;
+  }
   emit activitiesChanged();
   return true;
 }
@@ -205,20 +243,66 @@ bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
 }
 
 bool CalendarController::saveToFile(const QString& filePath, QString* error) {
-  return persistence::saveToFile(m_calendar, filePath, error);
+  // Il colore non e' un campo del modello (persistence::calendarToJson non
+  // lo conosce): si aggiunge qui una sezione "colors" parallela ad
+  // "activities" (stesso ordine di iterazione del Calendar, "" per le
+  // attivita' senza colore esplicito), e si scrive il documento cosi'
+  // aumentato al posto di persistence::saveToFile.
+  QJsonObject root = persistence::calendarToJson(m_calendar);
+  QJsonArray colors;
+  for (const auto& activity : m_calendar) {
+    colors.append(colorFor(activity.get()));
+  }
+  root.insert(QLatin1String("colors"), colors);
+
+  QFile file(filePath);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+    if (error) *error = QString("Impossibile aprire il file in scrittura: %1").arg(filePath);
+    return false;
+  }
+  if (file.write(QJsonDocument(root).toJson(QJsonDocument::Indented)) < 0) {
+    if (error) *error = QString("Errore di scrittura su: %1").arg(filePath);
+    return false;
+  }
+  return true;
 }
 
 bool CalendarController::loadFromFile(const QString& filePath, QString* error) {
   if (!persistence::loadFromFile(m_calendar, filePath, error)) {
     return false;
   }
+
+  // La sezione "colors" e' un'aggiunta di questo controller (vedi
+  // saveToFile), ignota a persistence::loadFromFile: si rilegge qui il file
+  // grezzo solo per quella parte. Assente o malformata -> nessun colore
+  // esplicito per nessuna attivita' (tutte "automatico"), senza far fallire
+  // il caricamento: il calendario e' comunque stato caricato correttamente.
+  m_colors.clear();
+  QFile file(filePath);
+  if (file.open(QIODevice::ReadOnly)) {
+    const QJsonArray colors =
+        QJsonDocument::fromJson(file.readAll()).object().value(QLatin1String("colors")).toArray();
+    int i = 0;
+    for (const auto& activity : m_calendar) {
+      if (i < colors.size()) {
+        const QString hex = colors.at(i).toString();
+        if (!hex.isEmpty()) {
+          m_colors[activity.get()] = hex;
+        }
+      }
+      ++i;
+    }
+  }
+
   emit activitiesChanged();
   return true;
 }
 
 void CalendarController::cleanupActivity(const events::Activity* activity){
-  if(activity->getEnd() != events::TimePoint::max() && activity->occurrencesIn(activity->getStart(),activity->getEnd()).size() < 1)
+  if(activity->getEnd() != events::TimePoint::max() && activity->occurrencesIn(activity->getStart(),activity->getEnd()).size() < 1) {
     m_calendar.remove(activity);
+    m_colors.erase(activity);
+  }
 }
 
 } // namespace app

@@ -10,6 +10,7 @@
 
 #include "events.h"
 
+class QAbstractButton;
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
@@ -111,6 +112,16 @@ private:
     QTimeEdit* durationOf(int panel) const;
     void syncCommonFields(int fromPanel, int toPanel);
 
+    // Colore: condiviso da tutti i pannelli (non e' un campo specifico del
+    // tipo, ne' un campo del modello: vive nel CalendarController), riga di
+    // swatch "Auto" + palette fissa sopra lo QStackedWidget.
+    QWidget* buildColorRow();
+    /** @return "" per "Auto" (nessuna preferenza), altrimenti "#RRGGBB". */
+    QString selectedColor() const;
+    /** @brief Seleziona lo swatch corrispondente a `hex`, o "Auto" se vuoto
+     *  o non presente nella palette fissa. */
+    void setSelectedColor(const QString& hex);
+
     // Conversioni locale/UTC
     static events::TimePoint toTimePoint(const QDateTime& local);
     static QDateTime toLocal(const events::TimePoint tp);
@@ -122,6 +133,10 @@ private:
 
     QComboBox* m_typeCombo = nullptr;
     QStackedWidget* m_forms = nullptr;
+
+    // Colore (condiviso da tutti i pannelli): indice 0 = "Auto", 1..8 = palette
+    QButtonGroup* m_colorGroup = nullptr;
+    QList<QAbstractButton*> m_colorButtons;
 
     // Evento "a domande"
     QLineEdit* m_titleE = nullptr;

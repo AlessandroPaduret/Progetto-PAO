@@ -17,6 +17,8 @@ class QLabel;
 
 namespace app {
 
+class CalendarController;
+
 /** @brief Una colonna-giorno della griglia oraria: possiede le proprie
  *  occorrenze (posizionate assolutamente al proprio interno, coordinate
  *  locali = minuti dalla mezzanotte tramite WeekGridLayout::layoutDayColumn),
@@ -29,7 +31,10 @@ namespace app {
 class DayColumnWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit DayColumnWidget(QWidget* parent = nullptr);
+    /** @param controller Usato SOLO per risolvere il colore delle occorrenze
+     *  (CalendarController::colorFor): il colore non e' un campo del modello,
+     *  vive li'. Nessun'altra dipendenza da CalendarController. */
+    explicit DayColumnWidget(CalendarController* controller, QWidget* parent = nullptr);
 
     /** @brief Giorno rappresentato da questa colonna. */
     void setDate(const QDate& date);
@@ -79,6 +84,7 @@ private:
      *  (la larghezza e' elastica). */
     void relayout();
 
+    CalendarController* m_controller;
     QDate m_date;
     std::vector<events::Occurrence> m_occurrences;
     std::vector<OccurrenceWidget*> m_widgets;  // parallelo a m_occurrences

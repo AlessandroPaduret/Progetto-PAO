@@ -20,12 +20,14 @@
 namespace app {
 
 OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style style,
-                                   bool recurrent, bool draggable, QWidget* parent)
+                                   bool recurrent, bool draggable, const QColor& color,
+                                   QWidget* parent)
     : QWidget(parent),
       m_occurrence(occurrence),
       m_style(style),
       m_recurrent(recurrent),
-      m_draggable(draggable) {
+      m_draggable(draggable),
+      m_color(color) {
     // Un QWidget "nudo" ignora background/border del suo stesso stylesheet
     // (a differenza dei widget con uno stile nativo, es. QPushButton) finche'
     // non si chiede esplicitamente lo sfondo "stilizzato".
@@ -80,9 +82,8 @@ void OccurrenceWidget::applyPalette() {
     // passa via QPalette (Window = riempimento, Mid = bordo, WindowText =
     // testo), letta dal file con palette(...): niente stringhe CSS create
     // a runtime.
-    const QColor color = activityColor(m_occurrence.source);
     const bool done = isTaskDone(m_occurrence.source);
-    QColor fill = color.lighter(done ? 180 : 150);
+    QColor fill = m_color.lighter(done ? 180 : 150);
     if (done && m_style == Style::Chip) {
         fill = theme::kDoneGray;
     }
@@ -90,7 +91,7 @@ void OccurrenceWidget::applyPalette() {
 
     QPalette pal = palette();
     pal.setColor(QPalette::Window, fill);
-    pal.setColor(QPalette::Mid, color.darker(120));
+    pal.setColor(QPalette::Mid, m_color.darker(120));
     pal.setColor(QPalette::WindowText, m_style == Style::Chip ? Qt::white : textColor);
     setPalette(pal);
     if (m_checkBox) m_checkBox->setPalette(pal);

@@ -54,10 +54,10 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
                    Qt::WindowCloseButtonHint);
 
     // --- Pagine -----------------------------------------------------------------
-    m_weekView = new WeekView(this);
-    m_dayView = new DayView(this);
-    m_monthView = new MonthView(this);
-    m_yearView = new YearView(this);
+    m_weekView = new WeekView(controller, this);
+    m_dayView = new DayView(controller, this);
+    m_monthView = new MonthView(controller, this);
+    m_yearView = new YearView(controller, this);
     m_listPage = new ActivityListPage(controller, this);
     // Finestra figlia ridotta per il dettaglio di un'attivita' (dentro la
     // MainWindow: mai a schermo intero)

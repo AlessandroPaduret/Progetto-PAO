@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QColor>
 #include <QPoint>
 #include <QWidget>
 
@@ -27,8 +28,13 @@ public:
      *  WeekView/DayView, con testo piu' leggibile e spunta piu' grande). */
     enum class Style { Block, Chip };
 
+    /** @param color Colore gia' risolto dal chiamante (vedi
+     *  views/utils/ViewShared.h::activityColor): il colore non e' un dato
+     *  del modello ne' di questo widget, che si limita a disegnare quello
+     *  che riceve. */
     OccurrenceWidget(const events::Occurrence& occurrence, Style style,
-                     bool recurrent, bool draggable, QWidget* parent = nullptr);
+                     bool recurrent, bool draggable, const QColor& color,
+                     QWidget* parent = nullptr);
 
     const events::Occurrence& occurrence() const { return m_occurrence; }
 
@@ -64,6 +70,7 @@ private:
     Style m_style;
     bool m_recurrent;
     bool m_draggable;
+    QColor m_color;
     bool m_selected = false;
     QPoint m_dragStartPos;
     QCheckBox* m_checkBox = nullptr;  // solo per i Compiti

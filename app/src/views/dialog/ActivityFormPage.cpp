@@ -1,5 +1,6 @@
 #include "views/dialog/ActivityFormPage.h"
 
+#include <QAbstractButton>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -95,6 +96,8 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     m_typeCombo->addItem(tr("Compito"));
     m_typeCombo->addItem(tr("Anniversario"));
 
+    auto* colorRow = buildColorRow();
+
     m_forms = new QStackedWidget(this);
     m_forms->addWidget(buildEventPanel());
     m_forms->addWidget(buildMeetingPanel());
@@ -115,6 +118,7 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
 
     auto* layout = new QVBoxLayout(this);
     layout->addWidget(m_typeCombo);
+    layout->addWidget(colorRow);
     layout->addWidget(m_forms, 1);
     layout->addWidget(m_errorLabel);
     auto* buttons = new QHBoxLayout;
@@ -165,6 +169,63 @@ ActivityFormPage::ActivityFormPage(CalendarController* controller, QWidget* pare
     connect(m_durationMt, &QTimeEdit::timeChanged, this, refreshPreview);
     connect(m_titleT, &QLineEdit::textChanged, this, refreshPreview);
     connect(m_dueT, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
+}
+
+// ---------------------------------------------------------------------------
+// Colore (condiviso da tutti i pannelli: non e' un campo specifico del tipo)
+// ---------------------------------------------------------------------------
+QWidget* ActivityFormPage::buildColorRow() {
+    auto* row = new QWidget(this);
+    auto* layout = new QHBoxLayout(row);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(new QLabel(tr("Colore:"), row));
+
+    m_colorGroup = new QButtonGroup(row);
+    m_colorGroup->setExclusive(true);
+
+    auto addSwatch = [&](const QString& objectName) {
+        auto* button = new QPushButton(row);
+        button->setObjectName(objectName);
+        button->setCheckable(true);
+        button->setProperty("colorSwatch", true);
+        button->setFlat(true);
+        m_colorGroup->addButton(button);
+        m_colorButtons.append(button);
+        layout->addWidget(button);
+    };
+
+    // Indice 0 = "Auto" (nessuna preferenza, colore dedotto dall'indirizzo
+    // dell'attivita'), indici 1..8 = kActivityColorPalette in ordine: vedi
+    // selectedColor()/setSelectedColor() per la corrispondenza.
+    addSwatch(QStringLiteral("colorSwatchAuto"));
+    for (int i = 0; i < kActivityColorPaletteSize; ++i) {
+        addSwatch(QStringLiteral("colorSwatch%1").arg(i));
+    }
+    m_colorButtons[0]->setChecked(true);
+    layout->addStretch(1);
+    return row;
+}
+
+QString ActivityFormPage::selectedColor() const {
+    for (int i = 1; i < m_colorButtons.size(); ++i) {
+        if (m_colorButtons[i]->isChecked()) {
+            return QString::fromLatin1(kActivityColorPalette[i - 1]);
+        }
+    }
+    return QString();  // "Auto" (indice 0), o nessuno selezionato
+}
+
+void ActivityFormPage::setSelectedColor(const QString& hex) {
+    if (!hex.isEmpty()) {
+        const QColor target(hex);
+        for (int i = 0; i < kActivityColorPaletteSize; ++i) {
+            if (target == QColor(QString::fromLatin1(kActivityColorPalette[i]))) {
+                m_colorButtons[i + 1]->setChecked(true);
+                return;
+            }
+        }
+    }
+    m_colorButtons[0]->setChecked(true);  // Auto
 }
 
 // ---------------------------------------------------------------------------
@@ -530,6 +591,7 @@ void ActivityFormPage::startCreateType(int typeIndex,
   m_doneCheck->setEnabled(true);
   m_saveButton->setText(tr("Salva"));
   m_forms->setCurrentIndex(qBound(0, typeIndex, kPanelCount - 1));
+  setSelectedColor(QString());  // Auto: nessuna attivita' esistente da cui ereditare un colore
   emitPreview();
 }
 
@@ -538,6 +600,7 @@ void ActivityFormPage::startEditActivity(const events::Activity* activity) {
   m_editingActivity = activity;
   m_editingOccurrence.reset();
   m_errorLabel->clear();
+  setSelectedColor(m_controller->colorFor(activity));
 
   // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
   // generatore. Un anniversario e' un'Activity annuale "tutto il giorno".
@@ -562,6 +625,9 @@ void ActivityFormPage::startEditOccurrence(const events::Occurrence& occurrence)
   m_editingActivity = nullptr;
   m_editingOccurrence = occurrence;
   m_errorLabel->clear();
+  // L'occorrenza sostituisce la sua Activity sorgente: eredita lo stesso
+  // colore visto finora (il chip nella griglia era gia' di quel colore).
+  setSelectedColor(m_controller->colorFor(occurrence.source));
 
   // L'istanza singola diventa un Evento: niente ricorrenza, niente all-day
   m_allDayCheck->setChecked(false);
@@ -958,18 +1024,19 @@ void ActivityFormPage::onSave() {
       m_errorLabel->setText(tr("Inserire un titolo non vuoto."));
       return;
     }
+    const QString color = selectedColor();
     bool ok = false;
     switch (m_mode) {
     case Mode::Create:
-      ok = m_controller->addActivities(std::move(activities));
+      ok = m_controller->addActivities(std::move(activities), color);
       break;
     case Mode::EditActivity:
       ok = m_controller->updateActivity(m_editingActivity,
-                                        std::move(activities[0]));
+                                        std::move(activities[0]), color);
       break;
     case Mode::EditOccurrence:
       ok = m_controller->modifyOccurrence(*m_editingOccurrence,
-                                          std::move(activities[0]));
+                                          std::move(activities[0]), color);
       break;
     }
     if (ok) {
@@ -987,17 +1054,18 @@ void ActivityFormPage::onSave() {
     return;
   }
 
+  const QString color = selectedColor();
   bool ok = false;
   switch (m_mode) {
   case Mode::Create:
-    ok = m_controller->addActivity(std::move(activity));
+    ok = m_controller->addActivity(std::move(activity), color);
     break;
   case Mode::EditActivity:
-    ok = m_controller->updateActivity(m_editingActivity, std::move(activity));
+    ok = m_controller->updateActivity(m_editingActivity, std::move(activity), color);
     break;
   case Mode::EditOccurrence:
     ok = m_controller->modifyOccurrence(*m_editingOccurrence,
-                                        std::move(activity));
+                                        std::move(activity), color);
     break;
   }
 

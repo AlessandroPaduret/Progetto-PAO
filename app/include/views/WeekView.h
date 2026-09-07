@@ -14,6 +14,7 @@ class QScrollArea;
 namespace app {
 
 class AllDayAreaWidget;
+class CalendarController;
 class DayColumnWidget;
 class HeaderWidget;
 class OccurrenceWidget;
@@ -56,7 +57,10 @@ public:
         events::Duration duration;   ///< Durata (zero per attivita' puntuali)
     };
 
-    explicit WeekView(QWidget* parent = nullptr);
+    /** @param controller Usato SOLO per risolvere il colore delle occorrenze
+     *  (CalendarController::colorFor), inoltrato a DayColumnWidget/
+     *  AllDayAreaWidget: WeekView stessa non lo usa direttamente. */
+    explicit WeekView(CalendarController* controller, QWidget* parent = nullptr);
 
     /** @brief Numero di giorni mostrati nella griglia (1 = vista giorno,
      *  default 7). Il riferimento resta il lunedi' passato a setWeekStart. */
@@ -112,6 +116,7 @@ private:
     void setSelectedChip(OccurrenceWidget* chip, const events::Occurrence& occurrence);
     void clearSelection();
 
+    CalendarController* m_controller;
     HeaderWidget* m_header = nullptr;
     AllDayAreaWidget* m_allDayArea = nullptr;
     QScrollArea* m_scrollArea = nullptr;

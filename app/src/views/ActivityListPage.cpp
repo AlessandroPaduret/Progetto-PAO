@@ -265,7 +265,7 @@ void ActivityListPage::reloadTable() {
         const events::Activity* activity = m_rows[row];
         auto* dot = new QTableWidgetItem;
         dot->setFlags(Qt::ItemIsEnabled);  // pallino non interattivo
-        dot->setIcon(colorDotIcon(activityColor(activity)));
+        dot->setIcon(colorDotIcon(activityColor(activity, m_controller->colorFor(activity))));
         auto* title = new QTableWidgetItem(plainTitle(activity));
         auto* type = new QTableWidgetItem(itemType(activity));
         auto* detail = new QTableWidgetItem(itemDetail(activity));

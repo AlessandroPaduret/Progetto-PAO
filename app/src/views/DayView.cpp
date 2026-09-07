@@ -2,7 +2,8 @@
 
 namespace app {
 
-DayView::DayView(QWidget* parent) : WeekView(parent) {
+DayView::DayView(CalendarController* controller, QWidget* parent)
+    : WeekView(controller, parent) {
     setDayCount(1);
 }
 

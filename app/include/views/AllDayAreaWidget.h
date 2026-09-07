@@ -12,6 +12,8 @@ class QGridLayout;
 
 namespace app {
 
+class CalendarController;
+
 /** @brief Striscia "tutto il giorno" sopra la griglia oraria: QGridLayout con
  *  column-span, colonna 0 riservata al gutter (allineata a TimeGutterWidget),
  *  una colonna per giorno, una riga per ogni "livello" di sovrapposizione
@@ -21,7 +23,9 @@ namespace app {
 class AllDayAreaWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit AllDayAreaWidget(QWidget* parent = nullptr);
+    /** @param controller Usato SOLO per risolvere il colore delle occorrenze
+     *  (CalendarController::colorFor), vedi DayColumnWidget. */
+    explicit AllDayAreaWidget(CalendarController* controller, QWidget* parent = nullptr);
 
     /** @brief Configura le colonne per i giorni [viewStart, viewStart+dayCount). */
     void setDays(const QDate& viewStart, int dayCount);
@@ -46,6 +50,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
 
 private:
+    CalendarController* m_controller;
     QGridLayout* m_grid = nullptr;
     QDate m_viewStart;
     int m_dayCount = 0;
