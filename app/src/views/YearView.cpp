@@ -88,7 +88,7 @@ void YearView::setOccurrences(const std::vector<events::Occurrence>& occurrences
         if (date.year() != m_year.year()) {
             continue;
         }
-        const bool done = isTaskDone(occ.source);
+        const bool done = isTaskDone(occ.source, occ.start);
         auto& slot = colorByDay[date.dayOfYear()];
         if (!slot || (slot == theme::kDoneGray && !done)) {
             slot = done ? theme::kDoneGray : activityColor(occ.source);

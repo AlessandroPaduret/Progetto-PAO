@@ -34,7 +34,7 @@ OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style s
         layout->setContentsMargins(4, 3, 4, 3);
         if (task) {
             m_checkBox = new QCheckBox(title, this);
-            m_checkBox->setChecked(isTaskDone(occurrence.source));
+            m_checkBox->setChecked(isTaskDone(occurrence.source, occurrence.start));
             connect(m_checkBox, &QCheckBox::toggled, this,
                     [this](bool) { emit doneToggled(m_occurrence); });
             layout->addWidget(m_checkBox);
@@ -48,7 +48,7 @@ OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style s
         layout->setContentsMargins(4, 1, 4, 1);
         if (task) {
             m_checkBox = new QCheckBox(title, this);
-            m_checkBox->setChecked(isTaskDone(occurrence.source));
+            m_checkBox->setChecked(isTaskDone(occurrence.source, occurrence.start));
             connect(m_checkBox, &QCheckBox::toggled, this,
                     [this](bool) { emit doneToggled(m_occurrence); });
             layout->addWidget(m_checkBox);
@@ -79,7 +79,7 @@ void OccurrenceWidget::applyPalette() {
     // polish successivo e tutte finivano con lo sfondo di default
     // dell'applicazione (bug: occorrenze tutte dello stesso colore/nere).
     const QColor color = activityColor(m_occurrence.source);
-    const bool done = isTaskDone(m_occurrence.source);
+    const bool done = isTaskDone(m_occurrence.source, m_occurrence.start);
     m_fillColor = color.lighter(done ? 180 : 150);
     if (done && m_style == Style::Chip) {
         m_fillColor = theme::kDoneGray;

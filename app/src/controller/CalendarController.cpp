@@ -196,7 +196,12 @@ bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
   }
 
   if (auto* task = dynamic_cast<events::Task*>(foundActivity)) {
-    task->setDone(!task->isDone());
+    // Per-occorrenza (Task::m_doneOccurrences): un Compito ricorrente ha uno
+    // stato evaso indipendente per ciascuna occorrenza, non uno stato unico
+    // per l'intera serie. setDone()/isDone() senza argomenti (occorrenza
+    // iniziale, getStart()) spuntavano sempre e solo la prima occorrenza,
+    // qualunque fosse quella su cui l'utente aveva effettivamente cliccato.
+    task->setDone(occurrence.start, !task->isDone(occurrence.start));
     emit activitiesChanged();
     return true;
   }

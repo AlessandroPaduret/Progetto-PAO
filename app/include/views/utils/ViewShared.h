@@ -50,10 +50,25 @@ inline bool isTask(const events::Activity* activity) {
     return dynamic_cast<const events::Task*>(activity) != nullptr;
 }
 
-/** @brief true se l'attivita' e' un Compito EVASO; false per gli altri tipi. */
+/** @brief true se l'attivita' e' un Compito EVASO (occorrenza iniziale,
+ *  getStart()); false per gli altri tipi. Un Compito ricorrente evade
+ *  per-occorrenza (vedi il sovraccarico sotto): questo va usato solo dove
+ *  non esiste una singola occorrenza da controllare, es. la riga di
+ *  ActivityListPage (un rigo per SERIE, non per occorrenza). */
 inline bool isTaskDone(const events::Activity* activity) {
     if (const auto* task = dynamic_cast<const events::Task*>(activity)) {
         return task->isDone();
+    }
+    return false;
+}
+
+/** @brief true se l'OCCORRENZA a `tp` di questo Compito e' evasa; false per
+ *  gli altri tipi. Da usare ovunque si visualizzi/spunti una singola
+ *  occorrenza (griglie, chip): un Compito ricorrente ha uno stato evaso
+ *  indipendente per ciascuna occorrenza (Task::m_doneOccurrences). */
+inline bool isTaskDone(const events::Activity* activity, const events::TimePoint tp) {
+    if (const auto* task = dynamic_cast<const events::Task*>(activity)) {
+        return task->isDone(tp);
     }
     return false;
 }
