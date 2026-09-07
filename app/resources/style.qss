@@ -1,0 +1,156 @@
+/* ==========================================================================
+ * Stile globale dell'applicazione (Qt Style Sheet), caricato una sola volta
+ * in main.cpp con qApp->setStyleSheet(...). Il C++ non costruisce piu'
+ * stringhe CSS: imposta solo lo STATO (objectName gia' fisso alla
+ * creazione, setProperty dinamiche, QPalette per i colori calcolati a
+ * runtime) e lascia che i selettori qui sotto decidano l'aspetto.
+ *
+ * I pochi colori che Qt Style Sheets non puo' raggiungere (disegno
+ * QPainter diretto, QProxyStyle, colori calcolati) sono negli stessi
+ * valori in app/src/views/Theme.h: aggiornare entrambi insieme.
+ * ========================================================================== */
+
+/* Pannelli interni (dettaglio/form/scelta serie): riquadro sollevato
+ * rispetto allo sfondo della finestra, mai a schermo intero. */
+#detailDialog, #formDialog, #choiceDialog {
+    background: palette(base);
+    border: 1px solid palette(mid);
+}
+
+/* Messaggio di errore nel form di creazione/modifica attivita'. */
+#formErrorLabel {
+    color: #c5221f;
+}
+
+/* Anteprima live dell'evento in corso di modifica (WeekView/DayView). */
+#weekPreviewLabel {
+    background: rgba(26, 115, 232, 55);
+    border: 1px dashed #1a73e8;
+    color: #202124;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+/* Vista settimana/giorno: intestazione dei giorni (HeaderWidget) e striscia
+ * "tutto il giorno" (AllDayAreaWidget), separate dalla griglia oraria
+ * sottostante da un bordo inferiore (la griglia stessa non e' piu' un unico
+ * canvas dipinto: ogni DayColumnWidget disegna solo le proprie linee ora). */
+#weekHeader, #weekAllDayArea {
+    background: white;
+    border-bottom: 1px solid #dadce0;
+}
+QLabel#weekDayHeaderLabel {
+    color: #5f6368;
+}
+QLabel#weekDayHeaderLabel[today="true"] {
+    color: #1a73e8;
+}
+QLabel#weekHourLabel {
+    color: #5f6368;
+    font-size: 8pt;
+    background: transparent;
+    border: none;
+}
+
+/* Vista anno: 12 mini-calendari nativi piu' compatti dei QCalendarWidget
+ * di default. */
+QCalendarWidget QAbstractItemView {
+    font-size: 8pt;
+}
+QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background: white;
+}
+
+/* Vista mese: intestazione dei giorni della settimana (Lun..Dom). */
+QLabel#monthDayHeader {
+    font-weight: bold;
+    color: #5f6368;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dadce0;
+}
+
+/* Vista mese: etichetta "+N" per le occorrenze eccedenti il limite mostrato. */
+QLabel#monthMoreLabel {
+    color: #9aa0a6;
+    background: transparent;
+    border: none;
+    font-size: 8pt;
+}
+
+/* Vista mese: cella di un giorno. Bianca nel mese corrente, grigio chiaro
+ * fuori mese (proprieta' dinamica "inMonth", impostata da MonthDayCell). */
+app--MonthDayCell {
+    background: white;
+    border: 1px solid #dadce0;
+}
+app--MonthDayCell[inMonth="false"] {
+    background: #f8f9fa;
+}
+
+/* Vista mese: numero del giorno. "dayState" e' una proprieta' dinamica
+ * impostata da MonthDayCell::setDate ("today"/"outMonth"/assente). */
+QLabel#monthDayLabel {
+    color: #202124;
+    background: transparent;
+    border: none;
+}
+QLabel#monthDayLabel[dayState="today"] {
+    color: #1a73e8;
+    font-weight: bold;
+}
+QLabel#monthDayLabel[dayState="outMonth"] {
+    color: #9aa0a6;
+}
+
+/* Elenco attivita': tabella "pulita" come le griglie del calendario. */
+QTableWidget#activityTable {
+    background: white;
+    alternate-background-color: #f8f9fa;
+    border: none;
+    outline: none;
+    font-size: 13pt;
+    color: #000000;
+}
+QTableWidget#activityTable::item {
+    padding: 4px 8px;
+    color: #000000;
+    border-right: 1px solid #dadce0;
+}
+QTableWidget#activityTable::item:selected {
+    background: #e8f0fe;
+    color: #000000;
+    border-right: 1px solid #dadce0;
+}
+QTableWidget#activityTable QHeaderView::section {
+    background: #f8f9fa;
+    border: none;
+    border-bottom: 1px solid #dadce0;
+    border-right: 1px solid #dadce0;
+    padding: 6px;
+    font-weight: bold;
+    color: #202124;
+    font-size: 13pt;
+}
+
+/* Occorrenze (WeekView/MonthView, widget condiviso OccurrenceWidget): la
+ * FORMA (bordo, raggio) e' qui; il COLORE (dipende dall'attivita') arriva
+ * dalla QPalette che il C++ imposta per istanza (Window = riempimento,
+ * Mid = bordo), letta qui con palette(...). "selected" e' una proprieta'
+ * dinamica impostata da OccurrenceWidget::setSelected. */
+app--OccurrenceWidget {
+    background: palette(window);
+    border-style: solid;
+    border-width: 1px;
+    border-color: palette(mid);
+    border-radius: 3px;
+}
+app--OccurrenceWidget[selected="true"] {
+    border-width: 2px;
+    border-color: #1a73e8;
+}
+app--OccurrenceWidget QLabel,
+app--OccurrenceWidget QCheckBox {
+    background: transparent;
+    border: none;
+    color: palette(window-text);
+}

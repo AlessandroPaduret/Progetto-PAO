@@ -11,7 +11,15 @@ build/
 # file temporanei
 *.log
 *.tmp
-*.txt
+*.aux
+*.toc
 
 # script di shell
 *.sh
+
+# documentazione generabile
+docs/
+
+# relazione compilata (il .tex e' la fonte; il pdf si genera prima della consegna)
+relazione/*.pdf
+relazione/figura/*.pdf

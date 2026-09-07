@@ -1,0 +1,346 @@
+% ============================================================================
+% Relazione del progetto di Programmazione a Oggetti (a.a. 2025/26)
+% "Attivita": gestione di attivita' personali con C++ e Qt
+%
+% Prima di consegnare:
+%  1. compilare i campi \studente e \matricola;
+%  2. inserire il diagramma UML in figura/uml_attivita.png;
+%  3. aggiornare la tabella delle ore (sezione 7) con le ore effettive;
+%  4. compilare: pdflatex relazione.tex
+% ============================================================================
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+% Caption in italiano (la lingua babel "italian" non e' disponibile ovunque)
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabella}
+
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+
+% ---- dati dello studente (da compilare) ------------------------------------
+\newcommand{\studente}{Nome Cognome}
+\newcommand{\matricola}{MATRICOLA}
+
+\setlength{\parskip}{4pt}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Attivita: gestione di attivita' personali}\\[4pt]
+{\large Applicazione desktop in C++ con interfaccia grafica Qt}\\[8pt]
+{\normalsize Progetto di Programmazione a Oggetti -- a.a.\ 2025/26}\\[4pt]
+{\normalsize \studente\ --- matricola \matricola\ (progetto individuale)}
+\end{center}
+
+\vspace{6pt}
+\noindent\hrulefill
+\vspace{6pt}
+
+\section{Introduzione}
+
+L'obiettivo del progetto e' sviluppare un'applicazione per la gestione di
+attivita' personali -- impegni, eventi, scadenze e promemoria -- interamente
+scritta in C++ con interfaccia grafica realizzata con il framework Qt. Gli
+utenti possono creare, modificare, eliminare, cercare e visualizzare i diversi
+tipi di attivita', ciascuno dei quali possiede attributi specifici: ogni tipo e'
+rappresentato da una classe derivata da una classe base comune che descrive gli
+attributi e i comportamenti condivisi.
+
+L'architettura del progetto separa nettamente il modello logico dall'interfaccia
+grafica:
+
+\begin{itemize}[nosep]
+  \item \textbf{modello logico} (\texttt{model/}): una libreria C++20 pura
+    (namespace \texttt{events}), riutilizzabile senza dipendenze dall'interfaccia,
+    che implementa la gerarchia delle attivita', la generazione delle occorrenze
+    temporali e la collezione \texttt{Calendar};
+  \item \textbf{persistenza} (\texttt{model/persistence/}): un modulo separato
+    (Qt Core, niente Widgets) che serializza e ricarica le attivita' su file
+    locale in formato JSON tramite il pattern Visitor;
+  \item \textbf{interfaccia grafica} (\texttt{app/}): un'applicazione Qt a
+    finestra singola (pattern MVC) che usa il modello e la persistenza.
+\end{itemize}
+
+Il programma compila senza errori nel container di valutazione del corso
+(Qt 6.4.2) sia con \texttt{cmake} sia con \texttt{qmake} (\texttt{Attivita.pro}),
+ed esegue in modalita' standalone: i dati sono salvati su file JSON locale,
+scelto dall'utente tramite finestre di dialogo (mai percorsi cablati).
+
+\section{Classi principali del modello logico}
+
+La Fig.~\ref{fig:uml} mostra il diagramma UML delle classi principali del
+modello. La radice della gerarchia e' la classe astratta \texttt{Activity},
+che espone l'interfaccia polimorfa comune: il titolo, il punto temporale di
+riferimento, il metodo \texttt{occurrencesIn}, la clonazione (\texttt{clone}),
+il doppio dispatch (\texttt{accept}) e una descrizione testuale
+(\texttt{describe}).
+
+\begin{figure}[h]
+\centering
+\IfFileExists{figura/uml_attivita.png}{%
+  \includegraphics[width=0.92\textwidth]{figura/uml_attivita.png}%
+}{%
+  \fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering Diagramma UML da inserire}}%
+}
+\caption{Diagramma UML delle classi principali del modello logico}
+\label{fig:uml}
+\end{figure}
+
+\subsection{La gerarchia delle attivita'}
+
+Il progetto e' individuale, quindi e' richiesta una gerarchia con almeno tre
+classi concrete: ne sono implementate \textbf{quattro}, ciascuna con attributi
+e metodi genuinamente diversi (Tab.~\ref{tab:tipi}).
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}l l l@{}}
+\toprule
+\textbf{Classe} & \textbf{Attributi specifici} & \textbf{Metodi specifici} \\
+\midrule
+\texttt{Event} & inizio, durata & \texttt{getEnd}, \texttt{isIn}, \texttt{overlapsWith} \\
+\texttt{RecurrentEvent} & generatore, template, eccezioni & \texttt{addException}, \texttt{truncateBefore} \\
+\texttt{Deadline} & scadenza, priorita', evasa & \texttt{isOverdue}, \texttt{timeRemaining}, \texttt{setDone} \\
+\texttt{Reminder} & attivazione, messaggio, ripetizione & \texttt{snooze}, \texttt{isRepeating} \\
+\bottomrule
+\end{tabular}
+\caption{I quattro tipi concreti di attivita' e i loro attributi/metodi distintivi}
+\label{tab:tipi}
+\end{table}
+
+\textbf{Event} e' l'attivita' con un unico intervallo temporale: titolo, inizio
+e durata (la durata negativa e' rifiutata sia nel costruttore sia in
+\texttt{setDuration}). \textbf{RecurrentEvent} e' l'attivita' ricorrente: una
+regola di ricorrenza (un \texttt{DateGenerator}), un evento \emph{template} da
+cui derivano le occorrenze e un insieme di eccezioni (semantica EXDATE
+dello standard iCalendar): le eccezioni \emph{rimuovono} occorrenze che il
+generatore produrrebbe, e vivono sull'evento, non sul generatore.
+\texttt{truncateBefore} termina la serie a partire da una data. \textbf{Deadline}
+rappresenta una scadenza puntuale con priorita' (bassa/media/alta), stato di
+completamento e i metodi \texttt{isOverdue}/\texttt{timeRemaining}.
+\textbf{Reminder} e' un promemoria con messaggio, ripetizione opzionale e
+\texttt{snooze} (posticipo dell'attivazione).
+
+\subsection{Generatori di date (Strategy)}
+
+La classe astratta \texttt{DateGenerator} produce i punti temporali delle
+occorrenze e viene usata da \texttt{RecurrentEvent} per delega (pattern
+\textbf{Strategy}): la regola di ricorrenza e' un oggetto separato, sostituibile
+e mutabile a runtime senza toccare l'evento. Le implementazioni sono
+\texttt{FixedIntervalGenerator} (ogni $N$ secondi, con fine opzionale),
+\texttt{YearlyGenerator} (una volta all'anno, con gestione degli anni bisestili:
+il 29 febbraio viene spostato al 28) e \texttt{NullGenerator} (null object).
+Gli intervalli di interrogazione sono \emph{inclusivi} su entrambi gli estremi.
+
+\subsection{Occurrence e Calendar}
+
+\texttt{Occurrence} e' un value type leggero
+(\texttt{\{source, start, duration\}}) che rappresenta una singola occorrenza
+di un'attivita' sulla timeline; \texttt{Calendar} e' la collezione polimorfa
+che possiede le attivita' (\texttt{unique\_ptr}), ne aggrega le occorrenze
+ordinate (\texttt{occurrencesIn}) e offre la ricerca testuale per titolo
+(\texttt{search}, case-insensitive). La creazione degli oggetti passa
+esclusivamente dai \textbf{builder} \texttt{ActivityBuilder}/
+\texttt{TaskBuilder}/\texttt{MeetingBuilder} (pattern \textbf{Builder}),
+affiancati da \texttt{GeneratorBuilder} per le regole di ricorrenza.
+
+\section{Utilizzo non banale del polimorfismo}
+
+Il polimorfismo e' utilizzato in modo non banale in quattro punti, riassunti
+nella Tab.~\ref{tab:poly}; nessuna classe del modello espone un metodo
+\texttt{getType} che restituisca una stringa per il controllo di flusso.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}p{3.2cm} p{7.2cm} p{4.2cm}@{}}
+\toprule
+\textbf{Metodo polimorfo} & \textbf{Comportamento per tipo dinamico} & \textbf{Valore aggiunto} \\
+\midrule
+\texttt{occurrencesIn(from, to)} &
+\texttt{Event} $\rightarrow$ 0/1 occorrenza; \texttt{RecurrentEvent} $\rightarrow$
+espansione della ricorrenza meno le eccezioni; \texttt{Deadline}/\texttt{Reminder}
+$\rightarrow$ istante/i puntuale/i &
+La timeline (vista settimanale, aggiornamento automatico) interroga tutte le
+attivita' allo stesso modo; l'espansione temporale e' incapsulata in ogni classe \\
+\addlinespace
+\texttt{accept(visitor)} (doppio dispatch) &
+\texttt{ActivityVisitor::visit(const Event\&)}, \ldots/\texttt{Deadline}/
+\texttt{Reminder} &
+Persistenza JSON e pannelli GUI (dettaglio, etichette) aggiunti senza
+modificare le classi del dominio (Single Responsibility) \\
+\addlinespace
+\texttt{clone()} (Prototype) &
+Copia profonda del tipo concreto, con ritorno covariante &
+\texttt{RecurrentEvent} genera occorrenze come \emph{copie indipendenti} del
+template, modificabili senza effetti collaterali \\
+\addlinespace
+\texttt{generateDates} (Strategy) &
+Ogni \texttt{DateGenerator} produce le date a modo suo (intervallo fisso,
+annuale, mai) &
+La regola di ricorrenza si sostituisce e si modifica a runtime
+(\texttt{truncateBefore} $\rightarrow$ \texttt{setEnd}) \\
+\bottomrule
+\end{tabular}
+\caption{Metodi polimorfi non banali e loro valore aggiunto}
+\label{tab:poly}
+\end{table}
+
+Il caso piu' rilevante e' \texttt{occurrencesIn}: il metodo si comporta in modo
+profondamente diverso in base al tipo dinamico dell'oggetto invocante ed e'
+utilizzato da tutta l'applicazione (vista settimanale, persistenza, test).
+Il doppio dispatch (\texttt{accept}) e' la base del pattern Visitor utilizzato
+per la persistenza (sezione 4) e per la costruzione dei pannelli di dettaglio
+nella GUI (sezione 6), consentendo di aggiungere operazioni esterne alla
+gerarchia senza toccare le classi del modello e senza \texttt{dynamic\_cast}.
+
+\section{Persistenza dei dati}
+
+Conformemente ai vincoli del corso, i dati delle attivita' sono salvati su un
+\textbf{file locale in formato JSON} (formato strutturato), scelto dall'utente
+in ogni momento tramite finestre di dialogo grafiche (\texttt{QFileDialog}):
+nessun percorso e' cablato nel codice sorgente.
+
+La serializzazione e' realizzata con il \textbf{pattern Visitor}: le classi del
+dominio espongono \texttt{accept(ActivityVisitor\&)} e la persistenza e'
+implementata in due visitor esterni, \texttt{JsonActivityVisitor} (per le
+attivita') e \texttt{JsonGeneratorVisitor} (per la regola di ricorrenza,
+attraverso una seconda gerarchia di visitor). In questo modo le classi del
+modello non contengono alcuna logica JSON e nuovi formati di export potranno
+essere aggiunti in futuro implementando soltanto nuovi visitor.
+
+La deserializzazione e' una \emph{factory} con discriminatore: il campo
+\texttt{"type"} dell'oggetto JSON (\texttt{event}, \texttt{recurrent},
+\texttt{deadline}, \texttt{reminder}) determina la classe concreta da
+ricostruire. Ogni campo e' validato rigorosamente: date ISO-8601
+(\texttt{YYYY-MM-DDTHH:MM:SS}, formato UTC, lunghezza esatta e date possibili),
+durate non negative, intervalli di ricorrenza positivi, priorita' note; in
+presenza di dati non validi il caricamento fallisce con un messaggio d'errore
+e il contenuto del calendario non viene alterato. Il formato del file e':
+
+\begin{verbatim}
+{ "version": 1, "activities": [ { "type": "recurrent",
+    "template": { "title": "Lezione", "start": "2026-09-07T14:00:00",
+                  "duration_seconds": 7200 },
+    "generator": { "type": "fixed", "start": "2026-09-07T14:00:00",
+                   "interval_seconds": 604800, "end": "2026-12-21T00:00:00" },
+    "exceptions": [ "2026-11-16T14:00:00" ] }, ... ] }
+\end{verbatim}
+
+Il modulo di persistenza dipende solo da \textbf{Qt Core} (per la gestione
+JSON) e non dall'interfaccia grafica: il modello logico rimane riutilizzabile
+senza dipendenze dalla GUI, come richiesto dai vincoli del corso. Il file
+d'esempio \texttt{examples/attivita\_esempio.json}, fornito nella consegna,
+e' stato generato e validato dalla libreria stessa (round-trip completo).
+
+\section{Interfaccia grafica}
+
+L'applicazione Qt (\texttt{app/}) adotta il pattern \textbf{MVC}: il
+\texttt{CalendarController} possiede il \texttt{Calendar} logico ed espone le
+operazioni (creazione, modifica, eliminazione, ricerca, salvataggio,
+caricamento); un segnale \texttt{activitiesChanged} notifica alle viste ogni
+modifica, che si aggiornano automaticamente. La finestra principale e'
+organizzata in tre pagine navigabili tramite \texttt{QStackedWidget}:
+
+\begin{enumerate}[nosep]
+  \item \textbf{settimana}: griglia settimanale stile Google Calendar disegnata
+    con \texttt{QPainter} (giorni, ore, occorrenze come blocchi colorati, tooltip,
+    menu contestuale, navigazione settimane); le occorrenze che si sovrappongono
+    temporalmente nello stesso giorno vengono \textbf{affiancate in colonne}
+    (coesistono nella stessa casella); \textbf{trascinamento}: tenendo premuta
+    un'occorrenza la si sposta (drag\&drop) su una nuova data/ora, aggiornando i
+    dati dell'attivita' (per un ricorrente l'inizio della serie si sposta ma la
+    \emph{scadenza resta quella}; se la scadenza diventerebbe antecedente
+    all'inizio viene portata al nuovo inizio); doppio clic su una cella vuota
+    avvia la creazione precompilata;
+  \item \textbf{elenco}: tabella delle attivita' con ricerca live per titolo;
+  \item \textbf{dettaglio}: campi specifici per tipo, costruiti con un Visitor
+    (la GUI non discrimina mai tramite stringhe di tipo).
+\end{enumerate}
+
+La creazione e la modifica avvengono in un \textbf{pannello ridotto mostrato
+dentro la finestra principale}: piu' piccolo della finestra, e' un widget
+figlio della MainWindow e pertanto \emph{non puo' uscire dai suoi bordi}: la
+sua dimensione viene limitata a quella della finestra (\texttt{boundedTo}), e
+viene ricentrato automaticamente anche quando la finestra viene ridimensionata.
+Al suo interno i campi sono organizzati in righe con l'etichetta a sinistra e la
+box di input affiancata (es. \emph{Titolo} con il relativo campo di testo,
+\emph{Data} con la casella data/ora). L'utente sceglie il tipo da un menu a
+tendina (\texttt{Evento}, \texttt{Evento ricorrente}, \texttt{Scadenza},
+\texttt{Promemoria}) e si compila il pannello con i campi specifici di quel
+tipo: titolo e data/ora in tutti i tipi (conservati anche cambiando tipo);
+durata per gli eventi; intervallo di ripetizione e fine opzionale (tramite
+checkbox, con la validazione che la fine sia \emph{successiva} all'inizio)
+per i ricorrenti; priorita' (bassa/media/alta) e stato "evasa" per le
+scadenze; messaggio di dettaglio e ricorrenza per i promemoria. Il doppio clic
+su una cella vuota della settimana precompila data e ora dell'inizio nel modulo;
+il doppio clic su un'occorrenza esistente apre invece la \textbf{modifica
+dell'attivita'} conservando il tipo originale (per i ricorrenti l'intera serie,
+con regola e data di fine modificabili); per un ricorrente il menu contestuale
+offre sia la \textbf{modifica della serie} sia la \textbf{modifica della singola
+istanza}. Il pannello si chiude con i pulsanti
+Salva/Annulla.
+
+La toolbar permette di creare/modificare/eliminare, di passare tra le viste e
+di \textbf{salvare e caricare} il file JSON in qualunque momento tramite
+\texttt{QFileDialog}. La modifica di una singola occorrenza di un'attivita'
+ricorrente aggiunge un'eccezione (EXDATE) e crea un evento singolo sostitutivo;
+l'eliminazione di un'istanza offre le scelte ``solo questa'' (eccezione) o
+``questa e le successive'' (troncamento della ricorrenza).
+
+\section{Funzionalita' aggiuntive}
+
+\begin{itemize}[nosep]
+  \item gestione di \textbf{quattro tipi} di attivita' (il minimo richiesto e'
+    tre), con attributi e metodi specifici;
+  \item \textbf{ricorrenze} con eccezioni (EXDATE), troncamento e ricorrenza
+    annuale (compleanni) con gestione degli anni bisestili;
+  \item \textbf{vista settimanale personalizzata} disegnata con \texttt{QPainter}
+    (scaling proporzionale, evidenza del giorno corrente, tooltip, menu
+    contestuale, affiancamento degli eventi sovrapposti, \textbf{drag\&drop}
+    per spostare rapidamente le attivita');
+  \item \textbf{ricerca live} per titolo (case-insensitive) nell'elenco;
+  \item \textbf{modifica di una singola istanza} di una ricorrenza senza
+    alterare le altre;
+  \item \textbf{persistenza robusta}: caricamento con validazione completa del
+    formato e messaggi d'errore; file d'esempio incluso nella consegna;
+  \item suite di \textbf{test automatici} (framework Catch2): oltre venti casi
+    su modello e persistenza e sul controller dell'applicazione (round-trip
+    JSON per ogni tipo, eccezioni, troncamenti, validazioni); i test sono
+    eseguiti nella pipeline Docker del repository.
+\end{itemize}
+
+\section{Rendicontazione delle ore}
+
+Il progetto e' svolto individualmente. Le ore effettive sono riportate nella
+colonna dedicata.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}l c c@{}}
+\toprule
+\textbf{Attivita'} & \textbf{Previste} & \textbf{Effettive} \\
+\midrule
+Analisi della specifica e progettazione & 6h & ~h \\
+Modello logico (gerarchia \texttt{Activity}, generatore di date) & 10h & ~h \\
+Persistenza JSON (Visitor) & 6h & ~h \\
+Interfaccia grafica Qt (MVC, viste, form, ricerca) & 12h & ~h \\
+Verifica nel container del corso, build e test & 3h & ~h \\
+Relazione e disegni UML & 3h & ~h \\
+\midrule
+\textbf{Totale} & \textbf{40h} & \textbf{~h} \\
+\bottomrule
+\end{tabular}
+\caption{Rendicontazione delle ore previste ed effettive}
+\label{tab:ore}
+\end{table}
+
+\end{document}

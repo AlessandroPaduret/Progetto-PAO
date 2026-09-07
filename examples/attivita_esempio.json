@@ -1,0 +1,59 @@
+{
+    "version": 1,
+    "activities": [
+        {
+            "type": "event",
+            "title": "Visita dal dentista",
+            "start": "2026-09-07T10:30:00",
+            "duration_seconds": 3600
+        },
+        {
+            "type": "meeting",
+            "title": "Riunione di laboratorio",
+            "start": "2026-09-08T15:00:00",
+            "duration_seconds": 5400,
+            "location": "Aula M",
+            "attendees": [
+                "Alice",
+                "Bob",
+                "Carlo"
+            ]
+        },
+        {
+            "type": "recurrent",
+            "title": "Lezione di Programmazione a Oggetti",
+            "template": {
+                "title": "Lezione di Programmazione a Oggetti",
+                "start": "2026-09-07T14:00:00",
+                "duration_seconds": 7200
+            },
+            "generator": {
+                "type": "fixed",
+                "start": "2026-09-07T14:00:00",
+                "interval_seconds": 604800,
+                "end": "2026-12-21T00:00:00"
+            },
+            "exceptions": [
+                "2026-11-16T14:00:00"
+            ]
+        },
+        {
+            "type": "task",
+            "title": "Consegna relazione PAO",
+            "due": "2026-09-15T00:00:00",
+            "priority": "high",
+            "done": false
+        },
+        {
+            "type": "event",
+            "title": "Hackathon di fine corso",
+            "start": "2026-12-18T00:00:00",
+            "duration_seconds": 172800
+        },
+        {
+            "type": "anniversary",
+            "title": "Mario Rossi - Compleanno",
+            "date": "1990-02-28T00:00:00"
+        }
+    ]
+}

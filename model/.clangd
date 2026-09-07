@@ -1,0 +1,6 @@
+CompileFlags:
+  CompilationDatabase: build
+  # GCC 16 (usato per compilare) passa flag che clang non riconosce; senza
+  # rimuoverli clangd fallisce l'intero parse del file (a cascata: ogni tipo
+  # e ogni include sembrano "non trovati").
+  Remove: [-mno-direct-extern-access]

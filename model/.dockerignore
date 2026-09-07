@@ -1,0 +1,14 @@
+# artefatti di build/test
+build/
+bin/
+*.o
+*.a
+*.out
+*.exe
+
+# documentazione generata (la produce Doxygen nel container)
+docs/
+
+# VCS
+.git
+.gitignore

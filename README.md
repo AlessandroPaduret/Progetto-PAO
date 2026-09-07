@@ -1,46 +1,27 @@
-# Project Specifications
-Project specification for the Object Oriented Programming class.
+# Attivita — gestione di attivita' personali
 
+Applicazione C++20/Qt per la gestione di attivita' personali (eventi, eventi
+ricorrenti, scadenze, promemoria), sviluppata per il corso di **Programmazione
+a Oggetti** (Universita' di Padova, a.a. 2025/26).
 
-## Overview
-This repository contains source LaTeX code for the specifications of the project for the Object Oriented Programming class.
+## Componenti
 
+- `model/` — libreria del modello logico (namespace `events`): `Activity`
+  concreta con regole di ricorrenza (Strategy via `DateGenerator`), sottoclassi
+  `Task`/`Meeting`, `Calendar`, Visitor per le operazioni esterne.
+  + `model/persistence/` — persistenza JSON su file (Qt Core, Visitor).
+- `app/` — applicazione Qt **standalone** a finestra singola (MVC): vista
+  settimanale, elenco con ricerca, dettaglio e form di creazione/modifica,
+  salvataggio/caricamento via dialog.
 
-## TO DO:
+## Build e test
 
-- repository(classe DB)
-- GUI
-
-## Docker Image
-To build the Docker image run
 ```bash
-docker build -t unipd-oop/qt-env:2025 .
+# modello + persistenza + test (Catch2, se presente)
+cmake -B build && cmake --build build -j && ctest --test-dir build   # da model/
+cmake -B build && cmake --build build -j && ctest --test-dir build   # da app/
 ```
-nota: fai in modo di non essere connesso a eduroam o con tailscale altrimenti il DNS fa casino perché non trova Server DNS online
 
-# Attiva il servizio docker
-sudo systemctl start docker
-
-To run an interactive shell run
-```bash
-docker run -it --rm \
-  -v "$(pwd)":/app -w /app \
-  -u $(id -u):$(id -g) \
-  unipd-oop/qt-env:2025 bash
-```
-this mount the current directory as `/app` and sets appropriate user permissions.
-
-To run an interactive shell with access to graphic support (necessary to run the application) on GNU/Linux run
-```bash
-# Only once
-xhost +local:docker
-
-docker run -it --rm \
-  -v "$(pwd)":/app -w /app \
-  -u $(id -u):$(id -g) \
-  -e DISPLAY=$DISPLAY \
-  -e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
-  -v $XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  unipd-oop/qt-env:2025 bash
-  ```
+L'applicazione compila anche nel container di valutazione del corso
+(`unipd-oop/qt-env:2025`, Qt 6.4.2): i test Catch2 vengono compilati solo se
+il pacchetto e' disponibile, il resto della build non ha dipendenze esterne.
