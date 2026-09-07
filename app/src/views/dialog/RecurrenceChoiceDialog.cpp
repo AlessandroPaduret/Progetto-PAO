@@ -10,11 +10,13 @@ namespace app {
 RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
     : QDialog(parent) {
     setWindowTitle(tr("Evento ricorrente"));
-    // Finestra piu' grande: le scritte nei pulsanti devono stare per intero
-    resize(620, 260);
 
     m_messageLabel = new QLabel(this);
     m_messageLabel->setWordWrap(true);
+    // Il testo va a capo su piu' righe (setWordWrap), ma senza un minimo di
+    // larghezza il sizeHint del QLabel si accontenta di una sola parola per
+    // riga: la finestra risulterebbe innaturalmente stretta e altissima.
+    m_messageLabel->setMinimumWidth(420);
 
     auto* seriesButton = new QPushButton(tr("Modifica tutta la serie"), this);
     auto* splitButton = new QPushButton(tr("Modifica da questo momento in poi"), this);
@@ -26,32 +28,34 @@ RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
     auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
 
     auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(10);
     layout->addWidget(m_messageLabel);
-    layout->addSpacing(6);
     layout->addWidget(seriesButton);
     layout->addWidget(splitButton);
     layout->addWidget(instanceButton);
     layout->addWidget(buttonBox);
 
-    // Ogni scelta chiude il dialog (accept) e poi segnala cosa fare: la
-    // MainWindow reagisce al segnale, non al risultato di exec().
-    connect(seriesButton, &QPushButton::clicked, this, [this] {
-        accept();
-        emit seriesChosen();
-    });
-    connect(instanceButton, &QPushButton::clicked, this, [this] {
-        accept();
-        emit instanceChosen();
-    });
-    connect(splitButton, &QPushButton::clicked, this, [this] {
-        accept();
-        emit splitChosen();
-    });
+    // Ogni pulsante chiude direttamente il dialog con l'esito corrispondente:
+    // niente accept()+segnale, il chiamante legge il risultato da exec()/ask().
+    connect(seriesButton, &QPushButton::clicked, this,
+            [this] { done(static_cast<int>(Choice::EntireSeries)); });
+    connect(splitButton, &QPushButton::clicked, this,
+            [this] { done(static_cast<int>(Choice::FromHereOn)); });
+    connect(instanceButton, &QPushButton::clicked, this,
+            [this] { done(static_cast<int>(Choice::SingleInstance)); });
+    // QDialog::reject() (Annulla o Esc) porta il risultato a Rejected == 0,
+    // lo stesso valore di Choice::Cancel: nessuna mappatura da fare.
+    static_assert(static_cast<int>(RecurrenceChoiceDialog::Choice::Cancel) ==
+                  static_cast<int>(QDialog::Rejected));
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
-void RecurrenceChoiceDialog::ask(const QString& text) {
-    m_messageLabel->setText(text);
+RecurrenceChoiceDialog::Choice RecurrenceChoiceDialog::ask(QWidget* parent,
+                                                           const QString& message) {
+    RecurrenceChoiceDialog dialog(parent);
+    dialog.m_messageLabel->setText(message);
+    return static_cast<Choice>(dialog.exec());
 }
 
 } // namespace app

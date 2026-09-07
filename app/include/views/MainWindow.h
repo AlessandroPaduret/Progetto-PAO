@@ -4,8 +4,6 @@
 #include <QMainWindow>
 #include <QString>
 
-#include <optional>
-
 #include "events.h"
 #include "menu/AppMenuBar.h"
 
@@ -79,16 +77,13 @@ private slots:
 
     void confirmDeleteOccurrence(const events::Occurrence& occurrence);
 
-    /** @brief Mostra la finestra di scelta serie/singola occorrenza. */
+    /** @brief Chiede (RecurrenceChoiceDialog::ask, modale e sincrona) se
+     *  modificare l'intera serie, dividerla da questo momento in poi o solo
+     *  questa occorrenza, e applica la scelta. */
     void askSeriesOrInstance(const events::Occurrence& occurrence);
-    /** @brief Mostra la finestra di scelta serie/singola occorrenza (drag). */
+    /** @brief Come askSeriesOrInstance, per un trascinamento verso newStart. */
     void askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
                                  const QDateTime& newStart);
-    void onChoiceSeries();
-    void onChoiceInstance();
-    /** @brief "Da questo momento in poi": divide la serie (ferma l'attuale,
-     *  ne crea una nuova con le stesse regole e inizio diverso). */
-    void onChoiceSplit();
 
     /** @brief Voce del menu "Visualizza" scelta dall'utente: passa alla
      *  pagina corrispondente. */
@@ -113,7 +108,6 @@ private:
     YearView* m_yearView = nullptr;
     ActivityListPage* m_listPage = nullptr;
     ActivitySidebarWidget* m_sidebar = nullptr;
-    RecurrenceChoiceDialog* m_choiceDialog = nullptr;
 
     NavigationBar* m_navBar = nullptr;
     AppMenuBar* m_menuBar = nullptr;
@@ -122,10 +116,6 @@ private:
 
     QDate m_anchor;
     ViewKind m_view = ViewKind::Week;
-    // Occorrenza "pendente" su cui l'utente deve scegliere serie o istanza
-    std::optional<events::Occurrence> m_pendingOccurrence;
-    QDateTime m_pendingDragTarget;
-    bool m_pendingIsDrag = false;
 };
 
 } // namespace app

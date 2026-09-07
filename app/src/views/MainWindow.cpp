@@ -63,9 +63,9 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     // dialog), affiancato al calendario da uno QSplitter; parte nascosto.
     m_sidebar = new ActivitySidebarWidget(controller, this);
     m_sidebar->hide();
-    // Finestra di scelta serie/singola occorrenza: interruzione puntuale del
-    // flusso, resta un QDialog modale nativo (exec()).
-    m_choiceDialog = new RecurrenceChoiceDialog(this);
+    // La scelta serie/singola occorrenza (RecurrenceChoiceDialog) e'
+    // un'interruzione puntuale del flusso: si istanzia al bisogno tramite
+    // il suo helper statico ask(), niente istanza persistente qui.
 
     // Settimana/Giorno gestiscono da sole lo scroll (solo verticale, sulla
     // sola griglia oraria: intestazione e striscia "tutto il giorno" restano
@@ -232,14 +232,6 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::showFormEditActivity);
     connect(m_listPage, &ActivityListPage::editRequested,
             this, &MainWindow::showFormEditActivity);
-
-    // Finestra di scelta serie/singola occorrenza (interna alla MainWindow)
-    connect(m_choiceDialog, &RecurrenceChoiceDialog::seriesChosen,
-            this, &MainWindow::onChoiceSeries);
-    connect(m_choiceDialog, &RecurrenceChoiceDialog::instanceChosen,
-            this, &MainWindow::onChoiceInstance);
-    connect(m_choiceDialog, &RecurrenceChoiceDialog::splitChosen,
-            this, &MainWindow::onChoiceSplit);
 
     // La sidebar decide da sola quando passare da Dettaglio a Form
     // (pulsante "Modifica" interno): la MainWindow si limita a nasconderla
@@ -476,94 +468,68 @@ void MainWindow::openNewActivityType(int typeIndex) {
 // ---------------------------------------------------------------------------
 // Scelta serie / singola occorrenza per gli eventi ricorrenti
 // ---------------------------------------------------------------------------
-void MainWindow::onChoiceSplit() {
-    if (!m_pendingOccurrence) {
-        m_pendingIsDrag = false;
-        return;
-    }
-    const events::Occurrence occurrence = *m_pendingOccurrence;
-    const QDateTime target =
-        m_pendingIsDrag
-            ? m_pendingDragTarget
-            : QDateTime::fromSecsSinceEpoch(
-                  occurrence.start.time_since_epoch().count());
-    m_pendingOccurrence.reset();
-    m_pendingIsDrag = false;
-
-    // La serie attuale termina prima di questa occorrenza; ne nasce una
-    // nuova con le stesse regole di ricorrenza ma inizio diverso e la
-    // stessa data di scadenza.
-    m_controller->splitRecurrence(occurrence, target);
-}
-
 void MainWindow::askSeriesOrInstance(const events::Occurrence& occurrence) {
-    m_pendingOccurrence = occurrence;
-    m_pendingIsDrag = false;
-    m_choiceDialog->ask(tr(
+    using Choice = RecurrenceChoiceDialog::Choice;
+    switch (RecurrenceChoiceDialog::ask(this, tr(
         "Questo evento fa parte di una serie ricorrente. Vuoi modificare "
         "l'intera serie, proseguire da questo momento in poi (la serie "
         "attuale termina e ne nasce una nuova con le stesse regole) oppure "
         "solo questo evento (che diventera' un evento singolo, fuori dalla "
-        "serie)?"));
-    m_choiceDialog->exec();
+        "serie)?"))) {
+    case Choice::EntireSeries:
+        // Come il doppio clic sull'evento di inizio serie: apre la finestra
+        // di modifica dell'intera serie (regola, durata, data di scadenza).
+        showFormEditActivity(occurrence.source);
+        break;
+    case Choice::FromHereOn:
+        // La serie attuale termina prima di questa occorrenza; ne nasce una
+        // nuova con le stesse regole di ricorrenza ma inizio diverso.
+        m_controller->splitRecurrence(
+            occurrence, QDateTime::fromSecsSinceEpoch(
+                            occurrence.start.time_since_epoch().count()));
+        break;
+    case Choice::SingleInstance:
+        // L'occorrenza di quel giorno diventa un evento STANDARD: si apre
+        // la finestra di modifica dell'evento normale. Al salvataggio la
+        // serie continua ad esistere ma senza quel giorno (eccezione
+        // interna + nuovo evento singolo).
+        showFormEditOccurrence(occurrence);
+        break;
+    case Choice::Cancel:
+        break;
+    }
 }
 
 void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
                                          const QDateTime& newStart) {
-    m_pendingOccurrence = occurrence;
-    m_pendingDragTarget = newStart;
-    m_pendingIsDrag = true;
-    m_choiceDialog->ask(tr(
+    using Choice = RecurrenceChoiceDialog::Choice;
+    switch (RecurrenceChoiceDialog::ask(this, tr(
         "Questo evento fa parte di una serie ricorrente. Vuoi spostare "
         "l'intera serie, proseguire da questo momento in poi (la serie "
         "attuale termina e ne nasce una nuova con le stesse regole) oppure "
         "solo questo evento (che diventera' un evento singolo, fuori dalla "
-        "serie)?"));
-    m_choiceDialog->exec();
-}
-
-void MainWindow::onChoiceSeries() {
-    if (!m_pendingOccurrence) {
-        m_pendingIsDrag = false;
-        return;
-    }
-    const events::Occurrence occurrence = *m_pendingOccurrence;
-    m_pendingOccurrence.reset();
-    m_pendingIsDrag = false;
-
-    // Come il doppio clic sull'evento di inizio serie: apre la finestra di
-    // modifica dell'intera serie (regola, durata, data di scadenza, ...).
-    // Vale sia per il doppio clic sia per il trascinamento.
-    showFormEditActivity(occurrence.source);
-}
-
-void MainWindow::onChoiceInstance() {
-    if (!m_pendingOccurrence) {
-        m_pendingIsDrag = false;
-        return;
-    }
-    const events::Occurrence occurrence = *m_pendingOccurrence;
-    const bool wasDrag = m_pendingIsDrag;
-    m_pendingOccurrence.reset();
-    m_pendingIsDrag = false;
-
-    if (wasDrag) {
+        "serie)?"))) {
+    case Choice::EntireSeries:
+        showFormEditActivity(occurrence.source);
+        break;
+    case Choice::FromHereOn:
+        m_controller->splitRecurrence(occurrence, newStart);
+        break;
+    case Choice::SingleInstance: {
         // "Sposta solo questo evento": l'occorrenza esce dalla serie
         // (eccezione interna: buco in origine) e diventa un evento standard
         // alla data/ora di destinazione del trascinamento.
         auto replacement = events::makeActivity(events::ActivityConfig{
             .title = occurrence.source->getTitle(),
-            .start = events::TimePoint(std::chrono::seconds(
-                m_pendingDragTarget.toSecsSinceEpoch())),
+            .start = events::TimePoint(
+                std::chrono::seconds(newStart.toSecsSinceEpoch())),
             .duration = occurrence.duration});
         m_controller->modifyOccurrence(occurrence, std::move(replacement));
-        return;
+        break;
     }
-    // L'occorrenza di quel giorno diventa un evento STANDARD: si apre la
-    // finestra di modifica dell'evento normale (non del ricorrente). Al
-    // salvataggio la serie continua ad esistere ma senza quel giorno
-    // (eccezione interna + nuovo evento singolo).
-    showFormEditOccurrence(occurrence);
+    case Choice::Cancel:
+        break;
+    }
 }
 
 void MainWindow::confirmDeleteOccurrence(const events::Occurrence& occurrence) {
