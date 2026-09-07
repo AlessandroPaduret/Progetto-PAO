@@ -22,7 +22,7 @@
 #include "generators/FixedIntervalGenerator.h"
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
-#include "views/dialog/ActivitySeriesBuilder.h"
+#include "views/dialog/utils/ActivitySeriesBuilder.h"
 #include "views/dialog/ActivityTypeWidget.h"
 #include "views/dialog/MeetingFormWidget.h"
 #include "views/dialog/RecurrenceFormWidget.h"

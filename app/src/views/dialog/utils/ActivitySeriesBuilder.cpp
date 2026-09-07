@@ -1,4 +1,4 @@
-#include "views/dialog/ActivitySeriesBuilder.h"
+#include "views/dialog/utils/ActivitySeriesBuilder.h"
 
 #include <QDateTime>
 #include <QTimeZone>
@@ -9,7 +9,7 @@
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
 #include "views/dialog/ActivityTypeWidget.h"
-#include "views/dialog/RecurrenceBuilder.h"
+#include "views/dialog/utils/RecurrenceBuilder.h"
 
 namespace app {
 

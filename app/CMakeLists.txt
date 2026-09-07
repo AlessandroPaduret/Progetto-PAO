@@ -38,6 +38,8 @@ add_executable(pao_app
     src/menu/AppMenuBar.cpp
     include/menu/AppMenuBar.h
     include/menu/MenuShortcutStyle.h
+
+    # Viste principali (finestra, griglie temporali, elenco): views/
     src/views/MainWindow.cpp
     include/views/MainWindow.h
     src/views/WeekView.cpp
@@ -60,30 +62,38 @@ add_executable(pao_app
     include/views/YearView.h
     src/views/ActivityListPage.cpp
     include/views/ActivityListPage.h
+    src/views/OccurrenceWidget.cpp
+    include/views/OccurrenceWidget.h
+
+    # Pannello di creazione/modifica (widget principali): views/dialog/
     src/views/dialog/ActivitySidebarWidget.cpp
     include/views/dialog/ActivitySidebarWidget.h
     include/views/dialog/ActivityTypeWidget.h
     src/views/dialog/RecurrenceFormWidget.cpp
     include/views/dialog/RecurrenceFormWidget.h
-    src/views/dialog/RecurrenceBuilder.cpp
-    include/views/dialog/RecurrenceBuilder.h
-    src/views/dialog/ActivitySeriesBuilder.cpp
-    include/views/dialog/ActivitySeriesBuilder.h
     src/views/dialog/MeetingFormWidget.cpp
     include/views/dialog/MeetingFormWidget.h
     src/views/dialog/TaskFormWidget.cpp
     include/views/dialog/TaskFormWidget.h
-    src/views/dialog/ActivityViewHelpers.cpp
-    include/views/dialog/ActivityViewHelpers.h
     src/views/dialog/RecurrenceChoiceDialog.cpp
     include/views/dialog/RecurrenceChoiceDialog.h
-    src/views/OccurrenceWidget.cpp
-    include/views/OccurrenceWidget.h
+
+    # Logica di dominio del pannello, non Qt Widgets: views/dialog/utils/
+    src/views/dialog/utils/ActivitySeriesBuilder.cpp
+    include/views/dialog/utils/ActivitySeriesBuilder.h
+    src/views/dialog/utils/RecurrenceBuilder.cpp
+    include/views/dialog/utils/RecurrenceBuilder.h
+
+    # Helper condivisi da piu' viste (nessuna vista/widget principale): views/utils/
     include/views/utils/ViewShared.h
     include/views/utils/WidgetUtils.h
     include/views/utils/Theme.h
     src/views/utils/WeekGridLayout.cpp
     include/views/utils/WeekGridLayout.h
+    src/views/utils/ActivityViewHelpers.cpp
+    include/views/utils/ActivityViewHelpers.h
+    src/views/utils/ActivityVisitors.cpp
+    include/views/utils/ActivityVisitors.h
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 
