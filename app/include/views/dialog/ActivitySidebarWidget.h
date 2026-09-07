@@ -4,7 +4,6 @@
 #include <QWidget>
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "events.h"
@@ -21,6 +20,7 @@ class QSpinBox;
 namespace app {
 
 class CalendarController;
+class FormSaveStrategy;
 class MeetingFormWidget;
 class RecurrenceFormWidget;
 class TaskFormWidget;
@@ -44,6 +44,7 @@ class ActivitySidebarWidget : public QWidget {
     Q_OBJECT
 public:
     explicit ActivitySidebarWidget(CalendarController* controller, QWidget* parent = nullptr);
+    ~ActivitySidebarWidget() override;
 
     /** @brief Apre il form di creazione: tipo libero, data/ora suggerita
      *  (es. dal doppio clic su una cella della settimana) se valida. */
@@ -77,8 +78,6 @@ private slots:
     void onAllDayToggled(bool on);
 
 private:
-    enum class Mode { Create, EditActivity, EditOccurrence };
-
     /** @brief Mostra la sola sezione specifica del tipo scelto (Riunione o
      *  Compito; l'Evento non ne ha una propria). */
     void showSection(int type);
@@ -110,9 +109,11 @@ private:
 
     CalendarController* m_controller;
 
-    Mode m_mode = Mode::Create;
-    const events::Activity* m_editingActivity = nullptr;
-    std::optional<events::Occurrence> m_editingOccurrence;
+    // Comportamento di Salva/Elimina specifico della modalita' corrente del
+    // pannello (creazione, modifica di un'intera attivita', modifica di una
+    // singola occorrenza): un oggetto polimorfo al posto di un enum "Mode" +
+    // switch/if sparsi in onSave()/onDelete() (vedi il .cpp).
+    std::unique_ptr<FormSaveStrategy> m_saveStrategy;
 
     // --- Campi comuni a tutti i tipi (Titolo/Data/Durata: quelli di Activity) ---
     QComboBox* m_typeCombo = nullptr;        // Evento / Riunione / Compito

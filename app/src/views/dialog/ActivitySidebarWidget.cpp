@@ -66,6 +66,81 @@ QSpinBox* makeDurationSpin(QWidget* parent, int defaultMinutes = 60) {
 
 } // namespace
 
+// -----------------------------------------------------------------------
+// Comportamento di Salva/Elimina per modalita' del pannello (Polimorfismo
+// al posto di un enum "Mode" + switch/if sparsi in onSave()/onDelete()):
+// una sottoclasse per Create/EditActivity/EditOccurrence, ciascuna sa da
+// sola quale metodo del controller chiamare per salvare e (se supportata)
+// per eliminare l'elemento in modifica.
+// -----------------------------------------------------------------------
+class FormSaveStrategy {
+public:
+    virtual ~FormSaveStrategy() = default;
+
+    virtual bool execute(CalendarController* controller,
+                         std::vector<std::unique_ptr<events::Activity>> activities) = 0;
+
+    /** @brief Elimina l'elemento in modifica; il default "non supportato"
+     *  copre la creazione, dove non c'e' ancora nulla da eliminare. */
+    virtual bool remove(CalendarController* /*controller*/) { return false; }
+
+    /** @brief Oggetto del messaggio di conferma ("Eliminare l'attivita'?"/
+     *  "Eliminare questa occorrenza?"); vuoto se l'eliminazione non e'
+     *  supportata (il chiamante nasconde/disabilita il pulsante Elimina). */
+    virtual QString deleteSubject() const { return {}; }
+};
+
+namespace {
+
+class CreateStrategy : public FormSaveStrategy {
+public:
+    bool execute(CalendarController* controller,
+                 std::vector<std::unique_ptr<events::Activity>> activities) override {
+        return activities.size() > 1 ? controller->addActivities(std::move(activities))
+                                      : controller->addActivity(std::move(activities[0]));
+    }
+};
+
+class EditActivityStrategy : public FormSaveStrategy {
+public:
+    explicit EditActivityStrategy(const events::Activity* activity) : m_activity(activity) {}
+
+    bool execute(CalendarController* controller,
+                 std::vector<std::unique_ptr<events::Activity>> activities) override {
+        return controller->updateActivity(m_activity, std::move(activities[0]));
+    }
+    bool remove(CalendarController* controller) override {
+        return controller->removeActivity(m_activity);
+    }
+    QString deleteSubject() const override {
+        return ActivitySidebarWidget::tr("l'attivita'");
+    }
+
+private:
+    const events::Activity* m_activity;
+};
+
+class EditOccurrenceStrategy : public FormSaveStrategy {
+public:
+    explicit EditOccurrenceStrategy(events::Occurrence occurrence) : m_occurrence(occurrence) {}
+
+    bool execute(CalendarController* controller,
+                 std::vector<std::unique_ptr<events::Activity>> activities) override {
+        return controller->modifyOccurrence(m_occurrence, std::move(activities[0]));
+    }
+    bool remove(CalendarController* controller) override {
+        return controller->deleteOccurrence(m_occurrence);
+    }
+    QString deleteSubject() const override {
+        return ActivitySidebarWidget::tr("questa occorrenza");
+    }
+
+private:
+    events::Occurrence m_occurrence;
+};
+
+} // namespace
+
 ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWidget* parent)
     : QWidget(parent), m_controller(controller) {
     setMinimumWidth(340);
@@ -160,6 +235,11 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
     showSection(kEvent);
 }
 
+// Out-of-line: FormSaveStrategy e' un tipo incompleto nell'header (solo
+// dichiarato), std::unique_ptr<FormSaveStrategy> ne richiede la definizione
+// completa per generare il distruttore di m_saveStrategy, disponibile qui.
+ActivitySidebarWidget::~ActivitySidebarWidget() = default;
+
 void ActivitySidebarWidget::showSection(int type) {
     // L'Evento non ha una propria sezione specifica: la ricorrenza (comune
     // a tutti e tre i tipi) e' gia' sempre visibile fuori da questo switch.
@@ -198,9 +278,7 @@ void ActivitySidebarWidget::showCreate(const QDateTime& suggestedStart) {
 
 void ActivitySidebarWidget::showCreateType(int typeIndex,
                                            const QDateTime& suggestedStart) {
-  m_mode = Mode::Create;
-  m_editingActivity = nullptr;
-  m_editingOccurrence.reset();
+  m_saveStrategy = std::make_unique<CreateStrategy>();
   m_errorLabel->clear();
 
   m_titleEdit->clear();
@@ -234,9 +312,7 @@ void ActivitySidebarWidget::showCreateType(int typeIndex,
 }
 
 void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
-  m_mode = Mode::EditActivity;
-  m_editingActivity = activity;
-  m_editingOccurrence.reset();
+  m_saveStrategy = std::make_unique<EditActivityStrategy>(activity);
   m_errorLabel->clear();
 
   // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
@@ -255,9 +331,7 @@ void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
 }
 
 void ActivitySidebarWidget::showEditOccurrence(const events::Occurrence& occurrence) {
-  m_mode = Mode::EditOccurrence;
-  m_editingActivity = nullptr;
-  m_editingOccurrence = occurrence;
+  m_saveStrategy = std::make_unique<EditOccurrenceStrategy>(occurrence);
   m_errorLabel->clear();
 
   // L'istanza singola diventa un Evento: niente ricorrenza, niente all-day
@@ -531,26 +605,15 @@ ActivitySidebarWidget::buildActivities() const {
 }
 
 void ActivitySidebarWidget::onDelete() {
-  if (m_mode == Mode::Create) {
-    return;
+  const QString subject = m_saveStrategy->deleteSubject();
+  if (subject.isEmpty()) {
+    return;  // Create: niente da eliminare
   }
-  const QString what = m_mode == Mode::EditOccurrence
-                           ? tr("questa occorrenza")
-                           : tr("l'attivita'");
   if (QMessageBox::question(this, tr("Elimina"),
-                            tr("Eliminare %1?").arg(what)) != QMessageBox::Yes) {
+                            tr("Eliminare %1?").arg(subject)) != QMessageBox::Yes) {
     return;
   }
-
-  bool ok = false;
-  if (m_mode == Mode::EditActivity) {
-    ok = m_controller->removeActivity(m_editingActivity);
-  } else if (m_mode == Mode::EditOccurrence && m_editingOccurrence) {
-    // Per un'occorrenza di una serie: la serie continua senza quel giorno
-    // (eccezione interna); per un'attivita' singola la rimuove del tutto.
-    ok = m_controller->deleteOccurrence(*m_editingOccurrence);
-  }
-  if (ok) {
+  if (m_saveStrategy->remove(m_controller)) {
     emit closeRequested();
   }
 }
@@ -564,20 +627,10 @@ void ActivitySidebarWidget::onSave() {
     m_errorLabel->setText(tr("Inserire un titolo non vuoto."));
     return;
   }
-  bool ok = false;
-  switch (m_mode) {
-  case Mode::Create:
-    ok = activities.size() > 1 ? m_controller->addActivities(std::move(activities))
-                                : m_controller->addActivity(std::move(activities[0]));
-    break;
-  case Mode::EditActivity:
-    ok = m_controller->updateActivity(m_editingActivity, std::move(activities[0]));
-    break;
-  case Mode::EditOccurrence:
-    ok = m_controller->modifyOccurrence(*m_editingOccurrence, std::move(activities[0]));
-    break;
-  }
-  if (ok) {
+  // Create/EditActivity/EditOccurrence chiamano ciascuno un metodo diverso
+  // del controller: la scelta e' delegata a m_saveStrategy (polimorfismo)
+  // invece di uno switch qui.
+  if (m_saveStrategy->execute(m_controller, std::move(activities))) {
     m_errorLabel->clear();
     emit closeRequested();
   } else {
