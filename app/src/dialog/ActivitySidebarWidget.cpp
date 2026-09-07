@@ -1,4 +1,4 @@
-#include "views/dialog/ActivitySidebarWidget.h"
+#include "dialog/ActivitySidebarWidget.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -22,11 +22,11 @@
 #include "generators/FixedIntervalGenerator.h"
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
-#include "views/dialog/utils/ActivitySeriesBuilder.h"
-#include "views/dialog/ActivityTypeWidget.h"
-#include "views/dialog/MeetingFormWidget.h"
-#include "views/dialog/RecurrenceFormWidget.h"
-#include "views/dialog/TaskFormWidget.h"
+#include "dialog/utils/ActivitySeriesBuilder.h"
+#include "dialog/ActivityTypeWidget.h"
+#include "dialog/MeetingFormWidget.h"
+#include "dialog/RecurrenceFormWidget.h"
+#include "dialog/TaskFormWidget.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {

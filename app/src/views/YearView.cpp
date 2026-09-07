@@ -9,7 +9,7 @@
 
 #include <optional>
 
-#include "views/utils/Theme.h"
+#include "Theme.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {

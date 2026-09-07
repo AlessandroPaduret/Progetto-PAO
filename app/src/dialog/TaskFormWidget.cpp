@@ -1,4 +1,4 @@
-#include "views/dialog/TaskFormWidget.h"
+#include "dialog/TaskFormWidget.h"
 
 #include <QCheckBox>
 #include <QComboBox>

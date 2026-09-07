@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "core/Occurrence.h"
-#include "views/OccurrenceWidget.h"
-#include "views/WeekView.h"
+#include "views/weekly/OccurrenceWidget.h"
+#include "views/weekly/WeekView.h"
 
 class QRubberBand;
 class QLabel;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "views/WeekView.h"
+#include "views/weekly/WeekView.h"
 
 namespace app {
 

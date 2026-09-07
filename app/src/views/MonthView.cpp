@@ -12,7 +12,7 @@
 
 #include <algorithm>
 
-#include "views/OccurrenceWidget.h"
+#include "views/weekly/OccurrenceWidget.h"
 #include "views/utils/ViewShared.h"
 #include "views/utils/WidgetUtils.h"
 

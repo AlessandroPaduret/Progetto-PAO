@@ -1,4 +1,4 @@
-#include "views/OccurrenceWidget.h"
+#include "views/weekly/OccurrenceWidget.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -14,7 +14,7 @@
 #include <QPalette>
 #include <QVBoxLayout>
 
-#include "views/utils/Theme.h"
+#include "Theme.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {
@@ -143,7 +143,7 @@ void OccurrenceWidget::mouseMoveEvent(QMouseEvent* event) {
 
 void OccurrenceWidget::startDrag() {
     // Drag&drop nativo Qt: la destinazione (WeekView) riconosce la sorgente
-    // tramite QDropEvent::source(), senza bisogno di serializzare un indice.
+    // tramite QDropEvent::source()
     auto* drag = new QDrag(this);
     auto* mime = new QMimeData;
     mime->setText(QString::fromStdString(m_occurrence.source->getTitle()));

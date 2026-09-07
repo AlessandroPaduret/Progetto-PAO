@@ -1,4 +1,4 @@
-#include "views/DayColumnWidget.h"
+#include "views/weekly/DayColumnWidget.h"
 
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
@@ -13,8 +13,8 @@
 #include <algorithm>
 #include <chrono>
 
-#include "views/OccurrenceWidget.h"
-#include "views/utils/Theme.h"
+#include "views/weekly/OccurrenceWidget.h"
+#include "Theme.h"
 #include "views/utils/ViewShared.h"
 #include "views/utils/WeekGridLayout.h"
 

@@ -1,4 +1,4 @@
-#include "views/dialog/RecurrenceChoiceDialog.h"
+#include "dialog/RecurrenceChoiceDialog.h"
 
 #include <QDialogButtonBox>
 #include <QLabel>

@@ -1,4 +1,4 @@
-#include "views/dialog/MeetingFormWidget.h"
+#include "dialog/MeetingFormWidget.h"
 
 #include <QFormLayout>
 #include <QLineEdit>

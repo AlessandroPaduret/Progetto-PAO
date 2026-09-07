@@ -4,7 +4,7 @@
 
 #include <memory>
 
-#include "views/dialog/ActivityTypeWidget.h"
+#include "dialog/ActivityTypeWidget.h"
 
 class QLineEdit;
 class QListWidget;

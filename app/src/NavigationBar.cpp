@@ -1,4 +1,4 @@
-#include "views/NavigationBar.h"
+#include "NavigationBar.h"
 
 #include <QHBoxLayout>
 #include <QLabel>

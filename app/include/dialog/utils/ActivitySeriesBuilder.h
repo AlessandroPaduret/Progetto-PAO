@@ -9,7 +9,7 @@
 
 #include "builders/ActivityConfig.h"
 #include "core/Activity.h"
-#include "views/dialog/RecurrenceFormWidget.h"
+#include "dialog/RecurrenceFormWidget.h"
 
 namespace app {
 

@@ -39,55 +39,59 @@ add_executable(pao_app
     include/menu/AppMenuBar.h
     include/menu/MenuShortcutStyle.h
 
-    # Viste principali (finestra, griglie temporali, elenco): views/
-    src/views/MainWindow.cpp
-    include/views/MainWindow.h
-    src/views/WeekView.cpp
-    include/views/WeekView.h
-    src/views/HeaderWidget.cpp
-    include/views/HeaderWidget.h
-    src/views/AllDayAreaWidget.cpp
-    include/views/AllDayAreaWidget.h
-    src/views/TimeGutterWidget.cpp
-    include/views/TimeGutterWidget.h
-    src/views/DayColumnWidget.cpp
-    include/views/DayColumnWidget.h
+    # Finestra principale e helper di livello top: include/, src/
+    src/MainWindow.cpp
+    include/MainWindow.h
+    src/NavigationBar.cpp
+    include/NavigationBar.h
+    include/Theme.h
+
+    # Viste principali (elenco, griglie mensile/annuale): views/
     src/views/DayView.cpp
     include/views/DayView.h
     src/views/MonthView.cpp
     include/views/MonthView.h
-    src/views/NavigationBar.cpp
-    include/views/NavigationBar.h
     src/views/YearView.cpp
     include/views/YearView.h
     src/views/ActivityListPage.cpp
     include/views/ActivityListPage.h
-    src/views/OccurrenceWidget.cpp
-    include/views/OccurrenceWidget.h
 
-    # Pannello di creazione/modifica (widget principali): views/dialog/
-    src/views/dialog/ActivitySidebarWidget.cpp
-    include/views/dialog/ActivitySidebarWidget.h
-    include/views/dialog/ActivityTypeWidget.h
-    src/views/dialog/RecurrenceFormWidget.cpp
-    include/views/dialog/RecurrenceFormWidget.h
-    src/views/dialog/MeetingFormWidget.cpp
-    include/views/dialog/MeetingFormWidget.h
-    src/views/dialog/TaskFormWidget.cpp
-    include/views/dialog/TaskFormWidget.h
-    src/views/dialog/RecurrenceChoiceDialog.cpp
-    include/views/dialog/RecurrenceChoiceDialog.h
+    # Griglia settimanale (composizione di WeekView): views/weekly/
+    src/views/weekly/WeekView.cpp
+    include/views/weekly/WeekView.h
+    src/views/weekly/HeaderWidget.cpp
+    include/views/weekly/HeaderWidget.h
+    src/views/weekly/AllDayAreaWidget.cpp
+    include/views/weekly/AllDayAreaWidget.h
+    src/views/weekly/TimeGutterWidget.cpp
+    include/views/weekly/TimeGutterWidget.h
+    src/views/weekly/DayColumnWidget.cpp
+    include/views/weekly/DayColumnWidget.h
+    src/views/weekly/OccurrenceWidget.cpp
+    include/views/weekly/OccurrenceWidget.h
 
-    # Logica di dominio del pannello, non Qt Widgets: views/dialog/utils/
-    src/views/dialog/utils/ActivitySeriesBuilder.cpp
-    include/views/dialog/utils/ActivitySeriesBuilder.h
-    src/views/dialog/utils/RecurrenceBuilder.cpp
-    include/views/dialog/utils/RecurrenceBuilder.h
+    # Pannello di creazione/modifica (widget principali): dialog/
+    src/dialog/ActivitySidebarWidget.cpp
+    include/dialog/ActivitySidebarWidget.h
+    include/dialog/ActivityTypeWidget.h
+    src/dialog/RecurrenceFormWidget.cpp
+    include/dialog/RecurrenceFormWidget.h
+    src/dialog/MeetingFormWidget.cpp
+    include/dialog/MeetingFormWidget.h
+    src/dialog/TaskFormWidget.cpp
+    include/dialog/TaskFormWidget.h
+    src/dialog/RecurrenceChoiceDialog.cpp
+    include/dialog/RecurrenceChoiceDialog.h
+
+    # Logica di dominio del pannello, non Qt Widgets: dialog/utils/
+    src/dialog/utils/ActivitySeriesBuilder.cpp
+    include/dialog/utils/ActivitySeriesBuilder.h
+    src/dialog/utils/RecurrenceBuilder.cpp
+    include/dialog/utils/RecurrenceBuilder.h
 
     # Helper condivisi da piu' viste (nessuna vista/widget principale): views/utils/
     include/views/utils/ViewShared.h
     include/views/utils/WidgetUtils.h
-    include/views/utils/Theme.h
     src/views/utils/WeekGridLayout.cpp
     include/views/utils/WeekGridLayout.h
     src/views/utils/ActivityViewHelpers.cpp

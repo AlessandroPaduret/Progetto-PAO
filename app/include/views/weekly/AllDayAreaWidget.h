@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "core/Occurrence.h"
-#include "views/OccurrenceWidget.h"
+#include "views/weekly/OccurrenceWidget.h"
 
 class QGridLayout;
 

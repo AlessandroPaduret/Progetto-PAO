@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "events.h"
-#include "views/dialog/utils/ActivitySeriesBuilder.h"
+#include "dialog/utils/ActivitySeriesBuilder.h"
 
 class QCheckBox;
 class QComboBox;

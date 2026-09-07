@@ -1,4 +1,4 @@
-#include "views/dialog/utils/RecurrenceBuilder.h"
+#include "dialog/utils/RecurrenceBuilder.h"
 
 #include <algorithm>
 

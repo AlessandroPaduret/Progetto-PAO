@@ -1,4 +1,4 @@
-#include "views/AllDayAreaWidget.h"
+#include "views/weekly/AllDayAreaWidget.h"
 
 #include <QApplication>
 #include <QGridLayout>
@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-#include "views/OccurrenceWidget.h"
+#include "views/weekly/OccurrenceWidget.h"
 #include "views/utils/ViewShared.h"
 #include "views/utils/WeekGridLayout.h"
 

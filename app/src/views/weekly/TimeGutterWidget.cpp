@@ -1,4 +1,4 @@
-#include "views/TimeGutterWidget.h"
+#include "views/weekly/TimeGutterWidget.h"
 
 #include <QLabel>
 #include <QVBoxLayout>

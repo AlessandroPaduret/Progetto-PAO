@@ -1,4 +1,4 @@
-#include "views/dialog/RecurrenceFormWidget.h"
+#include "dialog/RecurrenceFormWidget.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>

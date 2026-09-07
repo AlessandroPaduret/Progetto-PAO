@@ -1,4 +1,4 @@
-#include "views/MainWindow.h"
+#include "MainWindow.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -13,14 +13,14 @@
 
 #include "controller/CalendarController.h"
 #include "builders/ActivityConfig.h"
-#include "views/dialog/ActivitySidebarWidget.h"
+#include "dialog/ActivitySidebarWidget.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
 #include "views/MonthView.h"
-#include "views/NavigationBar.h"
-#include "views/dialog/RecurrenceChoiceDialog.h"
+#include "NavigationBar.h"
+#include "dialog/RecurrenceChoiceDialog.h"
 #include "views/utils/ViewShared.h"
-#include "views/WeekView.h"
+#include "views/weekly/WeekView.h"
 #include "views/YearView.h"
 
 namespace app {

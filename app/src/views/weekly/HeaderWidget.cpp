@@ -1,4 +1,4 @@
-#include "views/HeaderWidget.h"
+#include "views/weekly/HeaderWidget.h"
 
 #include <QApplication>
 #include <QFont>

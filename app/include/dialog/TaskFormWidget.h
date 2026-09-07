@@ -1,6 +1,6 @@
 #pragma once
 
-#include "views/dialog/ActivityTypeWidget.h"
+#include "dialog/ActivityTypeWidget.h"
 
 class QCheckBox;
 class QComboBox;

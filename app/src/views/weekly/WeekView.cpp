@@ -1,4 +1,4 @@
-#include "views/WeekView.h"
+#include "views/weekly/WeekView.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -9,11 +9,11 @@
 #include <functional>
 #include <ranges>
 
-#include "views/AllDayAreaWidget.h"
-#include "views/DayColumnWidget.h"
-#include "views/HeaderWidget.h"
-#include "views/OccurrenceWidget.h"
-#include "views/TimeGutterWidget.h"
+#include "views/weekly/AllDayAreaWidget.h"
+#include "views/weekly/DayColumnWidget.h"
+#include "views/weekly/HeaderWidget.h"
+#include "views/weekly/OccurrenceWidget.h"
+#include "views/weekly/TimeGutterWidget.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {

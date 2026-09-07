@@ -5,8 +5,8 @@
 #include <QTextStream>
 
 #include "controller/CalendarController.h"
-#include "views/MainWindow.h"
-#include "views/utils/Theme.h"
+#include "MainWindow.h"
+#include "Theme.h"
 
 namespace {
 
@@ -43,8 +43,7 @@ void applyDarkPalette(QApplication& application) {
 
 int main(int argc, char* argv[]) {
     QApplication application(argc, argv);
-    application.setApplicationName(QStringLiteral("Attivita"));
-    application.setOrganizationName(QStringLiteral("pao"));
+    application.setApplicationName(QStringLiteral("Calendario"));
 
     applyDarkPalette(application);
 
