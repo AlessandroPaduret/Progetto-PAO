@@ -99,15 +99,11 @@
 
 \section{Introduzione}
 
-L'obiettivo del progetto e' sviluppare un'applicazione per la gestione di
+L'obiettivo del progetto è sviluppare un calendario per la gestione di
 attivita' personali -- eventi singoli o ricorrenti, compiti e riunioni --
-interamente scritta in C++23 con interfaccia grafica realizzata in Qt~6.
-L'utente puo' creare, modificare, eliminare, cercare e visualizzare le
-attivita' in quattro viste temporali (giorno/settimana/mese/anno) oltre a un
-elenco tabellare con ricerca e filtri.
+scritto in C++23 con interfaccia grafica realizzata in Qt.
 
-L'architettura separa nettamente il modello logico dall'interfaccia grafica
-e dalla persistenza:
+L'architettura separa il modello logico dalla GUI e dalla persistenza:
 
 \begin{itemize}[nosep]
   \item \textbf{modello logico} (\texttt{model/}): libreria C++23 pura
@@ -121,12 +117,6 @@ e dalla persistenza:
     a finestra singola (pattern \textbf{MVC}: \texttt{CalendarController} +
     viste) che usa il modello e la persistenza.
 \end{itemize}
-
-Il programma compila senza errori nel container di valutazione del corso
-(Ubuntu 24.04, g++ 13.3, Qt 6.4.2) sia con \texttt{cmake} sia con
-\texttt{qmake} (\texttt{Attivita.pro}), ed esegue in modalita' standalone: i
-dati sono salvati su file JSON locale, scelto dall'utente tramite
-\texttt{QFileDialog} (mai percorsi cablati).
 
 \section{Classi principali del modello logico}
 
@@ -265,9 +255,9 @@ regole ma inizio diverso, senza un \texttt{dynamic\_cast} \\
 \addlinespace
 \texttt{\seqsplit{accept(ActivityVisitor\&)}} (doppio dispatch) &
 \texttt{\seqsplit{visit(Activity\&)/visit(Task\&)/visit(Meeting\&)}} &
-Persistenza JSON \emph{e} quattro Visitor della GUI (etichetta di tipo,
-regola di ricorrenza in linguaggio naturale, riepilogo per l'elenco, campi
-del pannello di dettaglio) aggiunti senza toccare le classi di dominio \\
+Persistenza JSON \emph{e} tre Visitor della GUI (etichetta di tipo, regola
+di ricorrenza in linguaggio naturale, riepilogo per l'elenco) aggiunti
+senza toccare le classi di dominio \\
 \addlinespace
 \texttt{\seqsplit{DateGenerator::next/align}} (Strategy) &
 ogni generatore avanza la sequenza a modo suo (intervallo fisso, mese
@@ -281,13 +271,12 @@ La regola di ricorrenza si sostituisce senza toccare \texttt{Activity};
 \end{table}
 
 Il doppio dispatch e' il caso piu' pervasivo: oltre alla persistenza (sezione
-4), la GUI costruisce quattro visitor distinti in \texttt{ActivityViewHelpers}
-(\texttt{TypeLabelVisitor}, \texttt{RuleVisitor}, \texttt{SummaryVisitor},
-\texttt{FieldsVisitor}) per etichettare il tipo nell'elenco, tradurre la
-regola di ricorrenza in una frase leggibile (``ogni 2 settimane il lun, gio,
-fino al \dots''), riassumere un'attivita' in una riga e generare le righe
-``campo: valore'' del pannello di dettaglio -- tutte funzioni esterne alla
-gerarchia, aggiunte senza modificarla (Single Responsibility). Da notare che
+4), la GUI costruisce tre visitor distinti in \texttt{views/utils/}
+(\texttt{TypeLabelVisitor}, \texttt{RecurrenceRuleVisitor},
+\texttt{ActivitySummaryVisitor}) per etichettare il tipo nell'elenco,
+tradurre la regola di ricorrenza in una frase leggibile (``ogni 2
+settimane\dots'') e riassumere un'attivita' in una riga -- funzioni esterne
+alla gerarchia, aggiunte senza modificarla (Single Responsibility). Da notare che
 \texttt{occurrencesIn} \emph{non} e' invece un esempio di override: la sua
 implementazione e' unica e condivisa (ereditata da \texttt{Task}/\texttt{Meeting}
 senza ridefinizione), e la varieta' di comportamento nasce dalla
@@ -386,15 +375,31 @@ corrispondente.
 
 \subsection{Creazione e modifica: pannello laterale}
 
-Creazione, modifica e dettaglio di un'attivita' avvengono in un
-\textbf{pannello laterale} (\texttt{ActivitySidebarWidget}, un
-\texttt{QWidget}, non una finestra di dialogo) affiancato al calendario da
-uno \texttt{QSplitter} orizzontale: parte nascosto e compare solo
-all'occorrenza, senza mai coprire la finestra. Internamente ha uno
-\texttt{QStackedWidget} a due pagine: \emph{Dettaglio} (campi in sola
-lettura via Visitor, pulsanti Modifica/Elimina/Chiudi) e \emph{Form}
-(creazione/modifica); ``Modifica'' passa dall'una all'altra senza chiudere
-il pannello.
+Creazione e modifica di un'attivita' avvengono in un \textbf{pannello
+laterale} (\texttt{ActivitySidebarWidget}, un \texttt{QWidget}, non una
+finestra di dialogo) affiancato al calendario da uno \texttt{QSplitter}
+orizzontale: parte nascosto e compare solo all'occorrenza, senza mai coprire
+la finestra. Non c'e' una vista di sola lettura separata: aprire
+un'attivita' esistente porta direttamente al form gia' precompilato.
+
+Il pannello e' un \textbf{coordinatore}, non un monolite: tiene solo i campi
+comuni (titolo, data/ora, durata) e delega il resto a widget figli --
+\texttt{RecurrenceFormWidget} per la ricorrenza e un
+\texttt{ActivityTypeWidget} per sezione di tipo (Riunione/Compito, l'Evento
+non ne ha una propria). \texttt{ActivityTypeWidget} e' un'interfaccia
+polimorfa (\texttt{clear}/\texttt{populateFrom}/\texttt{applyToConfig}/
+\texttt{createActivity}) che sostituisce con il polimorfismo lo switch sul
+tipo selezionato che prima costruiva/popolava l'attivita' a mano.
+Analogamente, il comportamento di Salva/Elimina (crea, modifica l'intera
+serie o modifica una singola occorrenza) non e' pi\`u un enum con uno
+switch in \texttt{onSave()}/\texttt{onDelete()}, ma una gerarchia
+\texttt{FormSaveStrategy} (\textbf{Strategy}: \texttt{CreateStrategy},
+\texttt{EditActivityStrategy}, \texttt{EditOccurrenceStrategy}) scelta una
+volta sola quando si apre il pannello. Infine la costruzione della serie a
+partire dai dati grezzi del form passa da un \texttt{ActivitySeriesBuilder}
+(\textbf{Builder} con API a catena), cosi' \texttt{onSave()} si riduce a tre
+passi -- leggi i campi, costruisci con il builder, esegui con la strategy --
+senza calcoli di calendario nella classe della GUI.
 
 Il form e' costruito con \texttt{QFormLayout} per ogni sezione. La
 creazione \textbf{non chiede subito il tipo}: pone domande (titolo, data/ora
@@ -408,9 +413,8 @@ selezionabili con un \texttt{QButtonGroup} \textbf{non esclusivo} (un id
 fine della ricorrenza puo' essere ``mai'', una data o ``dopo $N$
 occorrenze'' (calcolata avanzando il generatore, cosi' il \emph{clamping}
 di calendario resta corretto anche a cavallo di piu' serie). I pannelli
-Riunione, Compito e Anniversario hanno campi propri. Un'anteprima
-live dell'attivita' in corso di modifica appare direttamente nella griglia
-mentre l'utente digita.
+Riunione e Compito hanno campi propri. Un'anteprima live dell'attivita' in
+corso di modifica appare direttamente nella griglia mentre l'utente digita.
 
 Per un'attivita' ricorrente, doppio clic o eliminazione su una singola
 occorrenza offrono sempre la scelta fra \emph{intera serie},
@@ -483,8 +487,8 @@ Le funzionalita' sono suddivise, per chiarezza, in funzionali ed estetiche.
     dall'identita' dell'oggetto e disegnato direttamente con \texttt{QPainter};
   \item \textbf{anteprima live} dell'attivita' in corso di modifica,
     aggiornata nella griglia mentre l'utente digita;
-  \item \textbf{pannello laterale} unico (non modale) per dettaglio,
-    creazione e modifica, mai sovrapposto al resto della finestra;
+  \item \textbf{pannello laterale} unico (non modale) per creazione e
+    modifica, mai sovrapposto al resto della finestra;
   \item foglio di stile Qt unico (\texttt{style.qss}) per l'intera interfaccia,
     con effetti grafici (es. cambio colore al passaggio del mouse) gestiti
     tramite proprieta' dinamiche e non ricostruendo CSS a runtime.
@@ -514,5 +518,27 @@ Refactoring (Zero-cost Abstraction) + Documentazione & 10h & 24h \\
 \caption{Rendicontazione delle ore previste ed effettive}
 \label{tab:ore}
 \end{table}
+
+\section{Sviluppi futuri}
+
+\subsection{Deduplicazione dei generatori (Flyweight)}
+I generatori sono gia' stateless e immutabili proprio per poter essere
+condivisi, e infatti implementano l'interfaccia \texttt{utils::Cacheable}
+(\texttt{hash}/\texttt{isEqualImpl}) pensata apposta per questo. Quello che
+manca e' il pool vero e proprio: oggi ogni serie si crea il proprio
+\texttt{DateGenerator}, anche quando la regola e' identica a quella di
+un'altra serie (es. due attivita' ``ogni 7 giorni''). Un
+\texttt{GeneratorPool} con hash/uguaglianza \emph{weak} le farebbe
+condividere la stessa istanza (pattern \textbf{Flyweight}) invece di
+allocarne una a testa.
+
+\subsection{Un generatore dedicato per le settimane multi-giorno}
+La ricorrenza settimanale su piu' giorni (es. ``ogni lun e ven'') oggi e' un
+piccolo trucco: il pannello crea una serie \texttt{Activity} distinta per
+ogni giorno selezionato, ciascuna con il proprio
+\texttt{FixedIntervalGenerator} a passo di una settimana. Funziona, ma la
+soluzione piu' pulita sarebbe un generatore dedicato che produce
+direttamente tutte le occorrenze della settimana da un'unica
+\texttt{Activity}, senza dover gestire N serie correlate.
 
 \end{document}
