@@ -17,7 +17,6 @@
 #include <QRadioButton>
 #include <QScrollArea>
 #include <QSpinBox>
-#include <QStackedWidget>
 #include <QStringListModel>
 #include <QTimeZone>
 #include <QVBoxLayout>
@@ -33,23 +32,17 @@
 #include "generators/FixedIntervalGenerator.h"
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
-#include "views/dialog/ActivityViewHelpers.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {
 
 namespace {
 
-// Indici delle pagine nello QStackedWidget esterno (m_stack)
-constexpr int kDetailPage = 0;
-constexpr int kFormPage = 1;
-
-// Indici dei pannelli per tipo nello QStackedWidget interno (m_forms)
-constexpr int kEventPanel = 0;
-constexpr int kMeetingPanel = 1;
-constexpr int kTaskPanel = 2;
-constexpr int kAnniversaryPanel = 3;
-constexpr int kPanelCount = 4;
+// Indici del tipo (combo "Tipo" e sezioni rivelate sotto ai campi comuni)
+constexpr int kEvent = 0;
+constexpr int kMeeting = 1;
+constexpr int kTask = 2;
+constexpr int kTypeCount = 3;
 
 // Unita' di ricorrenza (indici della combo)
 constexpr int kUnitDays = 0;
@@ -100,156 +93,69 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
     : QWidget(parent), m_controller(controller) {
     setMinimumWidth(340);
 
-    m_stack = new QStackedWidget(this);
-    m_stack->addWidget(buildDetailPage());  // kDetailPage
-    m_stack->addWidget(buildFormPage());    // kFormPage
-
-    auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(8, 8, 8, 8);
-    layout->addWidget(m_stack);
-}
-
-// ---------------------------------------------------------------------------
-// Pagina Dettaglio (sola lettura)
-// ---------------------------------------------------------------------------
-QWidget* ActivitySidebarWidget::buildDetailPage() {
-    auto* page = new QWidget(this);
-
-    m_detailTitleLabel = new QLabel(page);
-    QFont titleFont = m_detailTitleLabel->font();
-    titleFont.setPointSize(16);
-    titleFont.setBold(true);
-    m_detailTitleLabel->setFont(titleFont);
-    m_detailTitleLabel->setWordWrap(true);
-
-    auto* closeButton = new QPushButton(QStringLiteral("✕"), page);
-    closeButton->setToolTip(tr("Chiudi"));
-    closeButton->setFixedSize(28, 28);
-
-    auto* topRow = new QHBoxLayout;
-    topRow->addWidget(m_detailTitleLabel, 1);
-    topRow->addWidget(closeButton);
-
-    // Campi specifici per tipo (Visitor), in una scrollarea perche' il
-    // testo non esca mai dalla sidebar
-    m_detailFieldsLabel = new QLabel(page);
-    m_detailFieldsLabel->setWordWrap(true);
-    m_detailFieldsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    auto* scroll = new QScrollArea(page);
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setWidget(m_detailFieldsLabel);
-
-    auto* modifyButton = new QPushButton(tr("Modifica"), page);
-    auto* deleteButton = new QPushButton(tr("Elimina"), page);
-    auto* bottom = new QHBoxLayout;
-    bottom->addStretch(1);
-    bottom->addWidget(deleteButton);
-    bottom->addWidget(modifyButton);
-
-    auto* layout = new QVBoxLayout(page);
-    layout->addLayout(topRow);
-    layout->addWidget(scroll, 1);
-    layout->addLayout(bottom);
-
-    connect(closeButton, &QPushButton::clicked, this, &ActivitySidebarWidget::closeRequested);
-    connect(modifyButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onDetailEdit);
-    connect(deleteButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onDetailDelete);
-    return page;
-}
-
-void ActivitySidebarWidget::showDetail(const events::Activity* activity) {
-    if (!activity) {
-        return;
-    }
-    m_detailActivity = activity;
-    m_detailTitleLabel->setText(QString::fromStdString(activity->getTitle()));
-    // Righe "campo: valore" come paragrafi distanziati: la sidebar si
-    // riempie in modo arioso e le informazioni si leggono con respiro.
-    const QStringList lines = ActivityViewHelpers::fieldLines(*activity);
-    QString html;
-    for (const QString& line : lines) {
-        html += QStringLiteral("<p style=\"margin: 10px 0;\">%1</p>")
-                    .arg(line.toHtmlEscaped());
-    }
-    m_detailFieldsLabel->setText(html);
-    m_detailFieldsLabel->setTextFormat(Qt::RichText);
-    m_stack->setCurrentIndex(kDetailPage);
-}
-
-void ActivitySidebarWidget::onDetailEdit() {
-    if (m_detailActivity) {
-        showEditActivity(m_detailActivity);
-    }
-}
-
-void ActivitySidebarWidget::onDetailDelete() {
-    if (!m_detailActivity) {
-        return;
-    }
-    if (QMessageBox::question(this, tr("Elimina attivita'"),
-                              tr("Eliminare '%1'?").arg(
-                                  QString::fromStdString(m_detailActivity->getTitle()))) !=
-        QMessageBox::Yes) {
-        return;
-    }
-    m_controller->removeActivity(m_detailActivity);
-    m_detailActivity = nullptr;
-    emit closeRequested();
-}
-
-// ---------------------------------------------------------------------------
-// Pagina Form (creazione/modifica)
-// ---------------------------------------------------------------------------
-QWidget* ActivitySidebarWidget::buildFormPage() {
-    auto* page = new QWidget(this);
-
-    // La creazione non chiede il tipo: "Evento" e' il pannello "a domande"
-    // che istanzia un'attivita' singola o una serie in base alle risposte.
-    m_typeCombo = new QComboBox(page);
+    m_typeCombo = new QComboBox(this);
     m_typeCombo->addItem(tr("Evento"));
     m_typeCombo->addItem(tr("Riunione"));
     m_typeCombo->addItem(tr("Compito"));
-    m_typeCombo->addItem(tr("Anniversario"));
 
-    m_forms = new QStackedWidget(page);
-    m_forms->addWidget(buildEventPanel());
-    m_forms->addWidget(buildMeetingPanel());
-    m_forms->addWidget(buildTaskPanel());
-    m_forms->addWidget(buildAnniversaryPanel());
+    // Campi comuni a tutti i tipi: un solo set di widget, non uno per tipo
+    // (Titolo/Data/Durata sono gli stessi campi che Activity possiede sempre).
+    m_titleEdit = makeTitle(this);
+    m_startEdit = makeDateTime(this);
+    m_durationEdit = makeDurationSpin(this);
 
-    // I pannelli stanno in una scroll area: la sidebar puo' essere piu'
-    // stretta di un dialog, il contenuto resta comunque raggiungibile.
-    auto* scroll = new QScrollArea(page);
+    auto* content = new QWidget(this);
+    m_commonForm = new QFormLayout;
+    m_commonForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    m_commonForm->addRow(tr("Titolo"), m_titleEdit);
+    m_commonForm->addRow(tr("Data"), m_startEdit);
+    m_commonForm->addRow(tr("Durata"), m_durationEdit);
+
+    m_eventSection = buildEventSection();
+    m_meetingSection = buildMeetingSection();
+    m_taskSection = buildTaskSection();
+
+    auto* contentLayout = new QVBoxLayout(content);
+    contentLayout->addLayout(m_commonForm);
+    contentLayout->addWidget(m_eventSection);
+    contentLayout->addWidget(m_meetingSection);
+    contentLayout->addWidget(m_taskSection);
+    contentLayout->addStretch(1);
+
+    // Il contenuto sta in una scroll area: la sidebar puo' essere piu' stretta
+    // di un dialog, il contenuto resta comunque raggiungibile.
+    auto* scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setWidget(m_forms);
+    scroll->setWidget(content);
 
-    m_errorLabel = new QLabel(page);
+    m_errorLabel = new QLabel(this);
     m_errorLabel->setObjectName(QStringLiteral("formErrorLabel"));
     m_errorLabel->setWordWrap(true);
 
-    auto* saveButton = new QPushButton(tr("Salva"), page);
-    auto* cancelButton = new QPushButton(tr("Annulla"), page);
+    auto* saveButton = new QPushButton(tr("Salva"), this);
+    auto* cancelButton = new QPushButton(tr("Annulla"), this);
     // Elimina: visibile solo in modifica (in creazione non c'e' nulla da
     // eliminare); si nasconde con showCreate()/showCreateType()
-    m_deleteButton = new QPushButton(tr("Elimina"), page);
+    m_deleteButton = new QPushButton(tr("Elimina"), this);
     m_deleteButton->setVisible(false);
 
-    auto* layout = new QVBoxLayout(page);
-    layout->addWidget(m_typeCombo);
-    layout->addWidget(scroll, 1);
-    layout->addWidget(m_errorLabel);
     auto* buttons = new QHBoxLayout;
     buttons->addWidget(m_deleteButton);
     buttons->addStretch(1);
     buttons->addWidget(saveButton);
     buttons->addWidget(cancelButton);
+
+    auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->addWidget(m_typeCombo);
+    layout->addWidget(scroll, 1);
+    layout->addWidget(m_errorLabel);
     layout->addLayout(buttons);
 
     connect(m_typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ActivitySidebarWidget::onTypeChanged);
-    // Ricorrenza "a domande"
+    // Ricorrenza (solo per il tipo Evento)
     connect(m_repeatCheck, &QCheckBox::toggled,
             this, &ActivitySidebarWidget::onRepeatToggled);
     connect(m_unitCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -266,9 +172,9 @@ QWidget* ActivitySidebarWidget::buildFormPage() {
     // sempre 24h esatte). Si puo' combinare con "Si ripete": una serie che
     // ricorre a giornate intere.
     connect(m_allDayCheck, &QCheckBox::toggled, this, [this](bool on) {
-        m_startE->setDisplayFormat(on ? QStringLiteral("dd/MM/yyyy")
-                                       : QStringLiteral("dd/MM/yyyy HH:mm"));
-        m_eventForm->setRowVisible(m_durationE, !on);
+        m_startEdit->setDisplayFormat(on ? QStringLiteral("dd/MM/yyyy")
+                                          : QStringLiteral("dd/MM/yyyy HH:mm"));
+        m_commonForm->setRowVisible(m_durationEdit, !on);
         emitPreview();
     });
     // Partecipanti della riunione
@@ -281,45 +187,28 @@ QWidget* ActivitySidebarWidget::buildFormPage() {
     connect(m_deleteButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onDelete);
     connect(cancelButton, &QPushButton::clicked, this, &ActivitySidebarWidget::closeRequested);
 
-    // Anteprima live: ogni modifica dei campi aggiorna la griglia
-    const auto refreshPreview = [this] { emitPreview(); };
-    connect(m_titleE, &QLineEdit::textChanged, this, refreshPreview);
-    connect(m_startE, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
-    connect(m_durationE, &QSpinBox::valueChanged, this, refreshPreview);
-    connect(m_titleMt, &QLineEdit::textChanged, this, refreshPreview);
-    connect(m_startMt, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
-    connect(m_durationMt, &QSpinBox::valueChanged, this, refreshPreview);
-    connect(m_titleT, &QLineEdit::textChanged, this, refreshPreview);
-    connect(m_dueT, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
+    // Anteprima live: ogni modifica dei campi comuni aggiorna la griglia
+    // (un solo set di segnali, non uno per pannello: i campi sono condivisi)
+    connect(m_titleEdit, &QLineEdit::textChanged, this, &ActivitySidebarWidget::emitPreview);
+    connect(m_startEdit, &QDateTimeEdit::dateTimeChanged, this, &ActivitySidebarWidget::emitPreview);
+    connect(m_durationEdit, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &ActivitySidebarWidget::emitPreview);
 
-    return page;
+    showSection(kEvent);
 }
 
 // ---------------------------------------------------------------------------
-// Pannello Evento "a domande"
+// Sezione Evento: "tutto il giorno" + ricorrenza
 // ---------------------------------------------------------------------------
-QWidget* ActivitySidebarWidget::buildEventPanel() {
+QWidget* ActivitySidebarWidget::buildEventSection() {
     auto* panel = new QWidget(this);
-    m_titleE = makeTitle(panel);
-    // Un solo QDateTimeEdit per data+ora: "Tutto il giorno" ne cambia solo il
-    // displayFormat (vedi il connect in buildFormPage), invece di nascondere
-    // un secondo widget "Ora" separato.
-    m_startE = makeDateTime(panel);
-    m_durationE = makeDurationSpin(panel);
     m_allDayCheck = new QCheckBox(tr("Tutto il giorno"), panel);
     m_repeatCheck = new QCheckBox(tr("Si ripete"), panel);
-
-    m_eventForm = new QFormLayout(panel);
-    m_eventForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    m_eventForm->addRow(tr("Titolo"), m_titleE);
-    m_eventForm->addRow(tr("Data"), m_startE);
-    m_eventForm->addRow(tr("Durata"), m_durationE);
 
     auto* checksRow = new QHBoxLayout;
     checksRow->addWidget(m_allDayCheck);
     checksRow->addWidget(m_repeatCheck);
     checksRow->addStretch(1);
-    m_eventForm->addRow(checksRow);
 
     // --- Sotto-pannello di ricorrenza (visibile se "Si ripete") ------------
     m_repeatBox = new QWidget(panel);
@@ -329,7 +218,7 @@ QWidget* ActivitySidebarWidget::buildEventPanel() {
     m_unitCombo->addItem(tr("giorni"));
     m_unitCombo->addItem(tr("settimane"));
     m_unitCombo->addItem(tr("mesi"));
-    m_unitCombo->addItem(tr("anno"));
+    m_unitCombo->addItem(tr("anni"));
 
     m_everySpin = new QSpinBox(m_repeatBox);
     m_everySpin->setRange(1, 3650);
@@ -380,17 +269,17 @@ QWidget* ActivitySidebarWidget::buildEventPanel() {
     m_repeatForm->addRow(tr("Giorni"), m_dayRow);
     m_repeatForm->addRow(endGroup);
 
-    m_eventForm->addRow(m_repeatBox);
+    auto* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addLayout(checksRow);
+    layout->addWidget(m_repeatBox);
     return panel;
 }
 
-QWidget* ActivitySidebarWidget::buildMeetingPanel() {
+QWidget* ActivitySidebarWidget::buildMeetingSection() {
     auto* panel = new QWidget(this);
-    m_titleMt = makeTitle(panel);
-    m_startMt = makeDateTime(panel);
-    m_durationMt = makeDurationSpin(panel);
-    m_locationMt = new QLineEdit(panel);
-    m_locationMt->setPlaceholderText(tr("Aula, sede o link"));
+    m_locationEdit = new QLineEdit(panel);
+    m_locationEdit->setPlaceholderText(tr("Aula, sede o link"));
 
     m_attendeeEdit = new QLineEdit(panel);
     m_attendeeEdit->setPlaceholderText(tr("Nome partecipante + Invio"));
@@ -406,20 +295,16 @@ QWidget* ActivitySidebarWidget::buildMeetingPanel() {
     m_attendeesList->setMaximumHeight(110);
 
     auto* form = new QFormLayout(panel);
+    form->setContentsMargins(0, 0, 0, 0);
     form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    form->addRow(tr("Titolo"), m_titleMt);
-    form->addRow(tr("Data"), m_startMt);
-    form->addRow(tr("Durata"), m_durationMt);
-    form->addRow(tr("Luogo"), m_locationMt);
+    form->addRow(tr("Luogo"), m_locationEdit);
     form->addRow(tr("Aggiungi"), m_attendeeEdit);
     form->addRow(tr("Partecipanti"), m_attendeesList);
     return panel;
 }
 
-QWidget* ActivitySidebarWidget::buildTaskPanel() {
+QWidget* ActivitySidebarWidget::buildTaskSection() {
     auto* panel = new QWidget(this);
-    m_titleT = makeTitle(panel);
-    m_dueT = makeDateTime(panel);
     m_priorityCombo = new QComboBox(panel);
     m_priorityCombo->addItem(tr("Bassa"));
     m_priorityCombo->addItem(tr("Media"));
@@ -428,24 +313,17 @@ QWidget* ActivitySidebarWidget::buildTaskPanel() {
     m_doneCheck = new QCheckBox(tr("Evaso"), panel);
 
     auto* form = new QFormLayout(panel);
+    form->setContentsMargins(0, 0, 0, 0);
     form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    form->addRow(tr("Titolo"), m_titleT);
-    form->addRow(tr("Scadenza"), m_dueT);
     form->addRow(tr("Priorita'"), m_priorityCombo);
     form->addRow(m_doneCheck);
     return panel;
 }
 
-QWidget* ActivitySidebarWidget::buildAnniversaryPanel() {
-    auto* panel = new QWidget(this);
-    m_titleAn = makeTitle(panel);
-    m_dateAn = makeDay(panel);
-
-    auto* form = new QFormLayout(panel);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    form->addRow(tr("Titolo"), m_titleAn);
-    form->addRow(tr("Data"), m_dateAn);
-    return panel;
+void ActivitySidebarWidget::showSection(int type) {
+    m_eventSection->setVisible(type == kEvent);
+    m_meetingSection->setVisible(type == kMeeting);
+    m_taskSection->setVisible(type == kTask);
 }
 
 events::TimePoint ActivitySidebarWidget::toTimePoint(const QDateTime& local) {
@@ -456,80 +334,9 @@ QDateTime ActivitySidebarWidget::toLocal(const events::TimePoint tp) {
   return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();
 }
 
-QLineEdit* ActivitySidebarWidget::titleOf(int panel) const {
-  switch (panel) {
-  case kEventPanel:
-    return m_titleE;
-  case kMeetingPanel:
-    return m_titleMt;
-  case kTaskPanel:
-    return m_titleT;
-  case kAnniversaryPanel:
-    return m_titleAn;
-  default:
-    return nullptr;
-  }
-}
-
-QDateTimeEdit* ActivitySidebarWidget::dateOf(int panel) const {
-  switch (panel) {
-  case kEventPanel:
-    return m_startE;
-  case kMeetingPanel:
-    return m_startMt;
-  case kTaskPanel:
-    return m_dueT;
-  case kAnniversaryPanel:
-  default:
-    return nullptr;  // pura data (QDateEdit): nessun componente ora da sincronizzare
-  }
-}
-
-QSpinBox* ActivitySidebarWidget::durationOf(int panel) const {
-  switch (panel) {
-  case kEventPanel:
-    return m_durationE;
-  case kMeetingPanel:
-    return m_durationMt;
-  case kTaskPanel:
-  case kAnniversaryPanel:
-  default:
-    return nullptr;
-  }
-}
-
 void ActivitySidebarWidget::onTypeChanged(int index) {
-  const int from = m_forms->currentIndex();
-  // In CREAZIONE i campi comuni (titolo/data) si conservano cambiando tipo;
-  // in MODIFICA il cambio combo e' programmatico (populate*): i campi sono
-  // gia' stati compilati e non vanno sovrascritti.
-  if (from != index && m_mode == Mode::Create) {
-    syncCommonFields(from, index);
-  }
-  m_forms->setCurrentIndex(index);
+  showSection(index);
   emitPreview();
-}
-
-void ActivitySidebarWidget::syncCommonFields(int fromPanel, int toPanel) {
-  if (fromPanel < 0 || fromPanel >= kPanelCount || toPanel < 0 ||
-      toPanel >= kPanelCount || fromPanel == toPanel) {
-    return;
-  }
-  // Conserva quello che l'utente ha gia' scritto quando cambia tipo. Con un
-  // solo QDateTimeEdit anche per l'Evento (invece di due slot separati),
-  // data/ora si sincronizzano con lo stesso codice per tutti i pannelli che
-  // ne hanno uno (l'Anniversario, pura data, resta escluso da dateOf()).
-  titleOf(toPanel)->setText(titleOf(fromPanel)->text());
-  if (QDateTimeEdit* fromDate = dateOf(fromPanel)) {
-    if (QDateTimeEdit* toDate = dateOf(toPanel)) {
-      toDate->setDateTime(fromDate->dateTime());
-    }
-  }
-  if (QSpinBox* fromDur = durationOf(fromPanel)) {
-    if (QSpinBox* toDur = durationOf(toPanel)) {
-      toDur->setValue(fromDur->value());
-    }
-  }
 }
 
 void ActivitySidebarWidget::onRepeatToggled(bool checked) {
@@ -538,16 +345,14 @@ void ActivitySidebarWidget::onRepeatToggled(bool checked) {
   // dell'inizio se non ne e' selezionato nessuno.
   if (checked && m_unitCombo->currentIndex() == kUnitWeeks &&
       !std::ranges::any_of(m_dayGroup->buttons(), &QAbstractButton::isChecked)) {
-    m_dayGroup->button(m_startE->date().dayOfWeek())->setChecked(true);
+    m_dayGroup->button(m_startEdit->date().dayOfWeek())->setChecked(true);
   }
   emitPreview();
 }
 
 void ActivitySidebarWidget::onUnitChanged(int index) {
   const bool weeks = index == kUnitWeeks;
-  const bool years = index == kUnitYears;
   m_repeatForm->setRowVisible(m_dayRow, weeks);
-  m_everySpin->setEnabled(!years);
   switch (index) {
   case kUnitDays:
     m_everySpin->setSuffix(tr(" giorni"));
@@ -559,16 +364,16 @@ void ActivitySidebarWidget::onUnitChanged(int index) {
     m_everySpin->setSuffix(tr(" mesi"));
     break;
   default:
-    m_everySpin->setSuffix(tr(" anno"));
+    m_everySpin->setSuffix(tr(" anni"));
     break;
   }
   if (weeks && !std::ranges::any_of(m_dayGroup->buttons(), &QAbstractButton::isChecked)) {
-    m_dayGroup->button(m_startE->date().dayOfWeek())->setChecked(true);
+    m_dayGroup->button(m_startEdit->date().dayOfWeek())->setChecked(true);
   }
 }
 
 void ActivitySidebarWidget::showCreate(const QDateTime& suggestedStart) {
-  showCreateType(kEventPanel, suggestedStart);
+  showCreateType(kEvent, suggestedStart);
 }
 
 void ActivitySidebarWidget::showCreateType(int typeIndex,
@@ -578,27 +383,23 @@ void ActivitySidebarWidget::showCreateType(int typeIndex,
   m_editingOccurrence.reset();
   m_errorLabel->clear();
 
-  // Box del titolo vuota (nessun testo residuo da creazioni precedenti)
-  m_titleE->clear();
-  m_titleMt->clear();
-  m_titleT->clear();
-  m_titleAn->clear();
-  m_locationMt->clear();
+  m_titleEdit->clear();
+  m_locationEdit->clear();
   m_attendeeEdit->clear();
   m_attendeesList->clear();
-  m_durationE->setValue(60);
-  m_durationMt->setValue(60);
+  m_durationEdit->setValue(60);
   m_priorityCombo->setCurrentIndex(1);
   m_doneCheck->setChecked(false);
+  m_doneCheck->setEnabled(true);
 
-  // Reset della ricorrenza "a domande"
+  // Reset della ricorrenza
   m_allDayCheck->setChecked(false);
   m_allDayCheck->setEnabled(true);
   // Esplicito (non solo affidato al segnale "toggled", che non scatta se il
   // valore precedente era gia' false): la riga Durata torna visibile e il
   // formato torna a includere l'ora, qualunque fosse lo stato precedente.
-  m_startE->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
-  m_eventForm->setRowVisible(m_durationE, true);
+  m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
+  m_commonForm->setRowVisible(m_durationEdit, true);
   m_repeatCheck->setChecked(false);
   m_repeatCheck->setEnabled(true);
   m_repeatBox->setVisible(false);
@@ -611,22 +412,20 @@ void ActivitySidebarWidget::showCreateType(int typeIndex,
   m_countSpin->setValue(5);
   m_deleteButton->setVisible(false);
 
-  // Data/ora suggerita (doppio clic su una cella): precompila ogni pannello
+  // Data/ora suggerita (doppio clic su una cella)
   const QDateTime value = suggestedStart.isValid()
                               ? suggestedStart
                               : QDateTime::currentDateTime();
-  m_startE->setDateTime(value);
-  m_startMt->setDateTime(value);
-  m_dueT->setDateTime(value);
-  m_dateAn->setDate(value.date());
+  m_startEdit->setDateTime(value);
   m_endDate->setDate(value.date());
 
   m_typeCombo->setEnabled(true);
-  m_typeCombo->setCurrentIndex(std::clamp(typeIndex, 0, kPanelCount - 1));
-  m_doneCheck->setEnabled(true);
-  m_forms->setCurrentIndex(std::clamp(typeIndex, 0, kPanelCount - 1));
+  const int clamped = std::clamp(typeIndex, 0, kTypeCount - 1);
+  m_typeCombo->setCurrentIndex(clamped);
+  // Esplicito: se il tipo non e' cambiato rispetto a prima, currentIndexChanged
+  // non scatta e la sezione mostrata resterebbe quella dell'uso precedente.
+  showSection(clamped);
   refreshAttendeeCompleter();
-  m_stack->setCurrentIndex(kFormPage);
   emitPreview();
 }
 
@@ -638,20 +437,17 @@ void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
   refreshAttendeeCompleter();
 
   // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
-  // generatore. Un anniversario e' un'Activity annuale "tutto il giorno".
+  // generatore.
   if (auto* task = dynamic_cast<const events::Task*>(activity)) {
     populateTask(*task);
   } else if (auto* meeting = dynamic_cast<const events::Meeting*>(activity)) {
     populateMeeting(*meeting);
-  } else if (isAnniversary(activity)) {
-    populateAnniversary(*activity);
   } else {
     populateEventLike(*activity);
   }
   m_typeCombo->setEnabled(false);
   m_doneCheck->setEnabled(true);
   m_deleteButton->setVisible(true);
-  m_stack->setCurrentIndex(kFormPage);
   emitPreview();
 }
 
@@ -663,33 +459,32 @@ void ActivitySidebarWidget::showEditOccurrence(const events::Occurrence& occurre
 
   // L'istanza singola diventa un Evento: niente ricorrenza, niente all-day
   m_allDayCheck->setChecked(false);
-  m_startE->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
-  m_eventForm->setRowVisible(m_durationE, true);
+  m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
+  m_commonForm->setRowVisible(m_durationEdit, true);
   m_repeatCheck->setChecked(false);
   m_repeatBox->setVisible(false);
   m_typeCombo->setEnabled(false);
-  m_typeCombo->setCurrentIndex(kEventPanel);
-  m_titleE->setText(QString::fromStdString(occurrence.source->getTitle()));
-  m_startE->setDateTime(toLocal(occurrence.start));
-  m_durationE->setValue(std::max(1, static_cast<int>(occurrence.duration.count() / 60)));
-  m_forms->setCurrentIndex(kEventPanel);
+  m_typeCombo->setCurrentIndex(kEvent);
+  showSection(kEvent);
+  m_titleEdit->setText(QString::fromStdString(occurrence.source->getTitle()));
+  m_startEdit->setDateTime(toLocal(occurrence.start));
+  m_durationEdit->setValue(std::max(1, static_cast<int>(occurrence.duration.count() / 60)));
   m_deleteButton->setVisible(true);
-  m_stack->setCurrentIndex(kFormPage);
   emitPreview();
 }
 
 void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) {
-  m_titleE->setText(QString::fromStdString(activity.getTitle()));
-  m_startE->setDateTime(toLocal(activity.getStart()));
-  m_durationE->setValue(std::max(1, static_cast<int>(activity.getDuration().count() / 60)));
+  m_titleEdit->setText(QString::fromStdString(activity.getTitle()));
+  m_startEdit->setDateTime(toLocal(activity.getStart()));
+  m_durationEdit->setValue(std::max(1, static_cast<int>(activity.getDuration().count() / 60)));
   // "Tutto il giorno" se copre un giorno intero. La durata e' l'unico
   // criterio affidabile: l'evento all-day e' salvato a mezzanotte UTC, quindi
   // il suo inizio in ORA LOCALE non e' necessariamente alle 00:00.
   const bool allDay = activity.getDuration().count() >= 86399;
   m_allDayCheck->setChecked(allDay);
-  m_startE->setDisplayFormat(allDay ? QStringLiteral("dd/MM/yyyy")
-                                     : QStringLiteral("dd/MM/yyyy HH:mm"));
-  m_eventForm->setRowVisible(m_durationE, !allDay);
+  m_startEdit->setDisplayFormat(allDay ? QStringLiteral("dd/MM/yyyy")
+                                       : QStringLiteral("dd/MM/yyyy HH:mm"));
+  m_commonForm->setRowVisible(m_durationEdit, !allDay);
   const bool recurrent = isRecurrent(&activity);
   m_repeatCheck->setChecked(recurrent);
   m_repeatBox->setVisible(recurrent);
@@ -697,12 +492,12 @@ void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) 
   for (QAbstractButton* button : m_dayGroup->buttons()) {
     button->setChecked(false);
   }
-  const int startDow = m_startE->date().dayOfWeek();
+  const int startDow = m_startEdit->date().dayOfWeek();
 
   // La fine della serie vive sull'Activity (i generatori sono stateless e
-  // non hanno piu' un proprio "end"). Il limite "dopo N occorrenze" non e'
-  // rappresentabile nel modello attuale (rimosso col MaxOccurrencesDecorator):
-  // in modifica una serie limitata si vede sempre come "Fino al" [end].
+  // non hanno un proprio "end"). Il limite "dopo N occorrenze" non e'
+  // rappresentabile nel modello attuale: in modifica una serie limitata si
+  // vede sempre come "Fino al" [end].
   const events::TimePoint end = activity.getEnd();
   const events::DateGenerator* gen = &activity.getGenerator();
   if (const auto* fixed =
@@ -720,9 +515,10 @@ void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) 
                  dynamic_cast<const events::MonthlyGenerator*>(gen)) {
     m_unitCombo->setCurrentIndex(kUnitMonths);
     m_everySpin->setValue(monthly->getMonths());
-  } else if (dynamic_cast<const events::YearlyGenerator*>(gen)) {
+  } else if (const auto* yearly =
+                 dynamic_cast<const events::YearlyGenerator*>(gen)) {
     m_unitCombo->setCurrentIndex(kUnitYears);
-    m_everySpin->setValue(1);
+    m_everySpin->setValue(yearly->getYears());
   }
   onUnitChanged(m_unitCombo->currentIndex());
 
@@ -733,26 +529,31 @@ void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) 
     m_endNever->setChecked(true);
   }
 
-  m_typeCombo->setCurrentIndex(kEventPanel);
-  m_forms->setCurrentIndex(kEventPanel);
+  m_typeCombo->setCurrentIndex(kEvent);
+  showSection(kEvent);
 }
 
 void ActivitySidebarWidget::populateMeeting(const events::Meeting& meeting) {
-  m_titleMt->setText(QString::fromStdString(meeting.getTitle()));
-  m_startMt->setDateTime(toLocal(meeting.getStart()));
-  m_durationMt->setValue(std::max(1, static_cast<int>(meeting.getDuration().count() / 60)));
-  m_locationMt->setText(QString::fromStdString(meeting.getLocation()));
+  m_titleEdit->setText(QString::fromStdString(meeting.getTitle()));
+  m_startEdit->setDateTime(toLocal(meeting.getStart()));
+  m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
+  m_commonForm->setRowVisible(m_durationEdit, true);
+  m_durationEdit->setValue(std::max(1, static_cast<int>(meeting.getDuration().count() / 60)));
+  m_locationEdit->setText(QString::fromStdString(meeting.getLocation()));
   m_attendeesList->clear();
   for (const auto& name : meeting.getAttendees()) {
     new QListWidgetItem(QString::fromStdString(name), m_attendeesList);
   }
-  m_typeCombo->setCurrentIndex(kMeetingPanel);
-  m_forms->setCurrentIndex(kMeetingPanel);
+  m_typeCombo->setCurrentIndex(kMeeting);
+  showSection(kMeeting);
 }
 
 void ActivitySidebarWidget::populateTask(const events::Task& task) {
-  m_titleT->setText(QString::fromStdString(task.getTitle()));
-  m_dueT->setDateTime(toLocal(task.getDue()));
+  m_titleEdit->setText(QString::fromStdString(task.getTitle()));
+  m_startEdit->setDateTime(toLocal(task.getDue()));
+  m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
+  m_commonForm->setRowVisible(m_durationEdit, true);
+  m_durationEdit->setValue(std::max(1, static_cast<int>(task.getDuration().count() / 60)));
   switch (task.getPriority()) {
   case events::Priority::Low:
     m_priorityCombo->setCurrentIndex(0);
@@ -766,35 +567,21 @@ void ActivitySidebarWidget::populateTask(const events::Task& task) {
     break;
   }
   m_doneCheck->setChecked(task.isDone());
-  m_typeCombo->setCurrentIndex(kTaskPanel);
-  m_forms->setCurrentIndex(kTaskPanel);
-}
-
-void ActivitySidebarWidget::populateAnniversary(const events::Activity& activity) {
-  m_titleAn->setText(QString::fromStdString(activity.getTitle()));
-  m_dateAn->setDate(toLocal(activity.getStart()).date());
-  m_typeCombo->setCurrentIndex(kAnniversaryPanel);
-  m_forms->setCurrentIndex(kAnniversaryPanel);
+  m_typeCombo->setCurrentIndex(kTask);
+  showSection(kTask);
 }
 
 void ActivitySidebarWidget::emitPreview() {
-  const int panel = m_forms->currentIndex();
-  const QString title = titleOf(panel)->text();
-  // Niente anteprima per i tipi senza data/ora nella griglia (l'all-day va
-  // nella striscia in alto, non nella griglia oraria)
-  if (panel == kAnniversaryPanel ||
-      (panel == kEventPanel && m_allDayCheck->isChecked())) {
+  const QString title = m_titleEdit->text();
+  // Niente anteprima per l'Evento "tutto il giorno" (va nella striscia in
+  // alto, non nella griglia oraria); tutti gli altri casi usano gli stessi
+  // campi comuni (Data/Durata), quindi non serve piu' un dispatch per tipo.
+  if (m_typeCombo->currentIndex() == kEvent && m_allDayCheck->isChecked()) {
     emit previewChanged(title, QDateTime(), 0, false);
     return;
   }
-  // Con un solo QDateTimeEdit anche per l'Evento, dateOf() copre gia' tutti
-  // i pannelli con data/ora: niente piu' caso speciale per kEventPanel.
-  const QDateTime start = dateOf(panel) ? dateOf(panel)->dateTime() : QDateTime();
-  qint64 durationSeconds = 0;
-  if (QSpinBox* dur = durationOf(panel)) {
-    durationSeconds = static_cast<qint64>(dur->value()) * 60;
-  }
-  emit previewChanged(title, start, durationSeconds, true);
+  const qint64 durationSeconds = static_cast<qint64>(m_durationEdit->value()) * 60;
+  emit previewChanged(title, m_startEdit->dateTime(), durationSeconds, true);
 }
 
 void ActivitySidebarWidget::refreshAttendeeCompleter() {
@@ -815,7 +602,7 @@ void ActivitySidebarWidget::refreshAttendeeCompleter() {
 std::vector<std::unique_ptr<events::Activity>>
 ActivitySidebarWidget::buildEventActivities() const {
   std::vector<std::unique_ptr<events::Activity>> result;
-  const QString title = m_titleE->text().trimmed();
+  const QString title = m_titleEdit->text().trimmed();
   if (title.isEmpty()) {
     return result;
   }
@@ -824,11 +611,11 @@ ActivitySidebarWidget::buildEventActivities() const {
   // griglia, che usano UTC) per non far slittare il giorno: in locale 00:00
   // di Lun = Dom 22:00 UTC, che cadrebbe nel giorno/settimana precedente.
   const events::TimePoint start =
-      allDay ? toTimePoint(QDateTime(m_startE->date(), QTime(0, 0), QTimeZone(0)))
-             : toTimePoint(m_startE->dateTime());
+      allDay ? toTimePoint(QDateTime(m_startEdit->date(), QTime(0, 0), QTimeZone(0)))
+             : toTimePoint(m_startEdit->dateTime());
   const events::Duration duration = allDay
                                         ? std::chrono::seconds(86399)
-                                        : std::chrono::minutes(m_durationE->value());
+                                        : std::chrono::minutes(m_durationEdit->value());
 
   // "Tutto il giorno" SENZA ripetizione -> un'attivita' dalle 00:00 di 24h
   if (allDay && !m_repeatCheck->isChecked()) {
@@ -855,11 +642,11 @@ ActivitySidebarWidget::buildEventActivities() const {
   }
   const int countLimit = m_endCountRadio->isChecked() ? m_countSpin->value() : 0;
 
-  // Il modello non ha piu' un limite di conteggio nel generatore (rimosso
-  // col MaxOccurrencesDecorator): "dopo N occorrenze" si traduce qui in un
-  // `end` pari alla data dell'N-esima occorrenza, calcolata avanzando il
-  // generatore stesso (align + next), cosi' il clamping di calendario
-  // (fine mese, anni bisestili, ...) resta corretto.
+  // Il modello non ha un limite di conteggio nel generatore: "dopo N
+  // occorrenze" si traduce qui in un `end` pari alla data dell'N-esima
+  // occorrenza, calcolata avanzando il generatore stesso (align + next),
+  // cosi' il clamping di calendario (fine mese, anni bisestili, ...) resta
+  // corretto.
   auto endAfterCount = [](const events::DateGenerator& generator,
                           events::TimePoint seriesStart, int count) {
     events::TimePoint current = generator.align(seriesStart, seriesStart);
@@ -896,9 +683,9 @@ ActivitySidebarWidget::buildEventActivities() const {
     // lun/mar = 5 eventi totali. La fine e' quindi la data della N-esima
     // occorrenza complessiva (non e' rappresentabile avanzando un solo
     // generatore, quindi si calcola con l'aritmetica sui giorni scelti).
-    const int baseDow = m_startE->date().dayOfWeek();
-    const QDate startDate = m_startE->date();
-    const QTime time = allDay ? QTime(0, 0) : m_startE->time();
+    const int baseDow = m_startEdit->date().dayOfWeek();
+    const QDate startDate = m_startEdit->date();
+    const QTime time = allDay ? QTime(0, 0) : m_startEdit->time();
 
     // Giorni selezionati (id del QButtonGroup = giorno Qt), fallback: il
     // giorno dell'inizio.
@@ -947,34 +734,33 @@ ActivitySidebarWidget::buildEventActivities() const {
     }
   } else if (unit == kUnitMonths) {
     pushRecurrent(std::make_shared<events::MonthlyGenerator>(every), start, end);
-  } else {  // anno ("ogni N" e' disabilitato in UI per questa unita': passo 1)
-    pushRecurrent(std::make_shared<events::YearlyGenerator>(1), start, end);
+  } else {  // anni
+    pushRecurrent(std::make_shared<events::YearlyGenerator>(every), start, end);
   }
   return result;
 }
 
 std::unique_ptr<events::Activity> ActivitySidebarWidget::buildActivity() const {
-  const int panelIndex = m_forms->currentIndex();
-  const QString title = titleOf(panelIndex)->text().trimmed();
+  const QString title = m_titleEdit->text().trimmed();
   if (title.isEmpty()) {
     return nullptr;
   }
+  const events::Duration duration = std::chrono::minutes(m_durationEdit->value());
 
-  switch (panelIndex) {
-  case kMeetingPanel: {
-    const events::Duration duration = std::chrono::minutes(m_durationMt->value());
+  switch (m_typeCombo->currentIndex()) {
+  case kMeeting: {
     auto meeting = events::makeMeeting(events::MeetingConfig(
         events::ActivityConfig{.title = title.toStdString(),
-                               .start = toTimePoint(m_startMt->dateTime()),
+                               .start = toTimePoint(m_startEdit->dateTime()),
                                .duration = duration},
-        m_locationMt->text().trimmed().toStdString()));
+        m_locationEdit->text().trimmed().toStdString()));
     for (int i = 0; i < m_attendeesList->count(); ++i) {
       meeting->addAttendee(m_attendeesList->item(i)->text().toStdString());
     }
     return meeting;
   }
 
-  case kTaskPanel: {
+  case kTask: {
     events::Priority priority = events::Priority::Medium;
     switch (m_priorityCombo->currentIndex()) {
     case 0:
@@ -988,22 +774,13 @@ std::unique_ptr<events::Activity> ActivitySidebarWidget::buildActivity() const {
     }
     auto task = events::makeTask(events::TaskConfig(
         events::ActivityConfig{.title = title.toStdString(),
-                               .start = toTimePoint(m_dueT->dateTime())},
+                               .start = toTimePoint(m_startEdit->dateTime()),
+                               .duration = duration},
         priority));
     if (m_doneCheck->isEnabled()) {
       task->setDone(m_doneCheck->isChecked());
     }
     return task;
-  }
-
-  case kAnniversaryPanel: {
-    const events::TimePoint date =
-        toTimePoint(QDateTime(m_dateAn->date(), QTime(0, 0)));
-    return events::makeActivity(events::ActivityConfig{
-        .title = title.toStdString(),
-        .start = date,
-        .duration = std::chrono::hours(24) - std::chrono::seconds(1),
-        .generator = std::make_shared<events::YearlyGenerator>(1)});
   }
 
   default:
@@ -1057,8 +834,8 @@ void ActivitySidebarWidget::onDelete() {
 }
 
 void ActivitySidebarWidget::onSave() {
-  // Pannello Evento "a domande": attivita' singola o una o piu' serie
-  if (m_forms->currentIndex() == kEventPanel) {
+  // Tipo Evento: attivita' singola o una o piu' serie
+  if (m_typeCombo->currentIndex() == kEvent) {
     auto activities = buildEventActivities();
     if (activities.empty()) {
       m_errorLabel->setText(tr("Inserire un titolo non vuoto."));

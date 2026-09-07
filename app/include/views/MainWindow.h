@@ -37,10 +37,12 @@ class YearView;
  *  3. Mese        — MonthView in QScrollArea (griglia mensile con chip)
  *  4. Anno        — YearView in QScrollArea (12 mini-calendari)
  *
- *  Il dettaglio/creazione/modifica di un'attivita' e' un pannello laterale
+ *  La creazione/modifica di un'attivita' e' un pannello laterale
  *  (ActivitySidebarWidget, un QWidget, non un dialog) affiancato alle pagine
  *  tramite un QSplitter orizzontale: parte nascosto e viene mostrato/
- *  nascosto in base alle interazioni dell'utente. La scelta serie/occorrenza
+ *  nascosto in base alle interazioni dell'utente. Non esiste una vista di
+ *  sola lettura separata: aprire un'attivita' (clic su un'occorrenza) apre
+ *  direttamente il suo form di modifica. La scelta serie/occorrenza
  *  (RecurrenceChoiceDialog) resta invece un QDialog modale nativo (exec()),
  *  essendo un'interruzione puntuale del flusso e non un pannello persistente.
  */
@@ -58,7 +60,6 @@ private slots:
     void showMonthPage();
     void showYearPage();
     void showListPage();
-    void showDetailDialog(const events::Activity* activity);
     void showFormCreate(const QDateTime& start = QDateTime());
     void showFormEditActivity(const events::Activity* activity);
     void showFormEditOccurrence(const events::Occurrence& occurrence);
@@ -68,7 +69,7 @@ private slots:
     void onToday();
 
     /** @brief Apre il form di creazione preselezionando il tipo (0=Evento,
-     *  1=Riunione, 2=Compito, 3=Anniversario), dal menu "Nuova attivita'". */
+     *  1=Riunione, 2=Compito), dal menu "Nuova attivita'". */
     void openNewActivityType(int typeIndex);
 
     void onSave();

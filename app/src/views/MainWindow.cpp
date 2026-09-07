@@ -158,7 +158,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::askSeriesOrInstanceDrag);
     connect(m_weekView, &WeekView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
-                showDetailDialog(occurrence.source);
+                showFormEditActivity(occurrence.source);
             });
     connect(m_weekView, &WeekView::modifyEventRequested,
             this, &MainWindow::showFormEditOccurrence);
@@ -187,7 +187,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::askSeriesOrInstanceDrag);
     connect(m_dayView, &WeekView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
-                showDetailDialog(occurrence.source);
+                showFormEditActivity(occurrence.source);
             });
     connect(m_dayView, &WeekView::modifyEventRequested,
             this, &MainWindow::showFormEditOccurrence);
@@ -209,7 +209,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::askSeriesOrInstance);
     connect(m_monthView, &MonthView::infoRequested,
             this, [this](const events::Occurrence& occurrence) {
-                showDetailDialog(occurrence.source);
+                showFormEditActivity(occurrence.source);
             });
     connect(m_monthView, &MonthView::modifyEventRequested,
             this, &MainWindow::showFormEditOccurrence);
@@ -229,7 +229,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             });
 
     connect(m_listPage, &ActivityListPage::detailRequested,
-            this, &MainWindow::showDetailDialog);
+            this, &MainWindow::showFormEditActivity);
     connect(m_listPage, &ActivityListPage::editRequested,
             this, &MainWindow::showFormEditActivity);
 
@@ -448,14 +448,6 @@ void MainWindow::onViewSelected(AppMenuBar::ViewKind kind) {
         showYearPage();
         break;
     }
-}
-
-void MainWindow::showDetailDialog(const events::Activity* activity) {
-    if (!activity) {
-        return;
-    }
-    m_sidebar->showDetail(activity);
-    m_sidebar->show();
 }
 
 void MainWindow::showFormCreate(const QDateTime& start) {

@@ -20,15 +20,6 @@ inline bool isRecurrent(const events::Activity* activity) {
            dynamic_cast<const events::YearlyGenerator*>(gen) != nullptr;
 }
 
-/** @brief true se l'attivita' e' un anniversario: generatore annuale e durata
- *  "tutto il giorno" (attivita' con YearlyGenerator, come dal builder). */
-inline bool isAnniversary(const events::Activity* activity) {
-    return dynamic_cast<const events::YearlyGenerator*>(
-               &activity->getGenerator()) != nullptr &&
-           activity->getDuration() >=
-               std::chrono::hours(24) - std::chrono::seconds(1);
-}
-
 /** @brief true se l'attivita' e' "tutto il giorno": copre un giorno di
  *  calendario intero (durata >= 24h - 1s). */
 inline bool isAllDayActivity(const events::Activity* activity) {

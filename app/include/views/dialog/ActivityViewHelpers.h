@@ -24,9 +24,6 @@ QString recurrenceRuleLabel(const events::Activity& activity);
 /** @brief Durata leggibile ("1 h 30 min"). */
 QString durationLabel(const events::Duration duration);
 
-/** @brief Righe "campo: valore" specifiche per tipo (per il dettaglio). */
-QStringList fieldLines(const events::Activity& activity);
-
 } // namespace ActivityViewHelpers
 
 } // namespace app

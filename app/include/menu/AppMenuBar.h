@@ -43,7 +43,7 @@ signals:
     /** @brief Una delle 5 voci del menu "Visualizza". */
     void viewSelected(ViewKind kind);
     /** @brief Menu "Nuova attivita'" o scorciatoia Ctrl+N (0=Evento,
-     *  1=Riunione, 2=Compito, 3=Anniversario). */
+     *  1=Riunione, 2=Compito). */
     void newActivityRequested(int typeIndex);
 
 private:

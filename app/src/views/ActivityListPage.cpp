@@ -60,8 +60,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_typeFilter = new QComboBox(this);
     m_typeFilter->addItem(tr("Tutti i tipi"), QString());
     for (const QString& type :
-         {tr("Evento"), tr("Ricorrente"), tr("Riunione"), tr("Compito"),
-          tr("Anniversario")}) {
+         {tr("Evento"), tr("Ricorrente"), tr("Riunione"), tr("Compito")}) {
         m_typeFilter->addItem(type, type);
     }
 

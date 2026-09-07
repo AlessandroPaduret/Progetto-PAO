@@ -50,8 +50,8 @@ AppMenuBar::AppMenuBar(QWidget* parent) : QMenuBar(parent) {
 
     // Menu "Nuova attivita'": i tipi creabili dal form
     QMenu* newMenu = addMenu(tr("Nuova attivita'"));
-    const char* typeLabels[] = {"Evento", "Riunione", "Compito", "Anniversario"};
-    for (int type = 0; type < 4; ++type) {
+    const char* typeLabels[] = {"Evento", "Riunione", "Compito"};
+    for (int type = 0; type < 3; ++type) {
         newMenu->addAction(tr(typeLabels[type]), this,
                            [this, type] { emit newActivityRequested(type); });
     }
