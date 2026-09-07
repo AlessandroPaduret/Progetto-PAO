@@ -26,19 +26,18 @@
 
 \hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
 
-% ---- dati dello studente (da compilare) ------------------------------------
-\newcommand{\studente}{Nome Cognome}
-\newcommand{\matricola}{MATRICOLA}
+\newcommand{\studente}{Alessandro Paduret}
+\newcommand{\matricola}{2150445}
 
 \setlength{\parskip}{4pt}
 
 \begin{document}
 
 \begin{center}
-{\LARGE\bfseries Attivita: gestione di attivita' personali}\\[4pt]
+{\LARGE\bfseries Attivita: gestione di attività personali}\\[4pt]
 {\large Applicazione desktop in C++ con interfaccia grafica Qt}\\[8pt]
 {\normalsize Progetto di Programmazione a Oggetti -- a.a.\ 2025/26}\\[4pt]
-{\normalsize \studente\ --- matricola \matricola\ (progetto individuale)}
+{\normalsize \studente\ --- Matricola \matricola}
 \end{center}
 
 \vspace{6pt}
@@ -48,23 +47,21 @@
 \section{Introduzione}
 
 L'obiettivo del progetto e' sviluppare un'applicazione per la gestione di
-attivita' personali -- impegni, eventi, scadenze e promemoria -- interamente
-scritta in C++ con interfaccia grafica realizzata con il framework Qt. Gli
+attivita' personali -- impegni, eventi, e incontri -- interamente
+scritta in C++ con interfaccia grafica realizzata in Qt. Gli
 utenti possono creare, modificare, eliminare, cercare e visualizzare i diversi
-tipi di attivita', ciascuno dei quali possiede attributi specifici: ogni tipo e'
-rappresentato da una classe derivata da una classe base comune che descrive gli
-attributi e i comportamenti condivisi.
+tipi di attività. Le \textbf{attività} possono essere semplici, avere una \textbf{checkbox}
+oppure, nel caso dei \textbf{meeting}, avere dettagli come location e partecipanti. 
 
 L'architettura del progetto separa nettamente il modello logico dall'interfaccia
 grafica:
 
 \begin{itemize}[nosep]
-  \item \textbf{modello logico} (\texttt{model/}): una libreria C++20 pura
-    (namespace \texttt{events}), riutilizzabile senza dipendenze dall'interfaccia,
-    che implementa la gerarchia delle attivita', la generazione delle occorrenze
-    temporali e la collezione \texttt{Calendar};
+  \item \textbf{modello logico} (\texttt{model/}): una libreria con elementi dello standard C++23
+    (namespace \texttt{events}) che implementa la gerarchia delle attivita', 
+    la generazione delle occorrenze temporali e la collezione \texttt{Calendar};
   \item \textbf{persistenza} (\texttt{model/persistence/}): un modulo separato
-    (Qt Core, niente Widgets) che serializza e ricarica le attivita' su file
+    (che usa \texttt{QJsonObject}) per serializzare e ricaricare le attività su file
     locale in formato JSON tramite il pattern Visitor;
   \item \textbf{interfaccia grafica} (\texttt{app/}): un'applicazione Qt a
     finestra singola (pattern MVC) che usa il modello e la persistenza.
@@ -86,8 +83,8 @@ il doppio dispatch (\texttt{accept}) e una descrizione testuale
 
 \begin{figure}[h]
 \centering
-\IfFileExists{figura/uml_attivita.png}{%
-  \includegraphics[width=0.92\textwidth]{figura/uml_attivita.png}%
+\IfFileExists{figura/Modello.png}{%
+  \includegraphics[width=0.92\textwidth]{figura/Modello.png}%
 }{%
   \fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering Diagramma UML da inserire}}%
 }
@@ -320,7 +317,7 @@ l'eliminazione di un'istanza offre le scelte ``solo questa'' (eccezione) o
 
 \section{Rendicontazione delle ore}
 
-Il progetto e' svolto individualmente. Le ore effettive sono riportate nella
+Il progetto è svolto individualmente. Le ore effettive sono riportate nella
 colonna dedicata.
 
 \begin{table}[h]
@@ -329,14 +326,14 @@ colonna dedicata.
 \toprule
 \textbf{Attivita'} & \textbf{Previste} & \textbf{Effettive} \\
 \midrule
-Analisi della specifica e progettazione & 6h & ~h \\
-Modello logico (gerarchia \texttt{Activity}, generatore di date) & 10h & ~h \\
-Persistenza JSON (Visitor) & 6h & ~h \\
-Interfaccia grafica Qt (MVC, viste, form, ricerca) & 12h & ~h \\
-Verifica nel container del corso, build e test & 3h & ~h \\
-Relazione e disegni UML & 3h & ~h \\
+Analisi della specifica e progettazione & 6h & 4h \\
+Modello logico (gerarchia \texttt{Activity}, generatore di date) & 10h & 8h \\
+Persistenza JSON (Visitor) & 6h & 8h \\
+Interfaccia grafica Qt (MVC, viste, form, ricerca) & 12h & 12h \\
+Relazione e disegni UML & 4h & 4h \\
+Refactoring (Zero-cost Abstaction) & 10h & 20h \\
 \midrule
-\textbf{Totale} & \textbf{40h} & \textbf{~h} \\
+\textbf{Totale} & \textbf{48h} & \textbf{56h} \\
 \bottomrule
 \end{tabular}
 \caption{Rendicontazione delle ore previste ed effettive}
