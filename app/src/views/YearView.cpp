@@ -9,14 +9,12 @@
 
 #include <optional>
 
-#include "controller/CalendarController.h"
 #include "views/utils/Theme.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {
 
-YearView::YearView(CalendarController* controller, QWidget* parent)
-    : QWidget(parent), m_controller(controller) {
+YearView::YearView(QWidget* parent) : QWidget(parent) {
     m_grid = new QGridLayout(this);
     m_grid->setSpacing(4);
 
@@ -93,8 +91,7 @@ void YearView::setOccurrences(const std::vector<events::Occurrence>& occurrences
         const bool done = isTaskDone(occ.source);
         auto& slot = colorByDay[date.dayOfYear()];
         if (!slot || (slot == theme::kDoneGray && !done)) {
-            slot = done ? theme::kDoneGray
-                        : activityColor(occ.source, m_controller->colorFor(occ.source));
+            slot = done ? theme::kDoneGray : activityColor(occ.source);
         }
     }
 

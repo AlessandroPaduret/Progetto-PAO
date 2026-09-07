@@ -13,8 +13,6 @@ class QGridLayout;
 
 namespace app {
 
-class CalendarController;
-
 /** @brief Vista "anno": 12 QCalendarWidget nativi disposti in una griglia
  *  3x4 (uno per mese, senza barra di navigazione: il mese mostrato resta
  *  fisso), con i giorni che hanno attivita' evidenziati da uno sfondo
@@ -28,9 +26,7 @@ class CalendarController;
 class YearView : public QWidget {
     Q_OBJECT
 public:
-    /** @param controller Usato SOLO per risolvere il colore delle occorrenze
-     *  (CalendarController::colorFor). */
-    explicit YearView(CalendarController* controller, QWidget* parent = nullptr);
+    explicit YearView(QWidget* parent = nullptr);
 
     /** @brief Imposta le occorrenze da mostrare (gia' filtrate sull'anno). */
     void setOccurrences(const std::vector<events::Occurrence>& occurrences);
@@ -51,7 +47,6 @@ private:
     static constexpr int kCols = 3;
     static constexpr int kRows = 4;
 
-    CalendarController* m_controller;
     QGridLayout* m_grid = nullptr;
     std::array<QCalendarWidget*, kCols * kRows> m_calendars = {};
     QDate m_year;

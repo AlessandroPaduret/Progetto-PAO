@@ -6,7 +6,6 @@
 #include <QVector>
 
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 #include "events.h"
@@ -30,17 +29,13 @@ public:
 
     // --- CRUD sulle attivita' -----------------------------------------------
 
-    /** @brief Aggiunge un'attivita' al calendario (ne acquisisce la proprieta').
-     *  @param color "#RRGGBB" scelto dall'utente nel form, "" = automatico
-     *  (vedi colorFor). Il colore NON e' un campo del modello: vive solo qui,
-     *  associato per identita' di puntatore (vedi colorFor). */
-    bool addActivity(std::unique_ptr<events::Activity> activity, const QString& color = QString());
+    /** @brief Aggiunge un'attivita' al calendario (ne acquisisce la proprieta') */
+    bool addActivity(std::unique_ptr<events::Activity> activity);
 
     /** @brief Aggiunge piu' attivita' in un colpo solo (es. piu' serie
-     *  ricorrenti, una per giorno della settimana): stesso colore per tutte,
-     *  scelto una sola volta nel form. Emette un unico activitiesChanged. */
-    bool addActivities(std::vector<std::unique_ptr<events::Activity>> activities,
-                       const QString& color = QString());
+     *  ricorrenti, una per giorno della settimana). Emette un unico
+     *  activitiesChanged. */
+    bool addActivities(std::vector<std::unique_ptr<events::Activity>> activities);
 
     /** @brief Rimuove l'attivita' identificata dal puntatore */
     bool removeActivity(const events::Activity* activity);
@@ -48,18 +43,7 @@ public:
     /** @brief Sostituisce un'attivita' con una nuova (le eccezioni vengono
      *         conservate, se accettate dal nuovo generatore) */
     bool updateActivity(const events::Activity* oldActivity,
-                        std::unique_ptr<events::Activity> replacement,
-                        const QString& color = QString());
-
-    /** @brief Colore esplicito assegnato all'attivita' (dal form, tramite gli
-     *  overload *color* qui sopra), "" se non impostato: in quel caso la GUI
-     *  ne deduce uno stabile dall'indirizzo dell'oggetto (vedi
-     *  views/utils/ViewShared.h::activityColor). Non e' un dato del modello:
-     *  vive solo nel controller, associato per identita' di puntatore, e
-     *  viene ritrasferito automaticamente ad ogni operazione che sostituisce
-     *  l'oggetto Activity (updateActivity/modifyOccurrence/splitRecurrence),
-     *  ed eliminato quando l'attivita' viene rimossa. */
-    QString colorFor(const events::Activity* activity) const;
+                        std::unique_ptr<events::Activity> replacement);
 
     /** @brief Sposta un'attivita' al nuovo istante (drag&drop nella settimana).
      *  @param activity L'attivita' da spostare
@@ -100,8 +84,7 @@ public:
     /** @brief Modifica una singola istanza: l'originale viene escluso
      *  (eccezione interna se ricorrente) e sostituito da un evento singolo. */
     bool modifyOccurrence(const events::Occurrence& occurrence,
-                          std::unique_ptr<events::Activity> replacement,
-                          const QString& color = QString());
+                          std::unique_ptr<events::Activity> replacement);
 
     /** @brief Inverte lo stato di completamento di un COMPITO (l'unico tipo
      *  con stato "evaso/da fare"). Non ha effetto sugli altri tipi. */
@@ -122,16 +105,7 @@ signals:
 private:
     events::Calendar m_calendar;
 
-    /** @brief Colori scelti dall'utente, per identita' di puntatore (assente
-     *  = automatico). Sopravvive a save/loadFromFile tramite una sezione
-     *  JSON parallela ("colors", per indice = ordine del calendario), scritta
-     *  e letta qui SENZA coinvolgere model/persistence: quel livello resta
-     *  ignaro del concetto di colore. */
-    std::unordered_map<const events::Activity*, QString> m_colors;
-
-    /** @brief Se un'attività non genera occorrenze la toglie dal calendario
-     *  (e dalla mappa colori: il puntatore non sarebbe piu' valido come
-     *  chiave). */
+    /** @brief Se un'attività non genera occorrenze la toglie dall calendario */
     void cleanupActivity(const events::Activity* activity);
 };
 

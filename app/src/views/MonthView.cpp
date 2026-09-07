@@ -12,7 +12,6 @@
 
 #include <algorithm>
 
-#include "controller/CalendarController.h"
 #include "views/OccurrenceWidget.h"
 #include "views/utils/ViewShared.h"
 #include "views/utils/WidgetUtils.h"
@@ -31,8 +30,7 @@ constexpr int kMaxChipsPerDay = 3;
 class MonthDayCell : public QFrame {
     Q_OBJECT
 public:
-    explicit MonthDayCell(CalendarController* controller, QWidget* parent = nullptr)
-        : QFrame(parent), m_controller(controller) {
+    explicit MonthDayCell(QWidget* parent = nullptr) : QFrame(parent) {
         setAttribute(Qt::WA_StyledBackground, true);
 
         m_dayLabel = new QLabel(this);
@@ -98,10 +96,9 @@ public:
         const int shown = std::min<int>(kMaxChipsPerDay, static_cast<int>(sorted.size()));
         for (int i = 0; i < shown; ++i) {
             const events::Occurrence& occ = sorted[i];
-            auto* chip = new OccurrenceWidget(
-                occ, OccurrenceWidget::Style::Chip, isRecurrent(occ.source),
-                /*draggable=*/false, activityColor(occ.source, m_controller->colorFor(occ.source)),
-                m_chipsBox);
+            auto* chip = new OccurrenceWidget(occ, OccurrenceWidget::Style::Chip,
+                                              isRecurrent(occ.source),
+                                              /*draggable=*/false, m_chipsBox);
             connect(chip, &OccurrenceWidget::pressed, this,
                     [this, chip](const events::Occurrence& o) { emit chipPressed(chip, o); });
             connect(chip, &OccurrenceWidget::doneToggled, this, &MonthDayCell::doneToggled);
@@ -160,7 +157,6 @@ protected:
     }
 
 private:
-    CalendarController* m_controller;
     QDate m_date;
     QLabel* m_dayLabel;
     QWidget* m_chipsBox;
@@ -172,7 +168,7 @@ private:
 // ---------------------------------------------------------------------------
 // MonthView
 // ---------------------------------------------------------------------------
-MonthView::MonthView(CalendarController* controller, QWidget* parent) : QWidget(parent) {
+MonthView::MonthView(QWidget* parent) : QWidget(parent) {
     m_grid = new QGridLayout(this);
     m_grid->setSpacing(0);
     m_grid->setContentsMargins(0, 0, 0, 0);
@@ -187,7 +183,7 @@ MonthView::MonthView(CalendarController* controller, QWidget* parent) : QWidget(
     for (int r = 0; r < kRows; ++r) {
         m_grid->setRowStretch(r + 1, 1);
         for (int c = 0; c < kCols; ++c) {
-            auto* cell = new MonthDayCell(controller, this);
+            auto* cell = new MonthDayCell(this);
             connect(cell, &MonthDayCell::emptySlotClicked, this, &MonthView::emptySlotClicked);
             connect(cell, &MonthDayCell::activityEditRequested,
                     this, &MonthView::activityEditRequested);

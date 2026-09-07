@@ -9,7 +9,6 @@
 #include <functional>
 #include <ranges>
 
-#include "controller/CalendarController.h"
 #include "views/AllDayAreaWidget.h"
 #include "views/DayColumnWidget.h"
 #include "views/HeaderWidget.h"
@@ -19,11 +18,10 @@
 
 namespace app {
 
-WeekView::WeekView(CalendarController* controller, QWidget* parent)
-    : QWidget(parent), m_controller(controller) {
+WeekView::WeekView(QWidget* parent) : QWidget(parent) {
     m_header = new HeaderWidget(this);
 
-    m_allDayArea = new AllDayAreaWidget(m_controller, this);
+    m_allDayArea = new AllDayAreaWidget(this);
     connect(m_allDayArea, &AllDayAreaWidget::chipPressed, this, &WeekView::setSelectedChip);
     connect(m_allDayArea, &AllDayAreaWidget::doneToggled, this, &WeekView::doneToggled);
     connect(m_allDayArea, &AllDayAreaWidget::activityEditRequested,
@@ -92,7 +90,7 @@ void WeekView::rebuildColumns() {
 
     auto* gridLayout = qobject_cast<QHBoxLayout*>(m_gridContent->layout());
     for (int i = 0; i < m_dayCount; ++i) {
-        auto* column = new DayColumnWidget(m_controller, m_gridContent);
+        auto* column = new DayColumnWidget(m_gridContent);
         connect(column, &DayColumnWidget::emptySlotClicked, this, &WeekView::emptySlotClicked);
         connect(column, &DayColumnWidget::activityEditRequested,
                 this, &WeekView::activityEditRequested);

@@ -13,7 +13,6 @@ class QGridLayout;
 
 namespace app {
 
-class CalendarController;
 class MonthDayCell;
 class OccurrenceWidget;
 
@@ -31,9 +30,7 @@ class OccurrenceWidget;
 class MonthView : public QWidget {
     Q_OBJECT
 public:
-    /** @param controller Usato SOLO per risolvere il colore delle occorrenze
-     *  (CalendarController::colorFor), inoltrato alle MonthDayCell. */
-    explicit MonthView(CalendarController* controller, QWidget* parent = nullptr);
+    explicit MonthView(QWidget* parent = nullptr);
 
     /** @brief Imposta le occorrenze da mostrare (gia' filtrate sul mese). */
     void setOccurrences(const std::vector<events::Occurrence>& occurrences);
