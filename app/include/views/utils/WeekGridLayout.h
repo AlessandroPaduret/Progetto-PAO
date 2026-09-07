@@ -20,19 +20,17 @@ inline constexpr int kWeekHourHeight = 60;           // altezza di un'ora
 inline constexpr int kWeekMinOccurrenceHeight = 18;  // altezza minima chip (durata zero)
 inline constexpr int kWeekDaysPerWeek = 7;
 
-/** @brief Estensione in giorni [startDay, endDay] (offset da viewStart,
- *  INCLUSO, gia' clampati a [0, dayCount-1]) di una "tutto il giorno": il
- *  chiamante la calcola da un'Occurrence, WeekGridLayout non conosce ne'
- *  QDate ne' Occurrence. */
+/** @brief [startDay, endDay] (offset da viewStart, INCLUSO, clampati a [0,
+ *  dayCount-1]) di una "tutto il giorno"; il chiamante la calcola da
+ *  un'Occurrence, questo modulo non conosce ne' QDate ne' Occurrence. */
 struct DaySpan {
     int startDay;
     int endDay;
 };
 
-/** @brief Riga/colonne assegnate a una "tutto il giorno" nella striscia in
- *  alto. `index` e' la posizione del DaySpan corrispondente nel vettore
- *  passato a layoutAllDayRows (stesso ordine 1:1, nessun filtro qui: lo fa
- *  gia' il chiamante prima di costruire i DaySpan). */
+/** @brief Riga/colonne di una "tutto il giorno" nella striscia in alto;
+ *  `index` e' la posizione del DaySpan nel vettore passato a
+ *  layoutAllDayRows (1:1, nessun filtro qui). */
 struct AllDayPlacement {
     int index;
     int row;
@@ -40,10 +38,10 @@ struct AllDayPlacement {
     int endDay;
 };
 
-/** @brief Intervallo [startMinutes, endMinutes) dalla mezzanotte del giorno
- *  rappresentato da una colonna: il chiamante lo ricava da un'Occurrence gia'
- *  RITAGLIATA sull'intervallo visibile in quel giorno (inizio a 0 se iniziata
- *  il giorno prima, fine a 1440 se finisce il giorno dopo). */
+/** @brief [startMinutes, endMinutes) dalla mezzanotte del giorno di una
+ *  colonna; il chiamante lo ricava da un'Occurrence gia' RITAGLIATA
+ *  sull'intervallo visibile (inizio a 0 se iniziata il giorno prima, fine a
+ *  1440 se finisce dopo). */
 struct TimeSlot {
     int startMinutes;
     int endMinutes;
@@ -51,22 +49,17 @@ struct TimeSlot {
 
 namespace WeekGridLayout {
 
-/** @brief Impila le "tutto il giorno" su righe: ognuna occupa la prima riga
- *  libera per tutta la sua estensione [startDay, endDay]. Usata da
- *  AllDayAreaWidget per un QGridLayout con column-span (colonna = 1+giorno,
- *  la colonna 0 e' riservata al gutter; rowSpan sempre 1, colSpan =
- *  endDay-startDay+1). Puro calcolo geometrico: nessuna nozione di data o di
- *  Occurrence, il chiamante filtra e converte prima di chiamarla. */
+/** @brief Impila le "tutto il giorno" su righe (prima riga libera per tutta
+ *  la loro estensione); usata da AllDayAreaWidget per un QGridLayout con
+ *  column-span (colonna = 1+giorno, colonna 0 riservata al gutter). Puro
+ *  calcolo geometrico, nessuna nozione di data o Occurrence. */
 std::vector<AllDayPlacement> layoutAllDayRows(const std::vector<DaySpan>& spans, int dayCount);
 
-/** @brief Geometria (QRect) di slot orari che si sovrappongono, affiancati in
- *  colonne come Google Calendar (interval-graph greedy coloring), in
- *  coordinate LOCALI a quella colonna (0,0 = mezzanotte, x in [0,
- *  columnWidth)). Il risultato e' parallelo a `timeSlots`. Usata da
- *  DayColumnWidget::relayout(), che ricava ogni TimeSlot dalla propria
- *  Occurrence gia' ritagliata sul giorno di questa colonna (vedi
- *  WeekView::distributeOccurrences per la duplicazione a cavallo di
- *  mezzanotte). */
+/** @brief Affianca in colonne gli slot che si sovrappongono (interval-graph
+ *  greedy coloring, come Google Calendar), coordinate LOCALI (0,0 =
+ *  mezzanotte). Risultato parallelo a `timeSlots`. Usata da
+ *  DayColumnWidget::relayout() (vedi WeekView::distributeOccurrences per la
+ *  duplicazione a cavallo di mezzanotte). */
 std::vector<QRect> layoutDayColumn(const std::vector<TimeSlot>& timeSlots, int columnWidth);
 
 } // namespace WeekGridLayout

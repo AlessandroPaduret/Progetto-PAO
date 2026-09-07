@@ -4,7 +4,7 @@
 #include <chrono>
 
 #include "persistence/JsonPersistence.h"
-#include "builders/ActivityConfig.h" // Sostituito ActivityBuilder con ActivityConfig
+#include "builders/ActivityConfig.h"
 #include "domain/Task.h"
 #include "generators/MonthlyGenerator.h"
 
@@ -15,14 +15,13 @@ class TestPersistence : public QObject {
     Q_OBJECT
 
 private slots:
-    void testTaskRoundTripWithConfig(); // Rinominato il test per coerenza
+    void testTaskRoundTripWithConfig();
 };
 
 void TestPersistence::testTaskRoundTripWithConfig() {
     constexpr auto due = std::chrono::sys_days{2026y / 12 / 1} + 12h;
     auto monthlyGen = std::make_shared<MonthlyGenerator>(1);
 
-    // Creazione del Task tramite makeTask e TaskConfig
     auto task = makeTask(TaskConfig{
         ActivityConfig{
             .title = "Pagamento Affitto",

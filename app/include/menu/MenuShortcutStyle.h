@@ -8,14 +8,10 @@
 
 namespace app {
 
-/** @brief Stile dei menu: la scorciatoia (es. Ctrl+O) viene disegnata a
- *  DESTRA della voce (posizione standard) ma piu' attenuata del testo
- *  normale, per restare leggibile senza competere con l'etichetta. Il
- *  colore non e' un grigio fisso: e' il ruolo "testo disabilitato" della
- *  QPalette corrente (item->palette), che segue automaticamente il tema
- *  di sistema (incluso il tema scuro) invece di un valore scritto a mano.
- *  Qt6 passa la scorciatoia dentro `QStyleOptionMenuItem::text` dopo un tab
- *  ("testo\tCtrl+O"). */
+/** @brief Disegna la scorciatoia (es. Ctrl+O) a destra della voce, attenuata
+ *  rispetto al testo usando il ruolo "testo disabilitato" della QPalette
+ *  (segue il tema di sistema). Qt6 passa la scorciatoia in
+ *  QStyleOptionMenuItem::text dopo un tab ("testo\tCtrl+O"). */
 class MenuShortcutStyle : public QProxyStyle {
 public:
     explicit MenuShortcutStyle(QStyle* baseStyle) : QProxyStyle(baseStyle) {}

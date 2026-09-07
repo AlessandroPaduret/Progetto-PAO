@@ -17,11 +17,9 @@ class QSpinBox;
 namespace app {
 
 /** @brief Sezione "Tutto il giorno" / "Si ripete", comune a Evento, Riunione
- *  e Compito: estratta da ActivitySidebarWidget in un widget figlio
- *  autonomo, che non conosce ne' il tipo di attivita' ne' il modello
- *  (`events::`) — espone solo lo stato scelto dall'utente tramite getter/
- *  setter e un unico segnale `changed()`, lasciando all'ActivitySidebarWidget
- *  la traduzione da/verso `events::DateGenerator`. */
+ *  e Compito: non conosce ne' il tipo di attivita' ne' il modello (events::),
+ *  espone solo lo stato scelto dall'utente (getter/setter + changed()) e
+ *  lascia la traduzione da/verso events::DateGenerator alla sidebar. */
 class RecurrenceFormWidget : public QWidget {
     Q_OBJECT
 public:
@@ -34,9 +32,7 @@ public:
     bool isRepeating() const;
     Unit unit() const;
     int every() const;
-    /** @brief Giorni della settimana selezionati (id Qt, 1=Lun..7=Dom,
-     *  QDate::dayOfWeek()); vuoto se nessuno (unita' diversa da settimane, o
-     *  nessun pulsante ancora premuto). */
+    /** @brief Id Qt (1=Lun..7=Dom, QDate::dayOfWeek()); vuoto se nessuno selezionato. */
     std::vector<int> selectedWeekdays() const;
     EndMode endMode() const;
     QDate endDate() const;
@@ -51,21 +47,18 @@ public:
     void setEndOnDate(const QDate& date);
     void setEndAfterCount(int count);
 
-    /** @brief Riporta il pannello ai valori di default (nuova attivita'). */
     void resetToDefaults();
 
-    /** @brief Giorno di inizio dell'attivita' (campo comune, fuori da questo
-     *  widget): usato per pre-selezionare il pulsante del giorno quando si
-     *  attiva "Si ripete" con unita' settimane e nessun giorno e' ancora
-     *  selezionato. Va richiamato dal genitore ad ogni cambio della data. */
+    /** @brief Data di inizio (campo esterno): usata per pre-selezionare il
+     *  giorno quando si attiva "Si ripete" a settimane senza selezione. Il
+     *  genitore la richiama ad ogni cambio data. */
     void setReferenceDate(const QDate& date);
 
 signals:
-    /** @brief "Tutto il giorno" e' stato attivato/disattivato: il genitore
-     *  reagisce nascondendo/mostrando i propri campi Data/Durata. */
+    /** @brief Il genitore reagisce nascondendo/mostrando i campi Data/Durata. */
     void allDayToggled(bool on);
 
-    /** @brief Qualunque altro campo e' cambiato (utile per l'anteprima). */
+    /** @brief Qualunque altro campo e' cambiato (per l'anteprima live). */
     void changed();
 
 private slots:

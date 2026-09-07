@@ -43,7 +43,6 @@ void TestModel::testSingleActivityCreation() {
 void TestModel::testTaskDonePerOccurrence() {
     constexpr auto due = std::chrono::sys_days{2026y / 11 / 15} + 18h;
 
-    // Sintassi pulita ed esplicita con i costruttori
     auto task = makeTask(TaskConfig{
         ActivityConfig{
             .title = "Consegna Progetto",

@@ -7,12 +7,9 @@ class QComboBox;
 
 namespace app {
 
-/** @brief Sezione specifica del Compito (priorita' + stato evaso), estratta
- *  da ActivitySidebarWidget in un widget figlio autonomo che implementa
- *  ActivityTypeWidget: sa da solo svuotarsi, popolarsi da un
- *  `events::Task` esistente e costruire il proprio `events::Task`
- *  (polimorfismo al posto dello switch in
- *  ActivitySidebarWidget::makeTypedActivity). */
+/** @brief Sezione specifica del Compito (priorita' + stato evaso):
+ *  implementa ActivityTypeWidget, sa da sola svuotarsi/popolarsi/costruire
+ *  il proprio events::Task. */
 class TaskFormWidget : public ActivityTypeWidget {
     Q_OBJECT
 public:
@@ -25,14 +22,11 @@ public:
     void setDone(bool done);
 
     /** @brief Guardia usata da createActivity(): se disabilitata, l'evaso
-     *  visivo non viene scritto sul Task costruito (resta il default "da
-     *  fare"). Nessun chiamante la disabilita oggi (sempre true sia in
-     *  clear() sia in populateFrom()), ma resta il punto d'estensione
-     *  corretto per un futuro stato "non applicabile". */
+     *  non viene scritto sul Task costruito. Nessuno la disabilita oggi, ma
+     *  resta il punto d'estensione per un futuro stato "non applicabile". */
     void setDoneEnabled(bool enabled);
     bool isDoneEnabled() const;
 
-    // ActivityTypeWidget
     void clear() override;
     void populateFrom(const events::Activity& activity) override;
     void applyToConfig(events::ActivityConfig& config) const override;

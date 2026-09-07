@@ -12,9 +12,8 @@ using TimePoint = std::chrono::time_point<Clock, std::chrono::seconds>;
 using Duration = std::chrono::seconds;
 using String = std::string;
 
-// Definizioni di comodità se mancano in std::chrono
-using Days = std::chrono::duration<int, std::ratio<86400>>; // 24 ore
-using Years = std::chrono::duration<int, std::ratio<31536000>>; // 365 giorni
+using Days = std::chrono::duration<int, std::ratio<86400>>;
+using Years = std::chrono::duration<int, std::ratio<31536000>>;
 
 
 constexpr auto operator""_weeks(unsigned long long w) {

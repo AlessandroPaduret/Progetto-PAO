@@ -11,8 +11,7 @@
 
 namespace app {
 
-/** @brief true se l'attivita' e' una serie ricorrente: la ricorrenza si deduce
- *  dal generatore (Single = evento singolo; Fixed/Monthly/Yearly = serie). */
+/** @brief La ricorrenza si deduce dal generatore (Single = singolo; Fixed/Monthly/Yearly = serie). */
 inline bool isRecurrent(const events::Activity* activity) {
     const events::DateGenerator* gen = &activity->getGenerator();
     return dynamic_cast<const events::FixedIntervalGenerator*>(gen) != nullptr ||
@@ -20,8 +19,7 @@ inline bool isRecurrent(const events::Activity* activity) {
            dynamic_cast<const events::YearlyGenerator*>(gen) != nullptr;
 }
 
-/** @brief true se l'attivita' e' "tutto il giorno": copre un giorno di
- *  calendario intero (durata >= 24h - 1s). */
+/** @brief Copre un giorno di calendario intero (durata >= 24h - 1s). */
 inline bool isAllDayActivity(const events::Activity* activity) {
     return activity && activity->getDuration() >=
                            std::chrono::hours(24) - std::chrono::seconds(1);
@@ -30,31 +28,29 @@ inline bool isAllDayActivity(const events::Activity* activity) {
 /** @brief Colore stabile per un'attivita': deriva dall'indirizzo dell'oggetto. */
 inline QColor activityColor(const events::Activity* activity) {
     static const QColor kPalette[] = {
-        QColor("#3B689C"), // Blu polvere / cobalto desaturato
-        QColor("#A34843"), // Rosso mattone / ruggine
-        QColor("#3D7A5A"), // Verde salvia scuro
-        QColor("#8C6239"), // Bronzo / terra d'ombra
-        QColor("#6B4C7D"), // Viola melanzana smorto
-        QColor("#366B73"), // Ciano scuro / ottanio opaco
-        QColor("#8C4356"), // Rosa antico scuro
-        QColor("#486B4D")  // Verde muschio desaturato
+        QColor("#3B689C"),
+        QColor("#A34843"),
+        QColor("#3D7A5A"),
+        QColor("#8C6239"),
+        QColor("#6B4C7D"),
+        QColor("#366B73"),
+        QColor("#8C4356"),
+        QColor("#486B4D")
     };
     constexpr int count = sizeof(kPalette) / sizeof(kPalette[0]);
     const auto address = reinterpret_cast<quintptr>(activity);
     return kPalette[(address >> 4) % count];
 }
 
-/** @brief true se l'attivita' e' un Compito (l'unico tipo con stato "evaso").
- *  Non-Comptiti restituiscono sempre false. */
+/** @brief L'unico tipo con stato "evaso"; gli altri tipi restituiscono sempre false. */
 inline bool isTask(const events::Activity* activity) {
     return dynamic_cast<const events::Task*>(activity) != nullptr;
 }
 
-/** @brief true se l'attivita' e' un Compito EVASO (occorrenza iniziale,
- *  getStart()); false per gli altri tipi. Un Compito ricorrente evade
- *  per-occorrenza (vedi il sovraccarico sotto): questo va usato solo dove
- *  non esiste una singola occorrenza da controllare, es. la riga di
- *  ActivityListPage (un rigo per SERIE, non per occorrenza). */
+/** @brief Compito evaso all'occorrenza iniziale (getStart()); un Compito
+ *  ricorrente evade per-occorrenza (vedi il sovraccarico sotto), quindi usare
+ *  questo solo dove non c'e' una singola occorrenza da controllare (es.
+ *  ActivityListPage, un rigo per SERIE). */
 inline bool isTaskDone(const events::Activity* activity) {
     if (const auto* task = dynamic_cast<const events::Task*>(activity)) {
         return task->isDone();
@@ -62,10 +58,9 @@ inline bool isTaskDone(const events::Activity* activity) {
     return false;
 }
 
-/** @brief true se l'OCCORRENZA a `tp` di questo Compito e' evasa; false per
- *  gli altri tipi. Da usare ovunque si visualizzi/spunti una singola
- *  occorrenza (griglie, chip): un Compito ricorrente ha uno stato evaso
- *  indipendente per ciascuna occorrenza (Task::m_doneOccurrences). */
+/** @brief Occorrenza a `tp` evasa o no; da usare ovunque si visualizzi/spunti
+ *  una singola occorrenza (griglie, chip), dato che un Compito ricorrente ha
+ *  uno stato evaso indipendente per occorrenza (Task::m_doneOccurrences). */
 inline bool isTaskDone(const events::Activity* activity, const events::TimePoint tp) {
     if (const auto* task = dynamic_cast<const events::Task*>(activity)) {
         return task->isDone(tp);
@@ -73,21 +68,18 @@ inline bool isTaskDone(const events::Activity* activity, const events::TimePoint
     return false;
 }
 
-/** @brief Converte un istante assoluto (UTC) in data/ora locale. */
 inline QDateTime localTime(const events::TimePoint tp) {
     return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();
 }
 
-/** @brief Converte un istante assoluto in data/ora UTC (come lo storage del
- *  modello: epoch seconds / ISO-8601 UTC). */
+/** @brief Come lo storage del modello: epoch seconds / ISO-8601 UTC. */
 inline QDateTime utcTime(const events::TimePoint tp) {
     return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count(), QTimeZone(0));
 }
 
-/** @brief Data/ora di un istante per un'attivita', adatta al display.
- *  Per gli eventi "tutto il giorno" (salvati a mezzanotte UTC) mostra la
- *  data con ora 00:00 invece dell'ora locale spostata dall'offset (es. 02:00
- *  con UTC+2); per gli altri tipi converte in ora locale. */
+/** @brief Per gli eventi "tutto il giorno" (salvati a mezzanotte UTC) mostra
+ *  00:00 invece dell'ora locale spostata dall'offset (es. 02:00 con UTC+2);
+ *  per gli altri tipi converte normalmente in ora locale. */
 inline QDateTime activityDisplayTime(const events::Activity* activity,
                                      const events::TimePoint tp) {
     if (isAllDayActivity(activity)) {
@@ -96,33 +88,25 @@ inline QDateTime activityDisplayTime(const events::Activity* activity,
     return localTime(tp);
 }
 
-/** @brief true se l'occorrenza e' "tutto il giorno": nel suo intervallo
- *  [start, end] cadono 2 mezzanotti consecutive (valutate in UTC, coerente
- *  con lo storage del modello). In tal caso va mostrata nella striscia in
- *  alto degli "eventi tutto il giorno".
- *
- *  Esempi: 12/12 13:50 -> 13/12 23:00 NON copre un giorno intero (normale);
- *  12/12 00:00 UTC -> 13/12 00:00 UTC copre un giorno intero (all-day).
- *  Nota: le mezzanotti sono in UTC, non in ora locale: un evento salvato a
- *  mezzanotte UTC in un fuso con offset e' comunque all-day. */
+/** @brief True se l'occorrenza copre un giorno di calendario intero (2
+ *  mezzanotti UTC consecutive nel suo intervallo) -> va mostrata nella
+ *  striscia "tutto il giorno". Le mezzanotti sono valutate in UTC, non in ora
+ *  locale. */
 inline bool coversFullDay(const events::Occurrence& occ) {
     const QDateTime start = utcTime(occ.start);
-    // Prima mezzanotte UTC >= all'inizio (se l'inizio e' a mezzanotte, quella stessa)
+    // prima mezzanotte UTC >= inizio
     QDateTime dayStart(start.date(), QTime(0, 0), QTimeZone(0));
     if (start > dayStart) {
         dayStart = dayStart.addDays(1);
     }
-    // -1s: le attivita' "tutto il giorno" sono salvate con durata 24h - 1s
-    // (vedi isAllDayActivity), non 24h esatte, quindi l'ultimo istante
-    // coperto e' l'ultimo secondo prima della mezzanotte successiva, non
-    // la mezzanotte stessa. Senza questo margine le serie ricorrenti
-    // "tutto il giorno" (che usano sempre 24h - 1s, a differenza
-    // dell'evento singolo che usa 24h esatte) non risultano mai all-day.
+    // -1s perche' le attivita' "tutto il giorno" durano 24h - 1s (vedi
+    // isAllDayActivity), non 24h esatte: senza il margine le serie ricorrenti
+    // all-day non risulterebbero mai coversFullDay
     const QDateTime dayEnd = dayStart.addDays(1).addSecs(-1);
     return dayEnd <= utcTime(occ.end());
 }
 
-/** @brief Nome corto del giorno della settimana (1 = lunedi', 7 = domenica). */
+/** @brief 1 = lunedi', 7 = domenica. */
 inline const char* shortDayName(int dayOfWeek) {
     static const char* kNames[] = {"Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"};
     return kNames[qBound(1, dayOfWeek, 7) - 1];

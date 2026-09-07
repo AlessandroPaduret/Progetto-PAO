@@ -10,7 +10,6 @@
 namespace events {
 
 namespace {
-// Helper per il generatore di default se nullptr
 std::shared_ptr<const DateGenerator> getDefaultGenerator() {
     static const auto singleGen = std::make_shared<const SingleGenerator>();
     return singleGen;
@@ -53,12 +52,12 @@ void Activity::setGenerator(std::shared_ptr<const DateGenerator> generator) {
 }
 
 bool Activity::addException(TimePoint tp) {
-    // Un'eccezione e' valida solo se rientra nella finestra dell'attivita'
+    // valida solo se dentro la finestra dell'attivita'
     if (tp < m_start || tp > m_end) {
         return false;
     }
-    
-    // Verifichiamo se la data corrisponde a un'occorrenza generata
+
+    // ed e' davvero un'occorrenza generata (non un TimePoint a caso)
     TimePoint aligned = m_generator->align(m_start, tp);
     if (aligned == tp) {
         return m_exceptions.insert(tp).second;
@@ -71,18 +70,12 @@ std::vector<Occurrence> Activity::occurrencesIn(TimePoint from, TimePoint to) co
 
     TimePoint searchTo = std::min(m_end, to);
 
-    // Un'occorrenza iniziata PRIMA di `from` puo' comunque essere visibile
-    // nella finestra se la sua durata la fa arrivare fino a `from` (es. un
-    // evento a cavallo di mezzanotte quando `from` e' l'inizio del giorno
-    // dopo): il generatore userebbe altrimenti align(start, from), che salta
-    // dritto alla prima occorrenza con INIZIO >= from, perdendo per sempre
-    // quella precedente anche se si sovrappone. Si allarga percio' la
-    // ricerca a partire da `from - m_duration` (la piu' vecchia che possa
-    // ancora raggiungere `from`) e si scarta poi, con Occurrence::overlaps,
-    // qualunque occorrenza che non tocchi davvero [from, to].
+    // align(start, from) salterebbe alla prima occorrenza con INIZIO >= from,
+    // perdendo un'occorrenza iniziata prima ma ancora in corso a `from` (es. a
+    // cavallo di mezzanotte). Si allarga la ricerca a `from - m_duration` e si
+    // scartano poi (Occurrence::overlaps) quelle che non toccano [from, to].
     const TimePoint searchFrom = from - m_duration;
 
-    // Mappa ogni TimePoint valido in un oggetto Occurrence
     auto toOccurrence = std::views::transform([this](TimePoint tp) {
         return Occurrence{this, tp, m_duration};
     });

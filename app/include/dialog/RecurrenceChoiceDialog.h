@@ -6,13 +6,10 @@ class QLabel;
 
 namespace app {
 
-/** @brief Dialog nativo che chiede se operare sull'INTERA serie di eventi
- *  ricorrenti, sulla SINGOLA occorrenza o "da questo momento in poi".
- *
- *  Non emette segnali propri: il risultato della scelta e' il valore di
- *  ritorno di `exec()`/`done()`, esposto tramite l'helper statico `ask()`
- *  (uso idiomatico di QDialog, niente slot da collegare per reagire).
- */
+/** @brief Chiede se operare sull'INTERA serie ricorrente, sulla SINGOLA
+ *  occorrenza o "da questo momento in poi". Niente segnali propri: il
+ *  risultato e' il valore di ritorno di exec()/done(), esposto dall'helper
+ *  statico ask(). */
 class RecurrenceChoiceDialog : public QDialog {
     Q_OBJECT
 public:
@@ -20,9 +17,7 @@ public:
 
     explicit RecurrenceChoiceDialog(QWidget* parent = nullptr);
 
-    /** @brief Istanzia il dialog, mostra `message` e lo esegue modale.
-     *  Restituisce la scelta dell'utente, o Choice::Cancel se ha annullato
-     *  o premuto Esc. */
+    /** @return Choice::Cancel se l'utente annulla o preme Esc. */
     static Choice ask(QWidget* parent, const QString& message);
 
 private:

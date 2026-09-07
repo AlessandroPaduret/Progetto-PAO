@@ -20,8 +20,7 @@ TimePoint FixedIntervalGenerator::align(TimePoint start, TimePoint from) const {
 
     TimePoint candidate = start + (numIntervals * m_interval);
 
-    // Se l'arrotondamento per difetto della divisione cade prima di 'from',
-    // avanziamo di un singolo intervallo per garantire candidate >= from
+    // la divisione arrotonda per difetto, potrebbe restare sotto 'from'
     if (candidate < from) {
         candidate += m_interval;
     }

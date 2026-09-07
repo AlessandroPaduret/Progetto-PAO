@@ -3,7 +3,6 @@
 namespace events {
 
 TimePoint SingleGenerator::next(TimePoint /*current*/) const {
-    // Non ci sono occorrenze successive per un evento singolo.
     return TimePoint::max();
 }
 
@@ -19,13 +18,12 @@ void SingleGenerator::accept(DateGeneratorVisitor& visitor) const {
 }
 
 bool SingleGenerator::isEqualImpl(const utils::Cacheable& /*other*/) const {
-    // Tutti i SingleGenerator sono stateless e concettualmente identici.
+    // stateless: tutte le istanze sono equivalenti
     return true;
 }
 
 std::size_t SingleGenerator::hash() const {
-    // Valore costante per identificare la classe SingleGenerator nella pool.
-    return 0x9e3779b9; // Costante hash arbitraria
+    return 0x9e3779b9; // costante arbitraria, identifica solo la classe
 }
 
 } // namespace events

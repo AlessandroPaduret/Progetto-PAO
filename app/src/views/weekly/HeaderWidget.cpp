@@ -29,9 +29,8 @@ HeaderWidget::HeaderWidget(QWidget* parent) : QWidget(parent) {
     leadingSpacer->setFixedWidth(kWeekGutterWidth);
     layout->addWidget(leadingSpacer);
 
-    // Le etichette dei giorni si inseriscono qui (indice 1..dayCount),
-    // ricostruite ad ogni setDays; lo spaziatore finale resta sempre
-    // l'ultimo elemento del layout.
+    // Le etichette dei giorni si inseriscono prima di questo spaziatore
+    // finale, che resta sempre l'ultimo elemento del layout.
     auto* trailingSpacer = new QWidget(this);
     trailingSpacer->setFixedWidth(qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent));
     layout->addWidget(trailingSpacer);
@@ -65,8 +64,7 @@ void HeaderWidget::setDays(const QDate& viewStart, int dayCount) {
         label->setProperty("today", isToday);
         repolish(label);
 
-        // Inserita prima dello spaziatore finale (sempre ultimo elemento).
-        boxLayout->insertWidget(boxLayout->count() - 1, label, 1);
+        boxLayout->insertWidget(boxLayout->count() - 1, label, 1);  // prima dello spaziatore finale
         m_dayLabels.push_back(label);
     }
 }

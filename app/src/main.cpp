@@ -10,12 +10,9 @@
 
 namespace {
 
-/** @brief Applica la palette scura unica dell'applicazione. Lo stile Fusion
- *  (invece di quello nativo della piattaforma) e' necessario perche' la
- *  QPalette venga rispettata davvero da ogni widget: alcuni stili nativi
- *  (es. quelli legati al tema GTK/Windows del sistema) ne ignorano parti,
- *  il che produceva un'interfaccia con toni scuri e chiari mescolati a
- *  seconda del tema del sistema ospite invece di un dark mode coerente. */
+/** @brief Applica la palette scura unica. Serve lo stile Fusion (non quello
+ *  nativo) perche' alcuni stili di piattaforma (GTK/Windows) ignorano parti
+ *  della QPalette, mescolando toni chiari e scuri invece di un dark mode coerente. */
 void applyDarkPalette(QApplication& application) {
     application.setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
 

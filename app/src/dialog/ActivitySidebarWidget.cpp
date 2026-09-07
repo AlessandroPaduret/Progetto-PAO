@@ -40,7 +40,7 @@ constexpr int kTask = 2;
 constexpr int kTypeCount = 3;
 
 QLineEdit* makeTitle(QWidget* parent) {
-    // Nessun placeholder: alla creazione la box deve essere semplicemente vuota
+    // Niente placeholder: alla creazione la box deve restare semplicemente vuota
     return new QLineEdit(parent);
 }
 
@@ -51,10 +51,9 @@ QDateTimeEdit* makeDateTime(QWidget* parent) {
     return edit;
 }
 
-// Durata in minuti: un QSpinBox unico e' piu' onesto di un QTimeEdit "HH:mm"
-// (che non rappresenta correttamente durate >= 24h e lascia intendere un
-// orario, non un intervallo). Range fino a 7 giorni: copre anche le riunioni
-// o gli eventi multi-giorno inseriti a mano.
+// Durata in minuti con un QSpinBox: un QTimeEdit "HH:mm" non rappresenta
+// bene durate >= 24h e sembra un orario, non un intervallo. Range fino a
+// 7 giorni per coprire anche riunioni/eventi multi-giorno.
 QSpinBox* makeDurationSpin(QWidget* parent, int defaultMinutes = 60) {
     auto* spin = new QSpinBox(parent);
     spin->setRange(5, 7 * 24 * 60);
@@ -65,10 +64,9 @@ QSpinBox* makeDurationSpin(QWidget* parent, int defaultMinutes = 60) {
 }
 
 // L'Evento non ha campi propri (solo titolo/data/durata/ricorrenza, gia'
-// comuni): implementa comunque ActivityTypeWidget con overload vuoti, cosi'
-// makeTypedActivity()/showEditActivity() possono trattare i 3 tipi allo
-// stesso modo tramite m_typeWidgets invece di uno switch con un "default"
-// a parte. Mai aggiunto a un layout (nessun campo da mostrare).
+// comuni): implementa ActivityTypeWidget con overload vuoti cosi' i 3 tipi
+// si trattano tutti allo stesso modo tramite m_typeWidgets, senza uno switch
+// con un "default" a parte. Mai aggiunto a un layout (nessun campo da mostrare).
 class EventTypeWidget final : public ActivityTypeWidget {
 public:
     using ActivityTypeWidget::ActivityTypeWidget;
@@ -81,9 +79,8 @@ public:
     }
 };
 
-// Unico punto della classe che deve ancora chiedere "che tipo dinamico sei"
-// (dynamic_cast): serve a scegliere l'indice di m_typeWidgets/m_typeCombo
-// da cui procedere poi solo per polimorfismo (populateFrom/createActivity).
+// Unico punto della classe che chiede ancora "che tipo dinamico sei"
+// (dynamic_cast), solo per scegliere l'indice di m_typeWidgets/m_typeCombo.
 int typeIndexOf(const events::Activity* activity) {
     if (dynamic_cast<const events::Task*>(activity)) return kTask;
     if (dynamic_cast<const events::Meeting*>(activity)) return kMeeting;
@@ -92,13 +89,10 @@ int typeIndexOf(const events::Activity* activity) {
 
 } // namespace
 
-// -----------------------------------------------------------------------
-// Comportamento di Salva/Elimina per modalita' del pannello (Polimorfismo
-// al posto di un enum "Mode" + switch/if sparsi in onSave()/onDelete()):
-// una sottoclasse per Create/EditActivity/EditOccurrence, ciascuna sa da
-// sola quale metodo del controller chiamare per salvare e (se supportata)
-// per eliminare l'elemento in modifica.
-// -----------------------------------------------------------------------
+// Comportamento di Salva/Elimina per modalita' del pannello (polimorfismo al
+// posto di un enum "Mode" + switch/if in onSave()/onDelete()): una
+// sottoclasse per Create/EditActivity/EditOccurrence, ciascuna sa quale
+// metodo del controller chiamare.
 class FormSaveStrategy {
 public:
     virtual ~FormSaveStrategy() = default;
@@ -106,13 +100,12 @@ public:
     virtual bool execute(CalendarController* controller,
                          std::vector<std::unique_ptr<events::Activity>> activities) = 0;
 
-    /** @brief Elimina l'elemento in modifica; il default "non supportato"
-     *  copre la creazione, dove non c'e' ancora nulla da eliminare. */
+    /** @brief Default "non supportato": copre la creazione, dove non c'e'
+     *  ancora nulla da eliminare. */
     virtual bool remove(CalendarController* /*controller*/) { return false; }
 
-    /** @brief Oggetto del messaggio di conferma ("Eliminare l'attivita'?"/
-     *  "Eliminare questa occorrenza?"); vuoto se l'eliminazione non e'
-     *  supportata (il chiamante nasconde/disabilita il pulsante Elimina). */
+    /** @brief Vuoto se l'eliminazione non e' supportata (il chiamante
+     *  nasconde/disabilita il pulsante Elimina). */
     virtual QString deleteSubject() const { return {}; }
 };
 
@@ -176,8 +169,7 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
     m_typeCombo->addItem(tr("Riunione"));
     m_typeCombo->addItem(tr("Compito"));
 
-    // Campi comuni a tutti i tipi: un solo set di widget, non uno per tipo
-    // (Titolo/Data/Durata sono gli stessi campi che Activity possiede sempre).
+    // Campi comuni a tutti i tipi: un solo set di widget, non uno per tipo.
     m_titleEdit = makeTitle(this);
     m_startEdit = makeDateTime(this);
     m_durationEdit = makeDurationSpin(this);
@@ -287,11 +279,9 @@ void ActivitySidebarWidget::onTypeChanged(int index) {
 }
 
 void ActivitySidebarWidget::onAllDayToggled(bool on) {
-  // "Tutto il giorno": l'ora sparisce cambiando il displayFormat dello
-  // stesso QDateTimeEdit (niente widget separato da nascondere), e la riga
-  // "Durata" si nasconde con QFormLayout::setRowVisible (l'attivita' dura
-  // sempre 24h esatte). Si puo' combinare con "Si ripete": una serie che
-  // ricorre a giornate intere.
+  // L'ora sparisce cambiando il displayFormat dello stesso QDateTimeEdit
+  // (niente widget separato) e la riga Durata si nasconde (dura sempre 24h).
+  // Si puo' combinare con "Si ripete" per una serie a giornate intere.
   m_startEdit->setDisplayFormat(on ? QStringLiteral("dd/MM/yyyy")
                                     : QStringLiteral("dd/MM/yyyy HH:mm"));
   m_commonForm->setRowVisible(m_durationEdit, !on);
@@ -315,10 +305,8 @@ void ActivitySidebarWidget::showCreateType(int typeIndex,
     widget->clear();
   }
 
-  // Reset della ricorrenza. Esplicito (non solo affidato al segnale
-  // "toggled" di RecurrenceFormWidget, che non scatta se il valore precedente
-  // era gia' false): la riga Durata torna visibile e il formato torna a
-  // includere l'ora, qualunque fosse lo stato precedente.
+  // Reset esplicito (il solo segnale "toggled" non basta: non scatta se il
+  // valore precedente era gia' false).
   m_recurrence->resetToDefaults();
   m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
   m_commonForm->setRowVisible(m_durationEdit, true);
@@ -476,14 +464,12 @@ void ActivitySidebarWidget::onDelete() {
 }
 
 void ActivitySidebarWidget::onSave() {
-  // 1. Dati grezzi dal form (titolo/data/durata/ricorrenza) e dal tipo
-  //    corrente, senza alcun calcolo qui.
+  // Dati grezzi dal form, nessun calcolo qui.
   const std::string title = m_titleEdit->text().trimmed().toStdString();
   const ActivityTypeWidget* typeWidget = m_typeWidgets[m_typeCombo->currentIndex()];
 
-  // 2. ActivitySeriesBuilder fa tutto il lavoro di dominio (attivita'
-  //    singola oppure una o piu' serie ricorrenti, la ricorrenza e' comune
-  //    a Evento/Riunione/Compito): la sidebar non calcola piu' nulla.
+  // ActivitySeriesBuilder fa tutto il lavoro di dominio (singola attivita' o
+  // una/piu' serie ricorrenti): la sidebar non calcola piu' nulla.
   auto activities = ActivitySeriesBuilder(title, m_startEdit->date(), m_startEdit->time(),
                                           m_durationEdit->value())
                         .setRecurrence(readRecurrenceRule())
@@ -494,9 +480,8 @@ void ActivitySidebarWidget::onSave() {
     return;
   }
 
-  // 3. Create/EditActivity/EditOccurrence chiamano ciascuno un metodo
-  //    diverso del controller: la scelta resta delegata a m_saveStrategy
-  //    (polimorfismo, non uno switch qui).
+  // Create/EditActivity/EditOccurrence chiamano ciascuno un metodo diverso
+  // del controller, delegato a m_saveStrategy (polimorfismo, non uno switch).
   if (m_saveStrategy->execute(m_controller, std::move(activities))) {
     m_errorLabel->clear();
     emit closeRequested();

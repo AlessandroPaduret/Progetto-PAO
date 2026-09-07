@@ -21,29 +21,13 @@ class RecurrenceChoiceDialog;
 class WeekView;
 class YearView;
 
-/** @brief Finestra principale dell'applicazione: un'unica finestra con
- *  pagine navigabili (vincolo PAO: niente dialog per creazione/modifica).
- *
- *  Le viste temporali (giorno/settimana/mese/anno) condividono la barra di
- *  navigazione (Oggi / <- / ->) e vengono scelte dal tasto "Visualizza"
- *  della barra degli strumenti (tendina con Elenco/Giorno/Settimana/Mese/
- *  Anno, che si apre anche al passaggio del puntatore):
- *
- *  0. Settimana   — WeekView (scroll verticale interno alla griglia oraria)
- *  1. Elenco      — tabella con ricerca e filtro per tipo
- *  2. Giorno      — DayView (griglia a colonna singola)
- *  3. Mese        — MonthView in QScrollArea (griglia mensile con chip)
- *  4. Anno        — YearView in QScrollArea (12 mini-calendari)
- *
- *  La creazione/modifica di un'attivita' e' un pannello laterale
- *  (ActivitySidebarWidget, un QWidget, non un dialog) affiancato alle pagine
- *  tramite un QSplitter orizzontale: parte nascosto e viene mostrato/
- *  nascosto in base alle interazioni dell'utente. Non esiste una vista di
- *  sola lettura separata: aprire un'attivita' (clic su un'occorrenza) apre
- *  direttamente il suo form di modifica. La scelta serie/occorrenza
- *  (RecurrenceChoiceDialog) resta invece un QDialog modale nativo (exec()),
- *  essendo un'interruzione puntuale del flusso e non un pannello persistente.
- */
+/** @brief Finestra unica (vincolo PAO: niente dialog per creazione/modifica)
+ *  con pagine navigabili: 0 settimana, 1 elenco, 2 giorno, 3 mese, 4 anno.
+ *  Creazione/modifica e' un pannello laterale (ActivitySidebarWidget, QWidget
+ *  non dialog) affiancato via QSplitter, mostrato/nascosto a seconda
+ *  dell'interazione. La scelta serie/occorrenza (RecurrenceChoiceDialog) resta
+ *  un QDialog modale (exec()) perche' e' un'interruzione puntuale, non un
+ *  pannello persistente. */
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -66,8 +50,7 @@ private slots:
     void onNext();
     void onToday();
 
-    /** @brief Apre il form di creazione preselezionando il tipo (0=Evento,
-     *  1=Riunione, 2=Compito), dal menu "Nuova attivita'". */
+    /** @brief Tipo preselezionato: 0=Evento, 1=Riunione, 2=Compito. */
     void openNewActivityType(int typeIndex);
 
     void onSave();
@@ -77,27 +60,21 @@ private slots:
 
     void confirmDeleteOccurrence(const events::Occurrence& occurrence);
 
-    /** @brief Chiede (RecurrenceChoiceDialog::ask, modale e sincrona) se
-     *  modificare l'intera serie, dividerla da questo momento in poi o solo
-     *  questa occorrenza, e applica la scelta. */
+    /** @brief Chiede (RecurrenceChoiceDialog::ask, modale) se modificare
+     *  l'intera serie, dividerla da qui in poi o solo questa occorrenza. */
     void askSeriesOrInstance(const events::Occurrence& occurrence);
     /** @brief Come askSeriesOrInstance, per un trascinamento verso newStart. */
     void askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
                                  const QDateTime& newStart);
 
-    /** @brief Voce del menu "Visualizza" scelta dall'utente: passa alla
-     *  pagina corrispondente. */
     void onViewSelected(AppMenuBar::ViewKind kind);
 
 private:
     enum class ViewKind { Day, Week, Month, Year };
 
-    /** @brief Imposta il riferimento temporale (normalizzato per la vista
-     *  corrente: lunedi' per la settimana, 1 del mese, 1 gennaio) e
-     *  aggiorna le viste. */
+    /** @brief Normalizza per la vista corrente (lunedi' per la settimana, 1 del mese, 1 gennaio). */
     void setAnchor(const QDate& anchor);
 
-    /** @brief Lunedi' della settimana che contiene la data indicata. */
     static QDate mondayOf(const QDate& date);
 
     CalendarController* m_controller;

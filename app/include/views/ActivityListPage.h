@@ -14,32 +14,20 @@ namespace app {
 
 class CalendarController;
 
-/** @brief Pagina "elenco attivita'": tabella con ricerca live per titolo e
- *  filtro per tipo.
- *
- *  Ogni riga e' un'attivita'; il tipo e la riga descrittiva sono calcolati
- *  con un Visitor (nessuna stringa "getType" nel modello). La prima colonna
- *  e' un pallino del colore dell'attivita' (come nelle griglie del
- *  calendario); le righe alternate e il fondo bianco rendono la vista
- *  chiara e leggibile.
- *
- *  Ordinamento: clic sull'intestazione di una colonna riordina le righe;
- *  sulla colonna "Titolo" l'ordinamento e' per titolo con "Tipo" come chiave
- *  secondaria (e viceversa su "Tipo"). Default: per data di inizio.
- */
+/** @brief Pagina "elenco attivita'": tabella con ricerca live + filtro per
+ *  tipo. Tipo e riga descrittiva sono calcolati con un Visitor (niente
+ *  "getType" nel modello). Ordinamento: clic sull'intestazione, "Titolo" usa
+ *  "Tipo" come chiave secondaria (e viceversa); default per data di inizio. */
 class ActivityListPage : public QWidget {
     Q_OBJECT
 public:
     explicit ActivityListPage(CalendarController* controller, QWidget* parent = nullptr);
 
-    /** @brief Ricarica la tabella dal calendario (inclusa la ricerca corrente
-     *  e il filtro per tipo, mantenendo ordinamento e indicatore). */
+    /** @brief Ricarica dal calendario, mantenendo ricerca/filtro/ordinamento correnti. */
     void refresh();
 
 signals:
-    /** @brief Doppio clic su una riga (o pulsante Info): apri il dettaglio. */
     void detailRequested(const events::Activity* activity);
-    /** @brief Pulsante Modifica: apri il form per l'attivita'. */
     void editRequested(const events::Activity* activity);
 
 private slots:
@@ -53,8 +41,8 @@ private slots:
 private:
     void reloadTable();
 
-    /** @brief Confronto con chiave primaria = colonna correntemente ordinata,
-     *  secondaria = tipo/titolo complementare; per ultimo l'inizio (stabile). */
+    /** @brief Chiave primaria = colonna ordinata, secondaria = tipo/titolo
+     *  complementare, per ultimo l'inizio (stabile). */
     bool lessThan(const events::Activity* a, const events::Activity* b) const;
 
     CalendarController* m_controller;
@@ -65,12 +53,10 @@ private:
     QPushButton* m_detailButton;
     QPushButton* m_editButton;
 
-    /** @brief Colonna ordinata (-1 = default, per data di inizio). */
-    int m_sortColumn = -1;
+    int m_sortColumn = -1;  // -1 = default, per data di inizio
     Qt::SortOrder m_sortOrder = Qt::AscendingOrder;
 
-    /** @brief Attivita' correntemente elencate (riga -> puntatore). */
-    QVector<const events::Activity*> m_rows;
+    QVector<const events::Activity*> m_rows;  // riga -> puntatore
 };
 
 } // namespace app

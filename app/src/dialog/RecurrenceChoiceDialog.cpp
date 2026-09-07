@@ -13,9 +13,8 @@ RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
 
     m_messageLabel = new QLabel(this);
     m_messageLabel->setWordWrap(true);
-    // Il testo va a capo su piu' righe (setWordWrap), ma senza un minimo di
-    // larghezza il sizeHint del QLabel si accontenta di una sola parola per
-    // riga: la finestra risulterebbe innaturalmente stretta e altissima.
+    // Senza un minimo di larghezza il sizeHint di un QLabel con wordWrap si
+    // accontenta di una parola per riga: la finestra verrebbe stretta e altissima.
     m_messageLabel->setMinimumWidth(420);
 
     auto* seriesButton = new QPushButton(tr("Modifica tutta la serie"), this);
@@ -36,16 +35,16 @@ RecurrenceChoiceDialog::RecurrenceChoiceDialog(QWidget* parent)
     layout->addWidget(instanceButton);
     layout->addWidget(buttonBox);
 
-    // Ogni pulsante chiude direttamente il dialog con l'esito corrispondente:
-    // niente accept()+segnale, il chiamante legge il risultato da exec()/ask().
+    // Ogni pulsante chiude il dialog con l'esito corrispondente (done()),
+    // niente accept()+segnale: il chiamante legge il risultato da exec()/ask().
     connect(seriesButton, &QPushButton::clicked, this,
             [this] { done(static_cast<int>(Choice::EntireSeries)); });
     connect(splitButton, &QPushButton::clicked, this,
             [this] { done(static_cast<int>(Choice::FromHereOn)); });
     connect(instanceButton, &QPushButton::clicked, this,
             [this] { done(static_cast<int>(Choice::SingleInstance)); });
-    // QDialog::reject() (Annulla o Esc) porta il risultato a Rejected == 0,
-    // lo stesso valore di Choice::Cancel: nessuna mappatura da fare.
+    // reject() (Annulla/Esc) porta il risultato a Rejected == 0, gia' uguale
+    // a Choice::Cancel: nessuna mappatura da fare.
     static_assert(static_cast<int>(RecurrenceChoiceDialog::Choice::Cancel) ==
                   static_cast<int>(QDialog::Rejected));
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);

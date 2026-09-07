@@ -57,8 +57,7 @@ std::vector<QRect> layoutDayColumn(const std::vector<TimeSlot>& timeSlots, int c
             ++j;
         }
 
-        // Coloring greedy del cluster: ogni slot va nella prima colonna gia'
-        // libera (il cui ultimo slot finisce prima del suo inizio).
+        // greedy: ogni slot va nella prima colonna gia' libera a quel punto
         std::vector<int> column;
         std::vector<int> columnEnd;
         for (int t = k; t < j; ++t) {

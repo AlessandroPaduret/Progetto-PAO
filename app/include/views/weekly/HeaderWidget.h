@@ -10,10 +10,10 @@ class QLabel;
 namespace app {
 
 /** @brief Intestazione dei giorni sopra la griglia: un QLabel per giorno
- *  ("Lun 12", oggi in blu/grassetto via proprieta' dinamica + QSS),
- *  allineata alle colonne sottostanti da uno spaziatore iniziale largo
- *  quanto TimeGutterWidget e uno finale largo quanto la scrollbar verticale
- *  della griglia oraria (sempre visibile, vedi WeekView). */
+ *  ("Lun 12", oggi in grassetto via proprieta' dinamica + QSS), allineata
+ *  alle colonne sotto da uno spaziatore iniziale largo quanto
+ *  TimeGutterWidget e uno finale largo quanto la scrollbar verticale
+ *  (sempre visibile, vedi WeekView). */
 class HeaderWidget : public QWidget {
     Q_OBJECT
 public:

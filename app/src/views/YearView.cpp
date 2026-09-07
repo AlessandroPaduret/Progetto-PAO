@@ -28,9 +28,8 @@ YearView::YearView(QWidget* parent) : QWidget(parent) {
         calendar->setHorizontalHeaderFormat(QCalendarWidget::SingleLetterDayNames);
         calendar->setGridVisible(false);
 
-        // I pannelli sono fissi (un mese ciascuno): se l'utente naviga da un
-        // giorno "fuori mese" ai margini della griglia, il pannello torna
-        // subito al proprio mese assegnato.
+        // ogni pannello e' fisso su un mese: se l'utente naviga verso un mese
+        // adiacente (giorni fuori mese ai margini), torna subito al proprio
         connect(calendar, &QCalendarWidget::currentPageChanged, this,
                 [calendar](int newYear, int newMonth) {
                     const int fixedYear = calendar->property("fixedYear").toInt();
@@ -69,8 +68,7 @@ void YearView::setYear(const QDate& januaryFirst) {
 }
 
 void YearView::setOccurrences(const std::vector<events::Occurrence>& occurrences) {
-    // Riazzera l'evidenziazione di tutti i giorni dell'anno mostrato prima
-    // di riapplicarla in base alle nuove occorrenze.
+    // riazzera l'evidenziazione prima di riapplicarla
     for (int i = 0; i < kCols * kRows; ++i) {
         const int month = i + 1;
         const QDate first(m_year.year(), month, 1);
@@ -79,9 +77,8 @@ void YearView::setOccurrences(const std::vector<events::Occurrence>& occurrences
         }
     }
 
-    // Un solo colore per giorno (il widget nativo non supporta piu' pallini
-    // per cella): quello della prima attivita' non evasa, altrimenti grigio
-    // se ci sono solo Compiti evasi.
+    // un solo colore per giorno (il widget nativo non supporta piu' pallini
+    // per cella): quello della prima attivita' non evasa, grigio se solo Compiti evasi
     std::vector<std::optional<QColor>> colorByDay(367);  // 1-indicizzato sul "giorno dell'anno"
     for (const events::Occurrence& occ : occurrences) {
         const QDate date = localTime(occ.start).date();

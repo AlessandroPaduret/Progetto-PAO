@@ -18,28 +18,25 @@ class QLabel;
 namespace app {
 
 /** @brief Una colonna-giorno della griglia oraria: possiede le proprie
- *  occorrenze (posizionate assolutamente al proprio interno, coordinate
- *  locali = minuti dalla mezzanotte tramite WeekGridLayout::layoutDayColumn),
- *  il proprio drag&drop (sorgente E destinazione), il clic su cella vuota
- *  (crea), il doppio clic su un'occorrenza (modifica) e l'anteprima live.
+ *  occorrenze (coordinate locali = minuti dalla mezzanotte, via
+ *  WeekGridLayout::layoutDayColumn), il proprio drag&drop (sorgente E
+ *  destinazione), click/doppio click e l'anteprima live.
  *
- *  Larghezza elastica (stretch nel QHBoxLayout del genitore), altezza fissa
- *  24*kWeekHourHeight: scorre dentro la QScrollArea di WeekView, non scala
- *  piu' con la finestra. */
+ *  Larghezza elastica, altezza fissa 24*kWeekHourHeight: scorre dentro la
+ *  QScrollArea di WeekView invece di scalare con la finestra. */
 class DayColumnWidget : public QWidget {
     Q_OBJECT
 public:
     explicit DayColumnWidget(QWidget* parent = nullptr);
 
-    /** @brief Giorno rappresentato da questa colonna. */
     void setDate(const QDate& date);
 
-    /** @brief Occorrenze di QUESTO giorno, gia' filtrate escludendo quelle
-     *  "tutto il giorno" (mostrate da AllDayAreaWidget, non qui). */
+    /** @brief Occorrenze di QUESTO giorno; quelle "tutto il giorno" sono gia'
+     *  escluse (le mostra AllDayAreaWidget). */
     void setOccurrences(const std::vector<events::Occurrence>& dayOccurrences);
 
-    /** @brief Anteprima dell'evento in fase di creazione/modifica: mostrata
-     *  solo se la sua data coincide col giorno di questa colonna. */
+    /** @brief Mostrata solo se la data dell'anteprima coincide col giorno di
+     *  questa colonna. */
     void setPreview(const std::optional<WeekView::Preview>& preview);
 
 signals:
@@ -54,8 +51,7 @@ signals:
                                        const QDateTime& newStart);
     void doneToggled(const events::Occurrence& occurrence);
     void chipPressed(OccurrenceWidget* chip, const events::Occurrence& occurrence);
-    /** @brief Clic sinistro su un'area vuota della colonna: azzera la
-     *  selezione corrente. */
+    /** @brief Clic su area vuota: azzera la selezione corrente. */
     void backgroundClicked();
 
 protected:
@@ -69,14 +65,13 @@ protected:
     void dropEvent(QDropEvent* event) override;
 
 private:
-    /** @brief Data/ora locale (giorno di questa colonna) dalla coordinata Y. */
+    /** @brief Data/ora locale dalla coordinata Y. */
     QDateTime timeAt(int y) const;
-    /** @brief Rettangolo occupato da un'occorrenza ipotetica che iniziasse a
-     *  `localStart` con la durata indicata (per anteprima e drop indicator). */
+    /** @brief Rettangolo di un'occorrenza ipotetica che iniziasse a
+     *  `localStart` con quella durata (per anteprima e drop indicator). */
     QRect slotRect(const QDateTime& localStart, events::Duration duration) const;
-    /** @brief Riapplica il layout (WeekGridLayout::layoutDayColumn + anteprima)
-     *  ai widget correnti: chiamata da setOccurrences e ad ogni resize
-     *  (la larghezza e' elastica). */
+    /** @brief Riapplica il layout ai widget correnti: chiamata da
+     *  setOccurrences e ad ogni resize (la larghezza e' elastica). */
     void relayout();
 
     QDate m_date;

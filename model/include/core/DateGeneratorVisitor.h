@@ -8,10 +8,9 @@ class YearlyGenerator;
 class SingleGenerator;
 
 /**
- * @brief Visitor per la gerarchia dei generatori di date (Strategy).
+ * @brief Visitor per la gerarchia dei generatori (Strategy).
  *
- * Permette di serializzare la regola di ricorrenza (es. in JSON) senza
- * introdurre metodi "getType" nella gerarchia DateGenerator.
+ * Serializza la regola di ricorrenza (es. in JSON) senza metodi "getType".
  */
 class DateGeneratorVisitor {
 public:

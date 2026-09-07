@@ -27,7 +27,6 @@ TimePoint tp(const QDateTime& t) {
     return TimePoint(std::chrono::seconds(t.toSecsSinceEpoch()));
 }
 
-// Trova l'occorrenza con l'inizio indicato
 const Occurrence* findByStart(const std::vector<Occurrence>& occurrences,
                               const TimePoint& start) {
     const auto it = std::find_if(occurrences.begin(), occurrences.end(),
@@ -43,8 +42,7 @@ class TestController : public QObject {
     Q_OBJECT
 
 private slots:
-    // Un CalendarController nuovo prima di ogni test: replica la semantica
-    // "fixture fresca per sezione" di Catch2 senza condividere stato tra slot.
+    // fixture fresca prima di ogni test, come le SECTION di Catch2
     void init();
 
     void testCrudAddSearchRemove();
@@ -120,7 +118,6 @@ void TestController::testAddActivitiesBatch() {
     QCOMPARE(m_controller->calendar().size(), static_cast<std::size_t>(3));
     QCOMPARE(m_controller->search("").size(), static_cast<std::size_t>(3));
 
-    // Lista vuota rifiutata
     QVERIFY(!m_controller->addActivities({}));
 }
 
@@ -270,8 +267,7 @@ void TestController::testMoveRecurrentActivityKeepsSeriesIntactAndEnd() {
     QVERIFY(second != nullptr);
     m_controller->deleteOccurrence(*second); // EXDATE sul 12/1 (evento staccato)
 
-    // Sposta la serie di una settimana AVANTI (fine originale 16/2 supera
-    // ancora il nuovo inizio 12/1): la scadenza resta quella, non slitta.
+    // sposta la serie una settimana avanti; la scadenza (16/2) resta quella, non slitta
     const events::Activity* activity = m_controller->search("Riunione")[0];
     QVERIFY(m_controller->moveActivity(activity, utc(2026, 1, 12, 9)));
 
@@ -415,7 +411,7 @@ void TestController::testAllDayFixVerification() {
     QDate monday(2026, 8, 31);
     QCOMPARE(monday.dayOfWeek(), 1);
 
-    // Simula il percorso di creazione CORRETTO: inizio a mezzanotte UTC.
+    // simula il percorso di creazione corretto: inizio a mezzanotte UTC
     auto toTP = [](const QDateTime& d) {
         return TimePoint(std::chrono::seconds(d.toSecsSinceEpoch()));
     };
@@ -440,18 +436,15 @@ void TestController::testAllDayFixVerification() {
     const auto occs = m_controller->occurrencesIn(weekFrom, weekTo);
     QCOMPARE(occs.size(), static_cast<std::size_t>(1));
 
-    // Display: per un evento "tutto il giorno" l'ora mostrata deve essere
-    // 00:00 (salvato a mezzanotte UTC), non l'ora locale spostata (02:00).
+    // per un all-day l'ora mostrata deve essere 00:00, non l'ora locale spostata (02:00)
     const QDateTime shownStart =
         app::activityDisplayTime(occs[0].source, occs[0].start);
     QCOMPARE(shownStart.toString(QStringLiteral("HH:mm")), QStringLiteral("00:00"));
     QCOMPARE(shownStart.date(), monday);
 
-    // L'evento salvato a mezzanotte UTC deve essere riconosciuto come
-    // "tutto il giorno" (2 mezzenotti consecutive nel suo intervallo).
     QVERIFY(app::coversFullDay(occs[0]));
-    // Strip placement: il giorno (locale) in cui parte l'occorrenza deve
-    // essere il lunedi' stesso (firstDay = 0), non la domenica precedente.
+    // il giorno (locale) in cui parte l'occorrenza deve essere il lunedi'
+    // stesso (firstDay = 0), non la domenica precedente
     QCOMPARE(monday.daysTo(toLocalDate(occs[0].start)), 0);
 }
 

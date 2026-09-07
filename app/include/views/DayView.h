@@ -4,10 +4,8 @@
 
 namespace app {
 
-/** @brief Vista "giorno": la stessa griglia della settimana ma con una sola
- *  colonna (WeekView con dayCount = 1), quindi con le ore molto piu' ampie.
- *  Eredita interazione, drag&drop e anteprima live dalla WeekView.
- */
+/** @brief Vista "giorno" = WeekView con una sola colonna (dayCount = 1);
+ *  eredita interazione, drag&drop e anteprima live. */
 class DayView : public WeekView {
 public:
     explicit DayView(QWidget* parent = nullptr);

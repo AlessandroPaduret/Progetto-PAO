@@ -82,7 +82,6 @@ std::vector<Occurrence> Calendar::occurrencesIn(TimePoint from, TimePoint to) co
         result.insert_range(result.end(), occs | std::views::as_rvalue);
     }
 
-    // Ordinamento C++20 con std::ranges::sort e proiezione su Occurrence::start
     std::ranges::sort(result, {}, &Occurrence::start);
 
     return result;

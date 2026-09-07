@@ -67,16 +67,14 @@ bool CalendarController::updateActivity(
     return false;
   }
 
-  // Le eccezioni vanno copiate PRIMA di rimuovere (che distrugge l'oggetto):
-  // le eccezioni si gestiscono solo dalla vista settimanale.
+  // copiate PRIMA di rimuovere, che distrugge l'oggetto
   const auto exceptions = oldActivity->getExceptions();
 
   if (!m_calendar.remove(oldActivity)) {
     return false;
   }
 
-  // Le eccezioni sono accettate solo se la data e' generabile dal nuovo
-  // generatore (Activity::addException valida via isIn).
+  // accettate solo se la data e' generabile dal nuovo generatore (addException valida via isIn)
   for (const auto& exception : exceptions) {
     replacement->addException(exception);
   }
@@ -101,15 +99,15 @@ bool CalendarController::moveActivity(const events::Activity* activity,
                                       const QDateTime& newStart) {
 
   if (!activity || !newStart.isValid()) {
-    return false; // Parametri invalidi
+    return false;
   }
 
   events::Activity* foundActivity = m_calendar.find(activity);
 
   if (!foundActivity) {
-    return false; // L'attività non è presente nel calendario
+    return false;
   }
-  
+
   foundActivity->setStart(toTimePoint(newStart));
   foundActivity->clearExceptions();
 
@@ -125,25 +123,22 @@ bool CalendarController::splitRecurrence(const events::Occurrence& occurrence,
 
   events::Activity* foundActivity = m_calendar.find(occurrence.source);
   if (!foundActivity) {
-    return false; // L'attività non è presente nel calendario
+    return false;
   }
 
   const events::TimePoint target = toTimePoint(newStart);
   const events::TimePoint originalEnd = foundActivity->getEnd();
 
-  // 2. Clona l'attività originale per creare la nuova serie (restituisce std::unique_ptr)
+  // clona la serie originale: quella vecchia si tronca qui, la nuova riparte da target
   auto newActivity = foundActivity->clone();
 
-  // 3. Modifica la prima serie direttamente in-place
   foundActivity->setEnd(occurrence.start);
   foundActivity->addException(occurrence.start);
   cleanupActivity(foundActivity);
 
-  // 4. Configura la nuova serie clonata
   newActivity->setStart(target);
   newActivity->setEnd(originalEnd);
 
-  // 5. Inserisce la seconda serie nel calendario (trasferendone l'ownership)
   m_calendar.add(std::move(newActivity));
 
   emit activitiesChanged();
@@ -154,11 +149,11 @@ bool CalendarController::deleteOccurrence(const events::Occurrence& occurrence,
                                           bool andFollowing) {
   events::Activity* foundActivity = m_calendar.find(occurrence.source);
   if (!foundActivity) {
-    return false; // L'attività non è presente nel calendario
+    return false;
   }
 
   if ( andFollowing ) foundActivity->setEnd(occurrence.start);
-  
+
   foundActivity->addException(occurrence.start);
 
   cleanupActivity(foundActivity);
@@ -175,11 +170,11 @@ bool CalendarController::modifyOccurrence(
   }
 
   events::Activity* foundActivity = m_calendar.find(occurrence.source);
-  
-  if (!foundActivity) return false; // L'attività non è presente nel calendario
-  
 
-  foundActivity->addException(occurrence.start);  // Togli l'occorrenza dall'attività
+  if (!foundActivity) return false;
+
+
+  foundActivity->addException(occurrence.start);
 
   cleanupActivity(foundActivity);
   
@@ -192,15 +187,12 @@ bool CalendarController::toggleDone(const events::Occurrence& occurrence) {
 
   events::Activity* foundActivity = m_calendar.find(occurrence.source);
   if (!foundActivity) {
-    return false; // L'attività non è presente nel calendario
+    return false;
   }
 
   if (auto* task = dynamic_cast<events::Task*>(foundActivity)) {
-    // Per-occorrenza (Task::m_doneOccurrences): un Compito ricorrente ha uno
-    // stato evaso indipendente per ciascuna occorrenza, non uno stato unico
-    // per l'intera serie. setDone()/isDone() senza argomenti (occorrenza
-    // iniziale, getStart()) spuntavano sempre e solo la prima occorrenza,
-    // qualunque fosse quella su cui l'utente aveva effettivamente cliccato.
+    // per-occorrenza: un Compito ricorrente evade indipendentemente per ciascuna
+    // occorrenza, non con un unico stato per l'intera serie
     task->setDone(occurrence.start, !task->isDone(occurrence.start));
     emit activitiesChanged();
     return true;

@@ -19,8 +19,7 @@ namespace app {
 
 namespace {
 
-// Nomi brevi dei giorni della settimana: indice 0 = Lunedi', coerente con
-// l'id 1..7 assegnato ai pulsanti di m_dayGroup (QDate::dayOfWeek()).
+// Indice 0 = Lunedi', coerente con l'id 1..7 dei pulsanti di m_dayGroup (QDate::dayOfWeek()).
 constexpr std::array<const char*, 7> kDayLabels = {
     "Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"};
 
@@ -42,7 +41,6 @@ RecurrenceFormWidget::RecurrenceFormWidget(QWidget* parent) : QWidget(parent) {
     checksRow->addWidget(m_repeatCheck);
     checksRow->addStretch(1);
 
-    // --- Sotto-pannello di ricorrenza (visibile se "Si ripete") ------------
     m_repeatBox = new QWidget(this);
     m_repeatBox->setVisible(false);
 
@@ -57,10 +55,9 @@ RecurrenceFormWidget::RecurrenceFormWidget(QWidget* parent) : QWidget(parent) {
     m_everySpin->setValue(1);
     m_everySpin->setSuffix(tr(" giorni"));
 
-    // Giorni della settimana: QButtonGroup NON esclusivo (piu' giorni
-    // selezionabili insieme), id del pulsante = giorno Qt (1=Lun..7=Dom,
-    // QDate::dayOfWeek()): elimina la necessita' di scandire a mano una
-    // lista di pulsanti per sapere "quale" giorno rappresentano.
+    // QButtonGroup NON esclusivo (piu' giorni selezionabili insieme), id del
+    // pulsante = giorno Qt (1=Lun..7=Dom): niente scansione a mano per sapere
+    // quale giorno rappresenta un pulsante.
     m_dayRow = new QWidget(m_repeatBox);
     auto* dayLayout = new QHBoxLayout(m_dayRow);
     dayLayout->setContentsMargins(0, 0, 0, 0);
@@ -74,9 +71,8 @@ RecurrenceFormWidget::RecurrenceFormWidget(QWidget* parent) : QWidget(parent) {
         m_dayGroup->addButton(button, i + 1);
     }
 
-    // Fine della ricorrenza: mai / fino a / dopo N occorrenze. Ogni radio
-    // fa da "etichetta" della propria riga (QFormLayout::addRow accetta
-    // qualunque QWidget come label, non solo QLabel).
+    // Ogni radio fa da "etichetta" della propria riga: QFormLayout::addRow
+    // accetta qualunque QWidget come label, non solo QLabel.
     auto* endGroup = new QGroupBox(tr("Fine"), m_repeatBox);
     m_endNever = new QRadioButton(tr("Mai"), endGroup);
     m_endDateRadio = new QRadioButton(tr("Fino al"), endGroup);

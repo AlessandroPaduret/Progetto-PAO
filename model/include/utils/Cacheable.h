@@ -21,7 +21,7 @@ protected:
     [[nodiscard]] virtual bool isEqualImpl(const Cacheable& other) const = 0;
 };
 
-// Functor trasparenti pronti all'uso per std::unordered_map / std::unordered_set
+// functor per std::unordered_map/set di shared_ptr<const Cacheable> (dedup futura via pool)
 struct CacheableHash {
     std::size_t operator()(const std::shared_ptr<const Cacheable>& ptr) const {
         return ptr ? ptr->hash() : 0;

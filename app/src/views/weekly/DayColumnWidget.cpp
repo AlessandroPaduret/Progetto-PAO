@@ -35,8 +35,7 @@ DayColumnWidget::DayColumnWidget(QWidget* parent) : QWidget(parent) {
     m_previewLabel->setAttribute(Qt::WA_StyledBackground, true);
     m_previewLabel->hide();
 
-    // QRubberBand: evidenzia la cella di destinazione durante il drag&drop
-    // nativo (si disegna da solo, niente QPainter manuale sull'overlay).
+    // Evidenzia la cella di destinazione durante il drag&drop (si disegna da solo).
     m_dropIndicator = new QRubberBand(QRubberBand::Rectangle, this);
 }
 
@@ -68,12 +67,11 @@ QRect DayColumnWidget::slotRect(const QDateTime& localStart, const events::Durat
 }
 
 void DayColumnWidget::setOccurrences(const std::vector<events::Occurrence>& dayOccurrences) {
-    // deleteLater(), non delete: setOccurrences puo' essere chiamata
-    // ricorsivamente MENTRE un'occorrenza sta gestendo il proprio drag&drop
-    // (activityMoved -> CalendarController -> activitiesChanged -> refresh()
-    // -> setOccurrences), cioe' mentre QDrag::exec() e' ancora sullo stack
-    // dentro il widget che stiamo per distruggere. Cancellarlo subito
-    // libererebbe (come figlio) anche il QDrag ancora in esecuzione: crash.
+    // deleteLater(), non delete: setOccurrences puo' essere richiamata
+    // MENTRE un'occorrenza sta gestendo il proprio drag&drop (activityMoved
+    // -> refresh() -> setOccurrences di nuovo), cioe' con QDrag::exec()
+    // ancora sullo stack dentro il widget che stiamo per distruggere.
+    // Un delete immediato libererebbe anche quel QDrag: crash.
     for (OccurrenceWidget* w : m_widgets) {
         w->hide();
         w->deleteLater();
@@ -83,9 +81,8 @@ void DayColumnWidget::setOccurrences(const std::vector<events::Occurrence>& dayO
     m_widgets.reserve(m_occurrences.size());
 
     for (const events::Occurrence& occ : m_occurrences) {
-        // Le occorrenze "tutto il giorno" non arrivano mai qui (restano in
-        // AllDayAreaWidget): tutto cio' che possiede una DayColumnWidget e'
-        // per costruzione trascinabile.
+        // Le "tutto il giorno" non arrivano mai qui (restano in
+        // AllDayAreaWidget), quindi tutto qui e' sempre trascinabile.
         auto* w = new OccurrenceWidget(occ, OccurrenceWidget::Style::Block,
                                        isRecurrent(occ.source), /*draggable=*/true, this);
 
@@ -99,8 +96,7 @@ void DayColumnWidget::setOccurrences(const std::vector<events::Occurrence>& dayO
         connect(w, &OccurrenceWidget::deleteRequested, this, &DayColumnWidget::deleteEventRequested);
         connect(w, &OccurrenceWidget::doubleClicked, this,
                 [this](const events::Occurrence& occurrence) {
-                    // Doppio clic su un'occorrenza successiva alla prima
-                    // della serie: e' ambiguo, chiede serie o istanza.
+                    // Occorrenza successiva alla prima: ambiguo, chiede serie o istanza.
                     if (isRecurrent(occurrence.source) &&
                         occurrence.start > occurrence.source->getStart()) {
                         emit occurrenceEditChoiceRequested(occurrence);
@@ -121,11 +117,10 @@ void DayColumnWidget::setPreview(const std::optional<WeekView::Preview>& preview
 }
 
 void DayColumnWidget::relayout() {
-    // WeekGridLayout non conosce QDateTime/Occurrence: per ogni occorrenza
-    // ricava qui il TimeSlot [startMinutes, endMinutes) gia' ritagliato
-    // sull'intervallo visibile in m_date (inizio a 0 se iniziata il giorno
-    // prima, fine a 1440 se finisce il giorno dopo; almeno 1 minuto anche a
-    // durata zero, per non sparire dal coloring).
+    // WeekGridLayout non conosce QDateTime/Occurrence: ricava qui il
+    // TimeSlot [startMinutes, endMinutes) gia' ritagliato sull'intervallo
+    // visibile in m_date (0 se iniziata ieri, 1440 se finisce domani; almeno
+    // 1 minuto anche a durata zero, per non sparire dal coloring).
     std::vector<TimeSlot> timeSlots;
     timeSlots.reserve(m_occurrences.size());
     const QDateTime dayStart(m_date, QTime(0, 0));
@@ -178,9 +173,7 @@ void DayColumnWidget::paintEvent(QPaintEvent*) {
 }
 
 void DayColumnWidget::mousePressEvent(QMouseEvent* event) {
-    // Le occorrenze sono widget figli: se il clic arriva qui e' su una
-    // cella vuota (Qt ha gia' fatto l'hit-test consegnando l'evento al
-    // figlio quando serviva).
+    // Le occorrenze sono widget figli: se il clic arriva qui e' su cella vuota.
     if (event->button() == Qt::RightButton) {
         QMenu menu(this);
         QAction* createAction = menu.addAction(tr("Nuova attivita'..."));
@@ -237,8 +230,7 @@ void DayColumnWidget::dropEvent(QDropEvent* event) {
     event->acceptProposedAction();
     const QDateTime newStart = timeAt(event->position().toPoint().y());
     const events::Occurrence occurrence = source->occurrence();
-    // Se trascino un'occorrenza successiva alla prima della serie, chiede se
-    // spostare la serie o la singola occorrenza.
+    // Occorrenza successiva alla prima: ambiguo, chiede serie o istanza.
     if (isRecurrent(occurrence.source) && occurrence.start > occurrence.source->getStart()) {
         emit occurrenceDragChoiceRequested(occurrence, newStart);
     } else {

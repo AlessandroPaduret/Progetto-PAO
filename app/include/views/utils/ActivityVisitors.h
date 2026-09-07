@@ -7,9 +7,8 @@
 
 namespace app {
 
-/** @brief Visitor di sola visualizzazione: etichetta del tipo dinamico
- *  dell'attivita' (Evento/Ricorrente/Riunione/Compito). Il tipo e' il
- *  dispatch dinamico (Activity/Task/Meeting); la ricorrenza si deduce dal
+/** @brief Etichetta del tipo (Evento/Ricorrente/Riunione/Compito): il tipo e'
+ *  il dispatch dinamico (Activity/Task/Meeting), la ricorrenza si deduce dal
  *  generatore, non dal tipo. Usato da ActivityViewHelpers::typeLabel. */
 class TypeLabelVisitor : public events::ActivityVisitor {
 public:
@@ -20,9 +19,9 @@ public:
     void visit(const events::Meeting& meeting) override;
 };
 
-/** @brief Visitor di sola visualizzazione: traduce un DateGenerator in una
- *  frase leggibile ("7 giorno/i", "anno", "una volta", ...). Usato sia da
- *  ActivityViewHelpers::recurrenceRuleLabel sia da ActivitySummaryVisitor. */
+/** @brief Traduce un DateGenerator in una frase leggibile ("7 giorno/i",
+ *  "anno", "una volta", ...). Usato da ActivityViewHelpers::recurrenceRuleLabel
+ *  e ActivitySummaryVisitor. */
 class RecurrenceRuleVisitor : public events::DateGeneratorVisitor {
 public:
     QString rule;
@@ -33,10 +32,7 @@ public:
     void visit(const events::SingleGenerator& generator) override;
 };
 
-/** @brief Visitor di sola visualizzazione: riga descrittiva sintetica
- *  (data/ora + regola di ricorrenza o stato) per tipo, usata nell'elenco
- *  delle attivita' (ActivityListPage). Usato da
- *  ActivityViewHelpers::summaryLabel. */
+/** @brief Riga sintetica (data/ora + regola o stato) per tipo, usata in ActivityListPage. */
 class ActivitySummaryVisitor : public events::ActivityVisitor {
 public:
     QString summary;

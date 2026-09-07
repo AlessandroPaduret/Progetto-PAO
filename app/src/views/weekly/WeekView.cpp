@@ -43,11 +43,10 @@ WeekView::WeekView(QWidget* parent) : QWidget(parent) {
     gridLayout->setSpacing(0);
     gridLayout->addWidget(m_gutter);
 
-    // Solo verticale: l'orizzontale non deve mai scorrere (le colonne sono
-    // elastiche). La scrollbar verticale resta SEMPRE visibile (invece di
-    // apparire/sparire in base al contenuto) cosi' la larghezza che sottrae
-    // alle colonne e' costante e HeaderWidget/AllDayAreaWidget possono
-    // riservare lo stesso spazio fisso sul bordo destro per restare allineati.
+    // Solo verticale (le colonne sono elastiche in orizzontale). La
+    // scrollbar verticale resta SEMPRE visibile cosi' lo spazio che sottrae
+    // alle colonne e' costante, e HeaderWidget/AllDayAreaWidget possono
+    // riservare lo stesso margine fisso a destra per restare allineati.
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidget(m_gridContent);
     m_scrollArea->setWidgetResizable(true);
@@ -121,16 +120,12 @@ void WeekView::rebuildColumns() {
 }
 
 void WeekView::setWeekStart(const QDate& monday) {
-    // NON richiama distributeOccurrences(): lo farebbe con m_occurrences
-    // ancora VECCHIE (quelle dell'ultima setOccurrences), che a questo punto
-    // possono gia' riferirsi a un'Activity appena distrutta se la chiamata
-    // arriva da un refresh() innescato da una modifica/eliminazione
-    // (updateActivity/removeActivity distruggono la vecchia Activity PRIMA
-    // di emettere activitiesChanged). Ricostruire subito i widget delle
-    // occorrenze da quel puntatore ormai pendente fa leggere un
-    // DateGenerator gia' liberato -> crash. L'unico chiamante
-    // (MainWindow::refresh()) invoca sempre setOccurrences(...) con dati
-    // freschi subito dopo: la ridistribuzione avviene la', non qui.
+    // NON richiama distributeOccurrences(): userebbe m_occurrences ancora
+    // VECCHIE, che possono gia' puntare a un'Activity appena distrutta se la
+    // chiamata arriva da un refresh() dopo update/removeActivity (distruggono
+    // l'Activity PRIMA di emettere activitiesChanged) -> crash (DateGenerator
+    // gia' liberato). L'unico chiamante (MainWindow::refresh()) invoca sempre
+    // setOccurrences() con dati freschi subito dopo: la ridistribuzione avviene la'.
     m_monday = monday;
     m_header->setDays(m_monday, m_dayCount);
     m_allDayArea->setDays(m_monday, m_dayCount);
@@ -149,17 +144,13 @@ void WeekView::setOccurrences(const std::vector<events::Occurrence>& occurrences
 void WeekView::distributeOccurrences() {
     m_allDayArea->setOccurrences(m_occurrences);
 
-    // Un solo passaggio O(N) su m_occurrences invece di O(N * dayCount): per
-    // ogni occorrenza timed calcola direttamente i giorni [firstDay, lastDay]
-    // che tocca (invece di richiedere a ciascuna colonna di ri-scansionare
-    // tutte le occorrenze), clampati a [0, dayCount-1] cosi' un'occorrenza a
-    // cavallo di mezzanotte finisce nel bucket di ENTRAMBI i giorni toccati
-    // (ritagliata poi da WeekGridLayout::layoutDayColumn in ciascuna colonna,
-    // vedi il commento li').
+    // Un solo passaggio O(N) invece di O(N * dayCount): per ogni occorrenza
+    // calcola direttamente i giorni [firstDay, lastDay] che tocca, clampati
+    // a [0, dayCount-1] cosi' un'occorrenza a cavallo di mezzanotte finisce
+    // nel bucket di ENTRAMBI i giorni (ritagliata poi da layoutDayColumn).
     std::vector<std::vector<events::Occurrence>> occurrencesPerDay(m_dayCount);
     for (const events::Occurrence& occ : m_occurrences | std::views::filter(std::not_fn(coversFullDay))) {
-        // Fine "effettiva" (>= 1 minuto anche a durata zero), per non perdere
-        // per errore un'occorrenza puntuale a mezzanotte esatta.
+        // >= 1 minuto anche a durata zero, per non perdere un'occorrenza puntuale a mezzanotte esatta.
         const events::TimePoint effectiveEnd = occ.duration > events::Duration::zero()
                                                    ? occ.end()
                                                    : occ.start + std::chrono::minutes(1);

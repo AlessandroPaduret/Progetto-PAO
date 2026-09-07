@@ -70,14 +70,11 @@ OccurrenceWidget::OccurrenceWidget(const events::Occurrence& occurrence, Style s
 }
 
 void OccurrenceWidget::applyPalette() {
-    // Sfondo e bordo sono dipinti direttamente in paintEvent(), NON via QSS:
-    // con un foglio di stile applicativo attivo, ogni style()->polish()
-    // ririsolve i token `palette(...)` dello style sheet contro l'istantanea
-    // di QPalette scattata al PRIMO polish del widget, non contro l'ultima
-    // setPalette() — quindi qualunque colore per-istanza impostato dopo (il
-    // caso di ogni occorrenza, che ha il proprio colore) veniva scartato al
-    // polish successivo e tutte finivano con lo sfondo di default
-    // dell'applicazione (bug: occorrenze tutte dello stesso colore/nere).
+    // Sfondo e bordo dipinti direttamente in paintEvent(), NON via QSS: con
+    // uno style sheet attivo, ogni polish() ririsolve i token "palette(...)"
+    // contro l'istantanea del PRIMO polish, non contro l'ultima setPalette()
+    // — quindi il colore per-istanza di ogni occorrenza veniva scartato e
+    // finivano tutte con lo sfondo di default (bug gia' visto).
     const QColor color = activityColor(m_occurrence.source);
     const bool done = isTaskDone(m_occurrence.source, m_occurrence.start);
     m_fillColor = color.lighter(done ? 180 : 150);
@@ -86,8 +83,7 @@ void OccurrenceWidget::applyPalette() {
     }
     m_borderColor = m_selected ? theme::kAccentBlue : color.darker(120);
 
-    // Il testo (QLabel/QCheckBox) non e' invece toccato da nessuna regola
-    // di resources/style.qss: una QPalette semplice, senza polish, basta.
+    // Il testo non e' toccato da alcuna regola QSS: basta una QPalette semplice.
     const QColor textColor = done ? theme::kMutedText : theme::kPrimaryText;
     QPalette pal = palette();
     pal.setColor(QPalette::WindowText, m_style == Style::Chip ? Qt::white : textColor);
@@ -112,8 +108,7 @@ void OccurrenceWidget::setSelected(bool selected) {
     if (m_selected == selected) return;
     m_selected = selected;
     const QString title = QString::fromStdString(m_occurrence.source->getTitle());
-    // Solo il blocco (WeekView) antepone l'ora al testo quando selezionato;
-    // il chip compatto di MonthView si limita al bordo evidenziato.
+    // Solo lo stile Block antepone l'ora al testo; il Chip si limita al bordo evidenziato.
     const QString text = (selected && m_style == Style::Block)
         ? activityDisplayTime(m_occurrence.source, m_occurrence.start)
               .toString(QStringLiteral("HH:mm ")) + title
@@ -142,8 +137,7 @@ void OccurrenceWidget::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void OccurrenceWidget::startDrag() {
-    // Drag&drop nativo Qt: la destinazione (WeekView) riconosce la sorgente
-    // tramite QDropEvent::source()
+    // La destinazione riconosce la sorgente tramite QDropEvent::source().
     auto* drag = new QDrag(this);
     auto* mime = new QMimeData;
     mime->setText(QString::fromStdString(m_occurrence.source->getTitle()));

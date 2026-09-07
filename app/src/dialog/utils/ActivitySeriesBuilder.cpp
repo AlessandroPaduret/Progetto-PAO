@@ -19,9 +19,8 @@ events::TimePoint toTimePoint(const QDateTime& local) {
     return events::TimePoint(std::chrono::seconds(local.toSecsSinceEpoch()));
 }
 
-// Generatore per le unita' a intervallo singolo (Giorni/Mesi/Anni): la
-// settimana su piu' giorni ha una regola diversa (una serie per giorno
-// scelto, vedi ActivitySeriesBuilder::buildWeekly) e non passa da qui.
+// Per le unita' a intervallo singolo (Giorni/Mesi/Anni): la settimana su
+// piu' giorni ha una regola diversa e passa da buildWeekly(), non da qui.
 std::shared_ptr<const events::DateGenerator> makeIntervalGenerator(
     RecurrenceFormWidget::Unit unit, int every) {
     switch (unit) {
@@ -74,18 +73,16 @@ ActivitySeriesBuilder::createTypedActivity(events::ActivityConfig config) const 
 }
 
 events::TimePoint ActivitySeriesBuilder::resolveStart() const {
-    // "Tutto il giorno": inizio a mezzanotte UTC (coerente con le query
-    // della griglia, che usano UTC) per non far slittare il giorno: in
-    // locale 00:00 di Lun = Dom 22:00 UTC, che cadrebbe nella settimana
-    // precedente.
+    // "Tutto il giorno": mezzanotte UTC (come le query della griglia) per
+    // non far slittare il giorno -- in locale 00:00 di Lun sarebbe Dom 22:00
+    // UTC, gia' nella settimana precedente.
     return m_rule.allDay ? toTimePoint(QDateTime(m_startDate, QTime(0, 0), QTimeZone(0)))
                          : toTimePoint(QDateTime(m_startDate, m_startTime));
 }
 
 events::TimePoint ActivitySeriesBuilder::resolveSeriesEnd() const {
-    // "Mai"/"Dopo N" -> resta max() qui (il secondo viene poi sovrascritto
-    // da chi chiama con RecurrenceBuilder::calculateEndAfterCount/
-    // calculateNthWeeklyDate); "Fino al" -> fine giornata della data scelta.
+    // "Mai"/"Dopo N" restano max() qui (chi chiama sovrascrive col
+    // RecurrenceBuilder giusto); "Fino al" -> fine giornata della data scelta.
     if (m_rule.endMode != RecurrenceFormWidget::EndMode::OnDate) {
         return events::TimePoint::max();
     }
@@ -98,9 +95,8 @@ events::Duration ActivitySeriesBuilder::seriesDuration() const {
 }
 
 std::vector<std::unique_ptr<events::Activity>> ActivitySeriesBuilder::buildSingle() const {
-    // "Tutto il giorno" senza ripetizione dura ESATTAMENTE 24h (86400s, non
-    // gli 86399 usati per le serie, vedi seriesDuration()): la striscia in
-    // alto riconosce entrambe come "copre un giorno intero".
+    // Senza ripetizione dura ESATTAMENTE 24h (86400s, non 86399 come in
+    // seriesDuration()): la striscia in alto riconosce entrambe come "giorno intero".
     const events::Duration duration =
         m_rule.allDay ? std::chrono::seconds(86400) : seriesDuration();
     std::vector<std::unique_ptr<events::Activity>> result;
@@ -140,8 +136,7 @@ std::vector<std::unique_ptr<events::Activity>> ActivitySeriesBuilder::buildWeekl
         selected.push_back(baseDow);
     }
 
-    // Il limite "dopo N occorrenze" vale sul CALENDARIO COMBINATO, non per
-    // singola serie (vedi RecurrenceBuilder::calculateNthWeeklyDate).
+    // "Dopo N occorrenze" vale sul CALENDARIO COMBINATO, non per singola serie.
     events::TimePoint end = resolveSeriesEnd();
     if (m_rule.endMode == RecurrenceFormWidget::EndMode::AfterCount) {
         const QDate nthDate = RecurrenceBuilder::calculateNthWeeklyDate(
@@ -152,8 +147,7 @@ std::vector<std::unique_ptr<events::Activity>> ActivitySeriesBuilder::buildWeekl
     std::vector<std::unique_ptr<events::Activity>> result;
     for (int dow : selected) {
         const int offset = (dow - baseDow + 7) % 7;
-        // Anche le serie settimanali "tutto il giorno" partono a mezzanotte
-        // UTC (come l'evento singolo), per la stessa ragione di allineamento.
+        // Stessa ragione di allineamento: anche qui mezzanotte UTC.
         const events::TimePoint anchor =
             m_rule.allDay
                 ? toTimePoint(QDateTime(m_startDate.addDays(offset), QTime(0, 0), QTimeZone(0)))

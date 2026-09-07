@@ -23,8 +23,7 @@ namespace app {
 
 namespace {
 
-/** @brief Pallino del colore dell'attivita': lungo la colonna ColorCodes le
- *  righe si riconoscono subito, come i blocchi delle griglie del calendario. */
+/** @brief Pallino colorato per riconoscere subito la riga, come nelle griglie del calendario. */
 QIcon colorDotIcon(const QColor& color) {
     QPixmap pixmap(14, 14);
     pixmap.fill(Qt::transparent);
@@ -56,7 +55,7 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_searchBox->setPlaceholderText(tr("Cerca per titolo..."));
     m_searchBox->setClearButtonEnabled(true);
 
-    // Filtro per tipo di attivita' ("Tutti i tipi" = nessun filtro)
+    // "Tutti i tipi" = nessun filtro
     m_typeFilter = new QComboBox(this);
     m_typeFilter->addItem(tr("Tutti i tipi"), QString());
     for (const QString& type :
@@ -64,18 +63,16 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
         m_typeFilter->addItem(type, type);
     }
 
-    // Scritte piu' grandi e leggibili anche il resto della vista
     QFont biggerFont = font();
     biggerFont.setPointSize(12);
     m_searchBox->setFont(biggerFont);
     m_typeFilter->setFont(biggerFont);
 
-    // "Solo da fare": nasconde le attivita' evase (solo i Compiti hanno stato)
+    // nasconde le attivita' evase (solo i Compiti hanno stato)
     m_pendingOnly = new QCheckBox(tr("Solo da fare"), this);
     m_pendingOnly->setFont(biggerFont);
 
-    // Colonna 0 = pallino colorato dell'attivita' (come le griglie del
-    // calendario), poi Titolo / Tipo / Dettaglio
+    // colonna 0 = pallino colorato, poi Titolo / Tipo / Dettaglio
     m_table = new QTableWidget(0, 4, this);
     m_table->setObjectName(QStringLiteral("activityTable"));
     m_table->setHorizontalHeaderLabels(
@@ -89,10 +86,8 @@ ActivityListPage::ActivityListPage(CalendarController* controller, QWidget* pare
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    // Ordinamento gestito manualmente (lessThan con chiave composita)
+    // ordinamento gestito manualmente (lessThan con chiave composita)
     m_table->setSortingEnabled(false);
-    // Aspetto "chiaro" come le griglie del calendario: sfondo bianco, righe
-    // alternate, poche linee, spazio per respirare
     m_table->setAlternatingRowColors(true);
     m_table->setShowGrid(false);
     m_table->verticalHeader()->setVisible(false);
@@ -154,7 +149,7 @@ void ActivityListPage::onPendingOnlyToggled(bool) {
 }
 
 void ActivityListPage::onHeaderClicked(int section) {
-    // La colonna del pallino (0) non ha testo: cliccandola si ordina per titolo
+    // la colonna del pallino (0) non ha testo: cliccandola si ordina per titolo
     if (section == 0) {
         section = 1;
     }
@@ -185,7 +180,7 @@ void ActivityListPage::onEdit() {
 
 bool ActivityListPage::lessThan(const events::Activity* a,
                                 const events::Activity* b) const {
-    // Colonne fisiche: 1=Titolo, 2=Tipo, 3=Dettaglio (la 0 e' il pallino)
+    // colonne fisiche: 1=Titolo, 2=Tipo, 3=Dettaglio (la 0 e' il pallino)
     auto columnText = [](const events::Activity* activity, int column) {
         switch (column) {
         case 2:
@@ -198,14 +193,13 @@ bool ActivityListPage::lessThan(const events::Activity* a,
     };
 
     if (m_sortColumn >= 1) {
-        // Chiave primaria: colonna cliccata (confronto case-insensitive)
         const int c = QString::compare(columnText(a, m_sortColumn),
                                        columnText(b, m_sortColumn),
                                        Qt::CaseInsensitive);
         if (c != 0) {
             return m_sortOrder == Qt::AscendingOrder ? c < 0 : c > 0;
         }
-        // Chiave secondaria: tipo se ordino per titolo, titolo altrimenti
+        // chiave secondaria: tipo se ordino per titolo, titolo altrimenti
         const int secondary = m_sortColumn == 1 ? 2 : 1;
         const int c2 = QString::compare(columnText(a, secondary),
                                         columnText(b, secondary),
@@ -214,7 +208,7 @@ bool ActivityListPage::lessThan(const events::Activity* a,
             return m_sortOrder == Qt::AscendingOrder ? c2 < 0 : c2 > 0;
         }
     }
-    // Default (nessuna colonna cliccata) e tie-break: per data di inizio
+    // default e tie-break: per data di inizio
     return a->getStart() < b->getStart();
 }
 
@@ -222,7 +216,6 @@ void ActivityListPage::reloadTable() {
     QVector<const events::Activity*> activities =
         m_controller->search(m_searchBox->text());
 
-    // Filtro per tipo di attivita' (etichette per display, coerenti col model)
     const QString filter = m_typeFilter->currentData().toString();
     if (!filter.isEmpty()) {
         activities.erase(
@@ -233,8 +226,6 @@ void ActivityListPage::reloadTable() {
             activities.end());
     }
 
-    // "Solo da fare": nasconde le attivita' gia' evase (solo i Compiti hanno
-    // uno stato di completamento)
     if (m_pendingOnly->isChecked()) {
         activities.erase(
             std::remove_if(activities.begin(), activities.end(),
@@ -250,7 +241,6 @@ void ActivityListPage::reloadTable() {
                   return lessThan(a, b);
               });
 
-    // Indicatore di ordinamento sull'intestazione (default: nascosto)
     auto* header = m_table->horizontalHeader();
     if (m_sortColumn >= 0) {
         header->setSortIndicator(m_sortColumn, m_sortOrder);
@@ -268,8 +258,7 @@ void ActivityListPage::reloadTable() {
         auto* title = new QTableWidgetItem(plainTitle(activity));
         auto* type = new QTableWidgetItem(itemType(activity));
         auto* detail = new QTableWidgetItem(itemDetail(activity));
-        // Testo chiaro e leggibile sullo sfondo scuro della tabella
-        // (l'eventuale stile di default non scende sotto)
+        // forza il testo chiaro: lo stile di default non scende sotto
         for (QTableWidgetItem* item : {title, type, detail}) {
             item->setForeground(theme::kPrimaryText);
         }

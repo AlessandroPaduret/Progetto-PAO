@@ -22,11 +22,8 @@ namespace {
 constexpr int kMaxChipsPerDay = 3;
 } // namespace
 
-// ---------------------------------------------------------------------------
-// MonthDayCell: una cella della griglia mensile. Widget reale (QFrame) che
-// possiede il numero del giorno e fino a kMaxChipsPerDay chip (OccurrenceWidget,
-// lo stesso usato da WeekView) per le attivita' del giorno.
-// ---------------------------------------------------------------------------
+// cella della griglia mensile: QFrame con numero del giorno e fino a
+// kMaxChipsPerDay chip (OccurrenceWidget, lo stesso usato da WeekView)
 class MonthDayCell : public QFrame {
     Q_OBJECT
 public:
@@ -75,12 +72,9 @@ public:
     }
 
     void setOccurrences(const std::vector<events::Occurrence>& dayOccurrences) {
-        // deleteLater(), non delete: per coerenza/robustezza con lo stesso
-        // pattern usato in WeekView (dove e' necessario perche' un chip puo'
-        // essere in mezzo al proprio QDrag::exec() quando questa viene
-        // richiamata ricorsivamente da un cambiamento che lui stesso ha
-        // causato). Qui i chip non sono trascinabili, ma non c'e' motivo di
-        // rischiare la stessa classe di bug se in futuro lo diventassero.
+        // deleteLater(), non delete: stesso pattern di WeekView, dove serve
+        // perche' un chip puo' essere in mezzo al proprio QDrag::exec(); qui i
+        // chip non sono trascinabili ma non vale il rischio se lo diventassero
         for (OccurrenceWidget* chip : m_chips) {
             chip->hide();
             chip->deleteLater();
@@ -165,9 +159,6 @@ private:
     std::vector<OccurrenceWidget*> m_chips;
 };
 
-// ---------------------------------------------------------------------------
-// MonthView
-// ---------------------------------------------------------------------------
 MonthView::MonthView(QWidget* parent) : QWidget(parent) {
     m_grid = new QGridLayout(this);
     m_grid->setSpacing(0);
@@ -234,10 +225,9 @@ void MonthView::setOccurrences(const std::vector<events::Occurrence>& occurrence
         const QDate date = start.addDays(i);
         std::vector<events::Occurrence> dayOccurrences;
         for (const events::Occurrence& occ : occurrences) {
-            // Le occorrenze "tutto il giorno" sono salvate a mezzanotte UTC:
-            // in un fuso con offset negativo, localTime() le farebbe cadere
-            // nel giorno locale PRECEDENTE, sparendo dalla cella corretta.
-            // activityDisplayTime sceglie da sola UTC (all-day) o locale.
+            // activityDisplayTime sceglie UTC per gli all-day (salvati a
+            // mezzanotte UTC) o locale altrimenti: con localTime() puro, in un
+            // fuso con offset negativo, gli all-day cadrebbero nella cella sbagliata
             if (activityDisplayTime(occ.source, occ.start).date() == date) {
                 dayOccurrences.push_back(occ);
             }

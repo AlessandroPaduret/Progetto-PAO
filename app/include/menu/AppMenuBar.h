@@ -11,17 +11,10 @@ namespace app {
 
 class MenuShortcutStyle;
 
-/** @brief Barra dei menu dell'applicazione: costruisce da sola tutti i menu
- *  (File/Visualizza/Nuova attivita'), le relative QAction, le scorciatoie
- *  e lo stile delle scorciatoie (MenuShortcutStyle) — la MainWindow non
- *  contiene piu' nessuna logica di costruzione dei menu, solo le
- *  connessioni ai segnali qui sotto e i propri gestori (onSave/onLoad/...).
- *
- *  La MainWindow resta l'unica proprietaria dello stato applicativo (file
- *  corrente, vista attiva): questa classe si limita a segnalare le
- *  richieste dell'utente (segnali) e a riflettere lo stato scelto
- *  dall'esterno (setActiveView), senza mai toccare direttamente pagine o
- *  controller. */
+/** @brief Costruisce da sola tutti i menu (File/Visualizza/Nuova attivita') e
+ *  le scorciatoie; la MainWindow resta proprietaria dello stato (file
+ *  corrente, vista attiva) e si limita ad ascoltare i segnali e a riflettere
+ *  lo stato scelto con setActiveView. */
 class AppMenuBar : public QMenuBar {
     Q_OBJECT
 public:
@@ -30,20 +23,17 @@ public:
     explicit AppMenuBar(QWidget* parent = nullptr);
     ~AppMenuBar() override;
 
-    /** @brief Spunta la voce del menu "Visualizza" corrispondente alla
-     *  vista indicata (senza emettere viewSelected). Va chiamata dalla
-     *  MainWindow ogni volta che la vista cambia, anche quando il cambio
-     *  non parte dal menu (es. doppio clic su un giorno in YearView). */
+    /** @brief Spunta la voce senza emettere viewSelected; va chiamata anche
+     *  quando il cambio vista non parte dal menu (es. doppio clic su un
+     *  giorno in YearView). */
     void setActiveView(ViewKind kind);
 
 signals:
     void saveRequested();
     void saveAsRequested();
     void loadRequested();
-    /** @brief Una delle 5 voci del menu "Visualizza". */
     void viewSelected(ViewKind kind);
-    /** @brief Menu "Nuova attivita'" o scorciatoia Ctrl+N (0=Evento,
-     *  1=Riunione, 2=Compito). */
+    /** @brief Da menu "Nuova attivita'" o Ctrl+N (0=Evento, 1=Riunione, 2=Compito). */
     void newActivityRequested(int typeIndex);
 
 private:

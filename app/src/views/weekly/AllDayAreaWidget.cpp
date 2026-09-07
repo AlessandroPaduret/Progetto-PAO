@@ -23,10 +23,9 @@ AllDayAreaWidget::AllDayAreaWidget(QWidget* parent) : QWidget(parent) {
 }
 
 void AllDayAreaWidget::setDays(const QDate& viewStart, int dayCount) {
-    // Neutralizza le colonne di una precedente dayCount piu' larga (es. il
-    // passaggio Settimana(7) -> Giorno(1)): setColumnStretch/MinimumWidth
-    // restano altrimenti applicati anche a colonne senza piu' alcun widget,
-    // allargando il layout oltre le colonne davvero in uso.
+    // Azzera lo stretch/minimo delle colonne di un dayCount precedente piu'
+    // largo (es. Settimana(7) -> Giorno(1)): altrimenti restano applicati a
+    // colonne senza piu' widget e allargano il layout oltre il necessario.
     for (int c = 0; c < m_grid->columnCount(); ++c) {
         m_grid->setColumnStretch(c, 0);
         m_grid->setColumnMinimumWidth(c, 0);
@@ -44,19 +43,18 @@ void AllDayAreaWidget::setDays(const QDate& viewStart, int dayCount) {
 }
 
 void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occurrences) {
-    // deleteLater(), non delete: stesso motivo di DayColumnWidget/WeekView
-    // (nessun chip qui e' trascinabile, ma per coerenza con lo stesso
-    // pattern usato altrove non c'e' motivo di rischiare diversamente).
+    // deleteLater(), non delete: coerente col pattern usato altrove (vedi
+    // DayColumnWidget) anche se qui nessun chip e' trascinabile.
     for (OccurrenceWidget* chip : m_chips) {
         chip->hide();
         chip->deleteLater();
     }
     m_chips.clear();
 
-    // WeekGridLayout non conosce QDate/Occurrence: filtra qui le "tutto il
+    // WeekGridLayout non conosce QDate/Occurrence: filtra le "tutto il
     // giorno" e converti ciascuna nel suo DaySpan (offset in giorni da
-    // m_viewStart), tenendo `fullDayIndices` per tornare indietro dal
-    // risultato (parallelo ai DaySpan) all'Occurrence originale.
+    // m_viewStart); fullDayIndices fa da tramite per tornare all'Occurrence
+    // originale dal risultato del layout.
     std::vector<int> fullDayIndices;
     std::vector<DaySpan> spans;
     for (int i = 0; i < static_cast<int>(occurrences.size()); ++i) {
@@ -65,9 +63,9 @@ void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occ
             continue;
         }
         // Le occorrenze "tutto il giorno" sono salvate a mezzanotte UTC:
-        // activityDisplayTime sceglie da sola la data UTC per queste (non
-        // quella locale, che in un fuso con offset positivo le farebbe
-        // apparire ancora in corso il giorno LOCALE successivo).
+        // activityDisplayTime sceglie apposta la data UTC (non quella
+        // locale, che in un fuso con offset positivo le farebbe apparire
+        // ancora in corso il giorno LOCALE successivo).
         const QDate startDate = activityDisplayTime(occ.source, occ.start).date();
         const QDate endExclusive = activityDisplayTime(occ.source, occ.end()).date();
         int startDay = m_viewStart.daysTo(startDate);
@@ -75,16 +73,13 @@ void AllDayAreaWidget::setOccurrences(const std::vector<events::Occurrence>& occ
         if (endDay < startDay) {
             endDay = startDay;
         }
-        // Un'occorrenza il cui giorno (o intervallo di giorni) non tocca
-        // affatto quelli visibili va scartata, non ritagliata: MainWindow
-        // interroga il controller con una finestra LOCALE (necessaria per
-        // gli eventi con orario), ma un'attivita' tutto il giorno di IERI
-        // puo' comunque "sovrapporsi" per qualche ora a quella finestra in
-        // un fuso con offset rispetto a UTC (l'ultimo istante di ieri in UTC
-        // cade nel pomeriggio/sera di oggi in locale). Senza questo scarto,
-        // layoutAllDayRows() sotto RITAGLIA (qBound) qualunque span sul
-        // giorno visibile invece di escluderlo, facendo ricomparire la
-        // stessa occorrenza anche nel giorno successivo (vista Giorno).
+        // Un'occorrenza fuori dai giorni visibili va scartata, non
+        // ritagliata: la finestra e' LOCALE (serve per gli eventi con
+        // orario), quindi un'attivita' tutto il giorno di IERI in UTC puo'
+        // ancora "sovrapporsi" per qualche ora in un fuso con offset. Senza
+        // questo scarto, layoutAllDayRows() sotto ritaglierebbe (qBound)
+        // ogni span sul giorno visibile invece di escluderlo, facendo
+        // ricomparire l'occorrenza anche nel giorno dopo (vista Giorno).
         if (endDay < 0 || startDay > m_dayCount - 1) {
             continue;
         }

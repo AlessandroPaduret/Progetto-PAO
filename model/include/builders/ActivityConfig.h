@@ -14,8 +14,6 @@
 
 namespace events {
 
-// --- 1. Struct di Configurazione ---
-
 struct ActivityConfig {
     String title = "";
     TimePoint start = TimePoint{};
@@ -29,7 +27,6 @@ struct TaskConfig : public ActivityConfig {
     Priority priority = Priority::Medium;
     bool done = false;
 
-    // Costruttore che accetta la base + le proprietà di Task
     TaskConfig(ActivityConfig base = {}, Priority p = Priority::Medium, bool d = false)
         : ActivityConfig(std::move(base)), priority(p), done(d) {}
 };
@@ -38,12 +35,9 @@ struct MeetingConfig : public ActivityConfig {
     String location = "";
     std::vector<String> attendees = {};
 
-    // Costruttore che accetta la base + le proprietà di Meeting
     MeetingConfig(ActivityConfig base = {}, String loc = "", std::vector<String> att = {})
         : ActivityConfig(std::move(base)), location(std::move(loc)), attendees(std::move(att)) {}
 };
-
-// --- 2. Funzioni Factory Inlined ---
 
 inline std::unique_ptr<Activity> makeActivity(ActivityConfig cfg) {
     auto activity = std::make_unique<Activity>(

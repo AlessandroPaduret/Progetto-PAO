@@ -27,7 +27,7 @@ namespace app {
 
 namespace {
 
-// Indici delle pagine nel QStackedWidget
+// indici delle pagine nel QStackedWidget
 constexpr int kPageWeek = 0;
 constexpr int kPageList = 1;
 constexpr int kPageDay = 2;
@@ -46,30 +46,27 @@ QScrollArea* makeScroll(QWidget* content) {
 MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     : QMainWindow(parent), m_controller(controller) {
     setWindowTitle(tr("Le mie attivita'"));
-    // Esplicito (invece di affidarsi al default Qt::Window): garantisce chiudi,
-    // ridimensiona/massimizza e riduci a icona anche sotto window manager che
-    // altrimenti non li mostrerebbero tutti.
+    // esplicito invece di affidarsi al default Qt::Window: garantisce chiudi/
+    // ridimensiona/riduci a icona anche sotto window manager che non li mostrerebbero
     setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
                    Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint |
                    Qt::WindowCloseButtonHint);
 
-    // --- Pagine -----------------------------------------------------------------
     m_weekView = new WeekView(this);
     m_dayView = new DayView(this);
     m_monthView = new MonthView(this);
     m_yearView = new YearView(this);
     m_listPage = new ActivityListPage(controller, this);
-    // Pannello laterale per dettaglio/creazione/modifica: un QWidget (non un
-    // dialog), affiancato al calendario da uno QSplitter; parte nascosto.
+    // pannello laterale (QWidget non dialog), affiancato al calendario da uno
+    // QSplitter; parte nascosto
     m_sidebar = new ActivitySidebarWidget(controller, this);
     m_sidebar->hide();
-    // La scelta serie/singola occorrenza (RecurrenceChoiceDialog) e'
-    // un'interruzione puntuale del flusso: si istanzia al bisogno tramite
-    // il suo helper statico ask(), niente istanza persistente qui.
+    // RecurrenceChoiceDialog e' un'interruzione puntuale: si istanzia al
+    // bisogno tramite ask(), niente istanza persistente qui
 
-    // Settimana/Giorno gestiscono da sole lo scroll (solo verticale, sulla
-    // sola griglia oraria: intestazione e striscia "tutto il giorno" restano
-    // fisse), niente QScrollArea esterna qui (altrimenti annidata due volte).
+    // Settimana/Giorno gestiscono da sole lo scroll verticale sulla griglia
+    // oraria (intestazione e striscia "tutto il giorno" restano fisse), niente
+    // QScrollArea esterna qui (altrimenti annidata due volte)
     auto* weekPage = new QWidget(this);
     auto* weekLayout = new QVBoxLayout(weekPage);
     weekLayout->setContentsMargins(0, 0, 0, 0);
@@ -90,9 +87,8 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     yearLayout->setContentsMargins(0, 0, 0, 0);
     yearLayout->addWidget(makeScroll(m_yearView), 1);
 
-    // --- Barra di navigazione condivisa (Oggi / <- / -> / etichetta) -----------
-    // Widget a se stante (NavigationBar): la MainWindow si limita a collegarne
-    // i segnali e a impostarne il testo, niente layout dei pulsanti qui.
+    // widget a se stante: la MainWindow si limita a collegarne i segnali e a
+    // impostarne il testo, niente layout dei pulsanti qui
     m_navBar = new NavigationBar(this);
 
     m_pages = new QStackedWidget(this);
@@ -102,9 +98,8 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     m_pages->addWidget(monthPage);
     m_pages->addWidget(yearPage);
 
-    // Calendario a sinistra, sidebar a destra: uno QSplitter orizzontale li
-    // affianca qualunque sia la pagina corrente (settimana/elenco/giorno/
-    // mese/anno), lasciando all'utente la liberta' di ridimensionarli.
+    // QSplitter orizzontale: affianca calendario e sidebar qualunque sia la
+    // pagina corrente, lasciando all'utente la liberta' di ridimensionarli
     auto* splitter = new QSplitter(Qt::Horizontal, this);
     splitter->addWidget(m_pages);
     splitter->addWidget(m_sidebar);
@@ -118,9 +113,7 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     centralLayout->addWidget(splitter, 1);
     setCentralWidget(central);
 
-    // --- Menu bar ----------------------------------------------------------------
-    // AppMenuBar costruisce da sola menu/azioni/scorciatoie: la MainWindow si
-    // limita a collegarne i segnali ai propri gestori.
+    // AppMenuBar costruisce da sola menu/azioni/scorciatoie: qui solo i collegamenti
     m_menuBar = new AppMenuBar(this);
     setMenuBar(m_menuBar);
     connect(m_menuBar, &AppMenuBar::saveRequested, this, &MainWindow::onSave);
@@ -130,7 +123,6 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
             this, &MainWindow::openNewActivityType);
     connect(m_menuBar, &AppMenuBar::viewSelected, this, &MainWindow::onViewSelected);
 
-    // --- Connessioni ------------------------------------------------------------
     connect(controller, &CalendarController::activitiesChanged,
             this, &MainWindow::refresh);
     connect(m_navBar, &NavigationBar::todayRequested, this, &MainWindow::onToday);
@@ -143,13 +135,12 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     connect(m_weekView, &WeekView::activityMoved,
             this, [this](const events::Occurrence& occurrence,
                          const QDateTime& newStart) {
-                // Drag&drop: sposta l'attivita' alla nuova data/ora
                 m_controller->moveActivity(occurrence.source, newStart);
             });
     connect(m_weekView, &WeekView::activityEditRequested,
             this, [this](const events::Occurrence& occurrence) {
-                // Doppio clic: modifica l'attivita' sorgente conservando il
-                // tipo (per i ricorrenti l'intera serie con la sua fine).
+                // modifica l'attivita' sorgente conservando il tipo (per i
+                // ricorrenti l'intera serie con la sua fine)
                 showFormEditActivity(occurrence.source);
             });
     connect(m_weekView, &WeekView::occurrenceEditChoiceRequested,
@@ -233,17 +224,14 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     connect(m_listPage, &ActivityListPage::editRequested,
             this, &MainWindow::showFormEditActivity);
 
-    // La sidebar decide da sola quando passare da Dettaglio a Form
-    // (pulsante "Modifica" interno): la MainWindow si limita a nasconderla
-    // quando la sidebar segnala di aver finito (Chiudi/Annulla/Salva/Elimina
-    // riusciti) e a ripulire l'anteprima live nelle griglie.
+    // la sidebar decide da sola quando passare da Dettaglio a Form; qui solo
+    // nascondiamo e ripuliamo l'anteprima quando segnala di aver finito
     connect(m_sidebar, &ActivitySidebarWidget::closeRequested, this, [this] {
         m_sidebar->hide();
         m_weekView->setPreview(std::nullopt);
         m_dayView->setPreview(std::nullopt);
     });
-    // Anteprima live dell'evento in fase di creazione/modifica nelle griglie
-    // giorno/settimana (lo stesso aggiornamento per entrambe)
+    // anteprima live dell'evento in creazione/modifica, stesso aggiornamento per entrambe le griglie
     connect(m_sidebar, &ActivitySidebarWidget::previewChanged,
             this, [this](const QString& title, const QDateTime& start,
                          qint64 durationSeconds, bool valid) {
@@ -256,7 +244,6 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
                 m_dayView->setPreview(preview);
             });
 
-    // --- Stato iniziale ----------------------------------------------------------
     m_view = ViewKind::Week;
     setAnchor(QDate::currentDate());
     showWeekPage();
@@ -266,26 +253,22 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
 MainWindow::~MainWindow() = default;
 
 void MainWindow::refresh() {
-    // Vista giorno/settimana: confini in ora LOCALE (non UTC), coerenti con
-    // come il form e il drag&drop di WeekView/DayColumnWidget interpretano
-    // gli orari inseriti dall'utente (QDateTime(data, ora) senza QTimeZone
-    // esplicita = locale). Con un confine a mezzanotte UTC, in un fuso con
-    // offset positivo (es. UTC+2) un'occorrenza spostata all'1:37 di lunedi'
-    // locale cade alle 23:37 di DOMENICA in UTC: prima dell'inizio della
-    // finestra interrogata, quindi scompariva dalla vista (bug riscontrato
-    // con eventi spostati prima delle 2 del mattino del primo giorno).
+    // giorno/settimana in ora LOCALE, coerente con come il form/drag&drop
+    // interpretano gli orari inseriti (QDateTime senza QTimeZone = locale): un
+    // confine a mezzanotte UTC farebbe sparire dalla vista le occorrenze
+    // spostate nelle prime ore del giorno in fusi con offset positivo (bug
+    // reale, occorrenza a 1:37 locale = 23:37 di domenica in UTC+2)
     const QDateTime dayFrom(m_anchor, QTime(0, 0));
     const QDateTime dayTo = dayFrom.addDays(1).addSecs(-1);
     m_dayView->setWeekStart(m_anchor);
     m_dayView->setOccurrences(m_controller->occurrencesIn(dayFrom, dayTo));
 
-    // Vista settimana: occorrenze del lunedi' corrente
     const QDateTime weekFrom(m_anchor, QTime(0, 0));
     const QDateTime weekTo = weekFrom.addDays(7).addSecs(-1);
     m_weekView->setWeekStart(m_anchor);
     m_weekView->setOccurrences(m_controller->occurrencesIn(weekFrom, weekTo));
 
-    // Vista mese: occorrenze sull'intera griglia (6 settimane dal lunedi')
+    // occorrenze sull'intera griglia mese (6 settimane dal lunedi')
     const QDate monthStart(m_anchor.year(), m_anchor.month(), 1);
     const QDate monthGridStart = monthStart.addDays(1 - monthStart.dayOfWeek());
     m_monthView->setMonth(monthStart);
@@ -294,17 +277,14 @@ void MainWindow::refresh() {
         QDateTime(monthGridStart.addDays(42), QTime(0, 0), QTimeZone(0))
             .addSecs(-1)));
 
-    // Vista anno: occorrenze dell'intero anno
     m_yearView->setYear(m_anchor);
     m_yearView->setOccurrences(m_controller->occurrencesIn(
         QDateTime(m_anchor, QTime(0, 0), QTimeZone(0)),
         QDateTime(QDate(m_anchor.year() + 1, 1, 1), QTime(0, 0), QTimeZone(0))
             .addSecs(-1)));
 
-    // Elenco: ricarica (mantiene la ricerca corrente)
     m_listPage->refresh();
 
-    // Etichetta della barra di navigazione
     switch (m_view) {
     case ViewKind::Day:
         m_navBar->setLabel(tr("Giorno del %1")
@@ -465,9 +445,7 @@ void MainWindow::openNewActivityType(int typeIndex) {
     m_sidebar->show();
 }
 
-// ---------------------------------------------------------------------------
-// Scelta serie / singola occorrenza per gli eventi ricorrenti
-// ---------------------------------------------------------------------------
+// scelta serie / singola occorrenza per gli eventi ricorrenti
 void MainWindow::askSeriesOrInstance(const events::Occurrence& occurrence) {
     using Choice = RecurrenceChoiceDialog::Choice;
     switch (RecurrenceChoiceDialog::ask(this, tr(
@@ -477,22 +455,17 @@ void MainWindow::askSeriesOrInstance(const events::Occurrence& occurrence) {
         "solo questo evento (che diventera' un evento singolo, fuori dalla "
         "serie)?"))) {
     case Choice::EntireSeries:
-        // Come il doppio clic sull'evento di inizio serie: apre la finestra
-        // di modifica dell'intera serie (regola, durata, data di scadenza).
+        // come il doppio clic sull'evento di inizio serie
         showFormEditActivity(occurrence.source);
         break;
     case Choice::FromHereOn:
-        // La serie attuale termina prima di questa occorrenza; ne nasce una
-        // nuova con le stesse regole di ricorrenza ma inizio diverso.
         m_controller->splitRecurrence(
             occurrence, QDateTime::fromSecsSinceEpoch(
                             occurrence.start.time_since_epoch().count()));
         break;
     case Choice::SingleInstance:
-        // L'occorrenza di quel giorno diventa un evento STANDARD: si apre
-        // la finestra di modifica dell'evento normale. Al salvataggio la
-        // serie continua ad esistere ma senza quel giorno (eccezione
-        // interna + nuovo evento singolo).
+        // la serie continua ad esistere ma senza quel giorno (eccezione
+        // interna + nuovo evento singolo al salvataggio)
         showFormEditOccurrence(occurrence);
         break;
     case Choice::Cancel:
@@ -516,9 +489,8 @@ void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
         m_controller->splitRecurrence(occurrence, newStart);
         break;
     case Choice::SingleInstance: {
-        // "Sposta solo questo evento": l'occorrenza esce dalla serie
-        // (eccezione interna: buco in origine) e diventa un evento standard
-        // alla data/ora di destinazione del trascinamento.
+        // l'occorrenza esce dalla serie (eccezione interna) e diventa un
+        // evento standard alla destinazione del trascinamento
         auto replacement = events::makeActivity(events::ActivityConfig{
             .title = occurrence.source->getTitle(),
             .start = events::TimePoint(
@@ -563,8 +535,7 @@ void MainWindow::confirmDeleteOccurrence(const events::Occurrence& occurrence) {
 }
 
 void MainWindow::onSave() {
-    // Salva sull'ultimo file usato (caricato o salvato in precedenza);
-    // se non ce n'e' uno, si comporta come "Salva con nome".
+    // salva sull'ultimo file usato; se non ce n'e' uno, come "Salva con nome"
     if (m_currentFilePath.isEmpty()) {
         onSaveAs();
         return;
