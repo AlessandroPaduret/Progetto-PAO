@@ -71,15 +71,26 @@ std::vector<Occurrence> Activity::occurrencesIn(TimePoint from, TimePoint to) co
 
     TimePoint searchTo = std::min(m_end, to);
 
+    // Un'occorrenza iniziata PRIMA di `from` puo' comunque essere visibile
+    // nella finestra se la sua durata la fa arrivare fino a `from` (es. un
+    // evento a cavallo di mezzanotte quando `from` e' l'inizio del giorno
+    // dopo): il generatore userebbe altrimenti align(start, from), che salta
+    // dritto alla prima occorrenza con INIZIO >= from, perdendo per sempre
+    // quella precedente anche se si sovrappone. Si allarga percio' la
+    // ricerca a partire da `from - m_duration` (la piu' vecchia che possa
+    // ancora raggiungere `from`) e si scarta poi, con Occurrence::overlaps,
+    // qualunque occorrenza che non tocchi davvero [from, to].
+    const TimePoint searchFrom = from - m_duration;
+
     // Mappa ogni TimePoint valido in un oggetto Occurrence
     auto toOccurrence = std::views::transform([this](TimePoint tp) {
         return Occurrence{this, tp, m_duration};
     });
 
-
-    return m_generator->occurrences(m_start, from, searchTo)
+    return m_generator->occurrences(m_start, searchFrom, searchTo)
             | std::views::filter([this](TimePoint tp) { return !m_exceptions.contains(tp); })
             | toOccurrence
+            | std::views::filter([from, to](const Occurrence& occ) { return occ.overlaps(from, to); })
             | std::ranges::to<std::vector<Occurrence>>();
 }
 
