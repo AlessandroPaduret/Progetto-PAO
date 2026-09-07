@@ -34,11 +34,13 @@ class CalendarController;
  *  esistente equivale ad aprirla direttamente in modifica.
  *
  *  I campi comuni a tutti i tipi (Titolo/Data/Durata: gli stessi che
- *  Activity possiede sempre) stanno in un'unica sezione in cima, costruita
- *  una sola volta; sotto, in base al tipo scelto nella combo, si rivela la
- *  sola sezione specifica di quel tipo (ricorrenza per l'Evento, luogo/
- *  partecipanti per la Riunione, priorita'/stato per il Compito) invece di
- *  ripetere titolo/data/durata in un pannello separato per tipo.
+ *  Activity possiede sempre) e la sezione "Tutto il giorno"/ricorrenza
+ *  (anch'essa comune: Evento, Riunione e Compito possono tutti ripetersi)
+ *  stanno in cima, costruite una sola volta; sotto, in base al tipo scelto
+ *  nella combo, si rivela la sola sezione specifica di quel tipo (luogo/
+ *  partecipanti per la Riunione, priorita'/stato per il Compito — l'Evento
+ *  non ne ha una propria) invece di ripetere tutto in un pannello separato
+ *  per tipo.
  */
 class ActivitySidebarWidget : public QWidget {
     Q_OBJECT
@@ -82,25 +84,31 @@ private slots:
 private:
     enum class Mode { Create, EditActivity, EditOccurrence };
 
-    QWidget* buildEventSection();
+    QWidget* buildRecurrenceSection();
     QWidget* buildMeetingSection();
     QWidget* buildTaskSection();
 
-    /** @brief Mostra la sola sezione specifica del tipo scelto. */
+    /** @brief Mostra la sola sezione specifica del tipo scelto (Riunione o
+     *  Compito; l'Evento non ne ha una propria). */
     void showSection(int type);
 
     /** @brief Emette l'anteprima corrente (campi comuni). */
     void emitPreview();
 
-    /** @brief Costruisce le attivita' del tipo Evento: una attivita' singola
-     *  oppure una o piu' serie ricorrenti (una per giorno della settimana
-     *  selezionato, per la ricorrenza settimanale). */
-    std::vector<std::unique_ptr<events::Activity>> buildEventActivities() const;
+    /** @brief Costruisce le attivita' del tipo scelto (Evento/Riunione/
+     *  Compito): una sola attivita', oppure una o piu' serie ricorrenti (una
+     *  per giorno della settimana selezionato, per la ricorrenza settimanale)
+     *  — la ricorrenza e' comune a tutti e tre i tipi. */
+    std::vector<std::unique_ptr<events::Activity>> buildActivities() const;
 
-    /** @brief Costruisce Riunione/Compito (sempre una sola attivita'). */
-    std::unique_ptr<events::Activity> buildActivity() const;
+    /** @brief Costruisce l'attivita' del tipo corrente a partire dai campi
+     *  comuni gia' pronti (titolo/data/durata/end/generatore): aggiunge i
+     *  soli campi specifici del tipo (luogo/partecipanti, priorita'/evaso). */
+    std::unique_ptr<events::Activity> makeTypedActivity(events::ActivityConfig config) const;
 
-    // Popolamento dei campi in modifica
+    // Popolamento dei campi comuni e della ricorrenza in modifica (uguale
+    // per i 3 tipi: la ricorrenza non dipende dal tipo dell'attivita').
+    void populateCommonAndRecurrence(const events::Activity& activity);
     void populateEventLike(const events::Activity& activity);
     void populateMeeting(const events::Meeting& meeting);
     void populateTask(const events::Task& task);
@@ -126,8 +134,7 @@ private:
     QSpinBox* m_durationEdit = nullptr;      // minuti
     QFormLayout* m_commonForm = nullptr;     // per setRowVisible(m_durationEdit, ...)
 
-    // --- Sezione Evento: "tutto il giorno" + ricorrenza -------------------------
-    QWidget* m_eventSection = nullptr;
+    // --- Ricorrenza: "tutto il giorno" + "si ripete", comune ai 3 tipi ----------
     QCheckBox* m_allDayCheck = nullptr;
     QCheckBox* m_repeatCheck = nullptr;
     QWidget* m_repeatBox = nullptr;          // contenitore delle impostazioni di ricorrenza

@@ -38,7 +38,7 @@ namespace app {
 
 namespace {
 
-// Indici del tipo (combo "Tipo" e sezioni rivelate sotto ai campi comuni)
+// Indici del tipo (combo "Tipo" e sezione rivelata sotto alla ricorrenza)
 constexpr int kEvent = 0;
 constexpr int kMeeting = 1;
 constexpr int kTask = 2;
@@ -111,13 +111,13 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
     m_commonForm->addRow(tr("Data"), m_startEdit);
     m_commonForm->addRow(tr("Durata"), m_durationEdit);
 
-    m_eventSection = buildEventSection();
+    auto* recurrenceSection = buildRecurrenceSection();
     m_meetingSection = buildMeetingSection();
     m_taskSection = buildTaskSection();
 
     auto* contentLayout = new QVBoxLayout(content);
     contentLayout->addLayout(m_commonForm);
-    contentLayout->addWidget(m_eventSection);
+    contentLayout->addWidget(recurrenceSection);
     contentLayout->addWidget(m_meetingSection);
     contentLayout->addWidget(m_taskSection);
     contentLayout->addStretch(1);
@@ -155,7 +155,7 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
 
     connect(m_typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ActivitySidebarWidget::onTypeChanged);
-    // Ricorrenza (solo per il tipo Evento)
+    // Ricorrenza (comune a Evento/Riunione/Compito)
     connect(m_repeatCheck, &QCheckBox::toggled,
             this, &ActivitySidebarWidget::onRepeatToggled);
     connect(m_unitCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -198,9 +198,9 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
 }
 
 // ---------------------------------------------------------------------------
-// Sezione Evento: "tutto il giorno" + ricorrenza
+// Ricorrenza: "tutto il giorno" + "si ripete" (comune a Evento/Riunione/Compito)
 // ---------------------------------------------------------------------------
-QWidget* ActivitySidebarWidget::buildEventSection() {
+QWidget* ActivitySidebarWidget::buildRecurrenceSection() {
     auto* panel = new QWidget(this);
     m_allDayCheck = new QCheckBox(tr("Tutto il giorno"), panel);
     m_repeatCheck = new QCheckBox(tr("Si ripete"), panel);
@@ -321,7 +321,8 @@ QWidget* ActivitySidebarWidget::buildTaskSection() {
 }
 
 void ActivitySidebarWidget::showSection(int type) {
-    m_eventSection->setVisible(type == kEvent);
+    // L'Evento non ha una propria sezione specifica: la ricorrenza (comune
+    // a tutti e tre i tipi) e' gia' sempre visibile fuori da questo switch.
     m_meetingSection->setVisible(type == kMeeting);
     m_taskSection->setVisible(type == kTask);
 }
@@ -437,7 +438,7 @@ void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
   refreshAttendeeCompleter();
 
   // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
-  // generatore.
+  // generatore, allo stesso modo per tutti e tre i tipi.
   if (auto* task = dynamic_cast<const events::Task*>(activity)) {
     populateTask(*task);
   } else if (auto* meeting = dynamic_cast<const events::Meeting*>(activity)) {
@@ -473,7 +474,7 @@ void ActivitySidebarWidget::showEditOccurrence(const events::Occurrence& occurre
   emitPreview();
 }
 
-void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) {
+void ActivitySidebarWidget::populateCommonAndRecurrence(const events::Activity& activity) {
   m_titleEdit->setText(QString::fromStdString(activity.getTitle()));
   m_startEdit->setDateTime(toLocal(activity.getStart()));
   m_durationEdit->setValue(std::max(1, static_cast<int>(activity.getDuration().count() / 60)));
@@ -528,17 +529,16 @@ void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) 
   } else {
     m_endNever->setChecked(true);
   }
+}
 
+void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) {
+  populateCommonAndRecurrence(activity);
   m_typeCombo->setCurrentIndex(kEvent);
   showSection(kEvent);
 }
 
 void ActivitySidebarWidget::populateMeeting(const events::Meeting& meeting) {
-  m_titleEdit->setText(QString::fromStdString(meeting.getTitle()));
-  m_startEdit->setDateTime(toLocal(meeting.getStart()));
-  m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
-  m_commonForm->setRowVisible(m_durationEdit, true);
-  m_durationEdit->setValue(std::max(1, static_cast<int>(meeting.getDuration().count() / 60)));
+  populateCommonAndRecurrence(meeting);
   m_locationEdit->setText(QString::fromStdString(meeting.getLocation()));
   m_attendeesList->clear();
   for (const auto& name : meeting.getAttendees()) {
@@ -549,11 +549,7 @@ void ActivitySidebarWidget::populateMeeting(const events::Meeting& meeting) {
 }
 
 void ActivitySidebarWidget::populateTask(const events::Task& task) {
-  m_titleEdit->setText(QString::fromStdString(task.getTitle()));
-  m_startEdit->setDateTime(toLocal(task.getDue()));
-  m_startEdit->setDisplayFormat(QStringLiteral("dd/MM/yyyy HH:mm"));
-  m_commonForm->setRowVisible(m_durationEdit, true);
-  m_durationEdit->setValue(std::max(1, static_cast<int>(task.getDuration().count() / 60)));
+  populateCommonAndRecurrence(task);
   switch (task.getPriority()) {
   case events::Priority::Low:
     m_priorityCombo->setCurrentIndex(0);
@@ -573,10 +569,10 @@ void ActivitySidebarWidget::populateTask(const events::Task& task) {
 
 void ActivitySidebarWidget::emitPreview() {
   const QString title = m_titleEdit->text();
-  // Niente anteprima per l'Evento "tutto il giorno" (va nella striscia in
-  // alto, non nella griglia oraria); tutti gli altri casi usano gli stessi
-  // campi comuni (Data/Durata), quindi non serve piu' un dispatch per tipo.
-  if (m_typeCombo->currentIndex() == kEvent && m_allDayCheck->isChecked()) {
+  // Niente anteprima per "tutto il giorno" (va nella striscia in alto, non
+  // nella griglia oraria), qualunque sia il tipo: la ricorrenza/all-day e'
+  // comune, quindi non serve piu' un dispatch per tipo.
+  if (m_allDayCheck->isChecked()) {
     emit previewChanged(title, QDateTime(), 0, false);
     return;
   }
@@ -599,8 +595,42 @@ void ActivitySidebarWidget::refreshAttendeeCompleter() {
   m_attendeeCompleter->setModel(new QStringListModel(names, m_attendeeCompleter));
 }
 
+std::unique_ptr<events::Activity>
+ActivitySidebarWidget::makeTypedActivity(events::ActivityConfig config) const {
+  switch (m_typeCombo->currentIndex()) {
+  case kMeeting: {
+    auto meeting = events::makeMeeting(events::MeetingConfig(
+        config, m_locationEdit->text().trimmed().toStdString()));
+    for (int i = 0; i < m_attendeesList->count(); ++i) {
+      meeting->addAttendee(m_attendeesList->item(i)->text().toStdString());
+    }
+    return meeting;
+  }
+  case kTask: {
+    events::Priority priority = events::Priority::Medium;
+    switch (m_priorityCombo->currentIndex()) {
+    case 0:
+      priority = events::Priority::Low;
+      break;
+    case 2:
+      priority = events::Priority::High;
+      break;
+    default:
+      break;
+    }
+    auto task = events::makeTask(events::TaskConfig(config, priority));
+    if (m_doneCheck->isEnabled()) {
+      task->setDone(m_doneCheck->isChecked());
+    }
+    return task;
+  }
+  default:
+    return events::makeActivity(config);
+  }
+}
+
 std::vector<std::unique_ptr<events::Activity>>
-ActivitySidebarWidget::buildEventActivities() const {
+ActivitySidebarWidget::buildActivities() const {
   std::vector<std::unique_ptr<events::Activity>> result;
   const QString title = m_titleEdit->text().trimmed();
   if (title.isEmpty()) {
@@ -621,7 +651,7 @@ ActivitySidebarWidget::buildEventActivities() const {
   if (allDay && !m_repeatCheck->isChecked()) {
     // Attivita' che parte alle 00:00 e dura 24h (fino alle 00:00 del giorno
     // dopo): la striscia in alto la riconosce perche' copre un giorno intero.
-    result.push_back(events::makeActivity(events::ActivityConfig{
+    result.push_back(makeTypedActivity(events::ActivityConfig{
         .title = title.toStdString(),
         .start = start,
         .duration = std::chrono::seconds(86400)}));
@@ -630,7 +660,7 @@ ActivitySidebarWidget::buildEventActivities() const {
 
   // Niente ripetizione -> una semplice attivita' singola
   if (!m_repeatCheck->isChecked()) {
-    result.push_back(events::makeActivity(events::ActivityConfig{
+    result.push_back(makeTypedActivity(events::ActivityConfig{
         .title = title.toStdString(), .start = start, .duration = duration}));
     return result;
   }
@@ -662,7 +692,7 @@ ActivitySidebarWidget::buildEventActivities() const {
     if (countLimit > 0) {
       seriesEnd = endAfterCount(*generator, seriesStart, countLimit);
     }
-    result.push_back(events::makeActivity(events::ActivityConfig{
+    result.push_back(makeTypedActivity(events::ActivityConfig{
         .title = title.toStdString(),
         .start = seriesStart,
         .duration = duration,
@@ -724,7 +754,7 @@ ActivitySidebarWidget::buildEventActivities() const {
           allDay ? toTimePoint(QDateTime(startDate.addDays(offset), QTime(0, 0),
                                          QTimeZone(0)))
                  : toTimePoint(QDateTime(startDate.addDays(offset), time));
-      result.push_back(events::makeActivity(events::ActivityConfig{
+      result.push_back(makeTypedActivity(events::ActivityConfig{
           .title = title.toStdString(),
           .start = anchor,
           .duration = duration,
@@ -738,54 +768,6 @@ ActivitySidebarWidget::buildEventActivities() const {
     pushRecurrent(std::make_shared<events::YearlyGenerator>(every), start, end);
   }
   return result;
-}
-
-std::unique_ptr<events::Activity> ActivitySidebarWidget::buildActivity() const {
-  const QString title = m_titleEdit->text().trimmed();
-  if (title.isEmpty()) {
-    return nullptr;
-  }
-  const events::Duration duration = std::chrono::minutes(m_durationEdit->value());
-
-  switch (m_typeCombo->currentIndex()) {
-  case kMeeting: {
-    auto meeting = events::makeMeeting(events::MeetingConfig(
-        events::ActivityConfig{.title = title.toStdString(),
-                               .start = toTimePoint(m_startEdit->dateTime()),
-                               .duration = duration},
-        m_locationEdit->text().trimmed().toStdString()));
-    for (int i = 0; i < m_attendeesList->count(); ++i) {
-      meeting->addAttendee(m_attendeesList->item(i)->text().toStdString());
-    }
-    return meeting;
-  }
-
-  case kTask: {
-    events::Priority priority = events::Priority::Medium;
-    switch (m_priorityCombo->currentIndex()) {
-    case 0:
-      priority = events::Priority::Low;
-      break;
-    case 2:
-      priority = events::Priority::High;
-      break;
-    default:
-      break;
-    }
-    auto task = events::makeTask(events::TaskConfig(
-        events::ActivityConfig{.title = title.toStdString(),
-                               .start = toTimePoint(m_startEdit->dateTime()),
-                               .duration = duration},
-        priority));
-    if (m_doneCheck->isEnabled()) {
-      task->setDone(m_doneCheck->isChecked());
-    }
-    return task;
-  }
-
-  default:
-    return nullptr;
-  }
 }
 
 void ActivitySidebarWidget::onAddAttendee() {
@@ -834,56 +816,27 @@ void ActivitySidebarWidget::onDelete() {
 }
 
 void ActivitySidebarWidget::onSave() {
-  // Tipo Evento: attivita' singola o una o piu' serie
-  if (m_typeCombo->currentIndex() == kEvent) {
-    auto activities = buildEventActivities();
-    if (activities.empty()) {
-      m_errorLabel->setText(tr("Inserire un titolo non vuoto."));
-      return;
-    }
-    bool ok = false;
-    switch (m_mode) {
-    case Mode::Create:
-      ok = m_controller->addActivities(std::move(activities));
-      break;
-    case Mode::EditActivity:
-      ok = m_controller->updateActivity(m_editingActivity,
-                                        std::move(activities[0]));
-      break;
-    case Mode::EditOccurrence:
-      ok = m_controller->modifyOccurrence(*m_editingOccurrence,
-                                          std::move(activities[0]));
-      break;
-    }
-    if (ok) {
-      m_errorLabel->clear();
-      emit closeRequested();
-    } else {
-      m_errorLabel->setText(tr("Operazione non riuscita."));
-    }
-    return;
-  }
-
-  std::unique_ptr<events::Activity> activity = buildActivity();
-  if (!activity) {
+  // Un'unica costruzione per tutti e tre i tipi: attivita' singola oppure
+  // una o piu' serie ricorrenti (la ricorrenza e' comune a Evento/Riunione/
+  // Compito, non serve piu' distinguere il pannello Evento dagli altri).
+  auto activities = buildActivities();
+  if (activities.empty()) {
     m_errorLabel->setText(tr("Inserire un titolo non vuoto."));
     return;
   }
-
   bool ok = false;
   switch (m_mode) {
   case Mode::Create:
-    ok = m_controller->addActivity(std::move(activity));
+    ok = activities.size() > 1 ? m_controller->addActivities(std::move(activities))
+                                : m_controller->addActivity(std::move(activities[0]));
     break;
   case Mode::EditActivity:
-    ok = m_controller->updateActivity(m_editingActivity, std::move(activity));
+    ok = m_controller->updateActivity(m_editingActivity, std::move(activities[0]));
     break;
   case Mode::EditOccurrence:
-    ok = m_controller->modifyOccurrence(*m_editingOccurrence,
-                                        std::move(activity));
+    ok = m_controller->modifyOccurrence(*m_editingOccurrence, std::move(activities[0]));
     break;
   }
-
   if (ok) {
     m_errorLabel->clear();
     emit closeRequested();
