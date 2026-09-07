@@ -11,22 +11,20 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
-#include <QTimeZone>
 #include <QVBoxLayout>
 
 #include <algorithm>
 #include <memory>
 
 #include "controller/CalendarController.h"
-#include "builders/ActivityConfig.h"
 #include "domain/Meeting.h"
 #include "domain/Task.h"
 #include "generators/FixedIntervalGenerator.h"
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
+#include "views/dialog/ActivitySeriesBuilder.h"
 #include "views/dialog/ActivityTypeWidget.h"
 #include "views/dialog/MeetingFormWidget.h"
-#include "views/dialog/RecurrenceBuilder.h"
 #include "views/dialog/RecurrenceFormWidget.h"
 #include "views/dialog/TaskFormWidget.h"
 #include "views/utils/ViewShared.h"
@@ -64,24 +62,6 @@ QSpinBox* makeDurationSpin(QWidget* parent, int defaultMinutes = 60) {
     spin->setSuffix(QStringLiteral(" min"));
     spin->setValue(defaultMinutes);
     return spin;
-}
-
-// Generatore per le unita' a intervallo singolo (Giorni/Mesi/Anni): la
-// settimana su piu' giorni ha una regola diversa (una serie per giorno
-// scelto, vedi buildWeeklySeries) e non passa da qui.
-std::shared_ptr<const events::DateGenerator> makeIntervalGenerator(
-    RecurrenceFormWidget::Unit unit, int every) {
-    switch (unit) {
-    case RecurrenceFormWidget::Months:
-        return std::make_shared<events::MonthlyGenerator>(every);
-    case RecurrenceFormWidget::Years:
-        return std::make_shared<events::YearlyGenerator>(every);
-    case RecurrenceFormWidget::Days:
-    case RecurrenceFormWidget::Weeks:
-    default:
-        return std::make_shared<events::FixedIntervalGenerator>(
-            events::Duration(events::Days(every)));
-    }
 }
 
 // L'Evento non ha campi propri (solo titolo/data/durata/ricorrenza, gia'
@@ -297,10 +277,6 @@ void ActivitySidebarWidget::showSection(int type) {
     m_taskSection->setVisible(type == kTask);
 }
 
-events::TimePoint ActivitySidebarWidget::toTimePoint(const QDateTime& local) {
-  return events::TimePoint(std::chrono::seconds(local.toSecsSinceEpoch()));
-}
-
 QDateTime ActivitySidebarWidget::toLocal(const events::TimePoint tp) {
   return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();
 }
@@ -472,140 +448,17 @@ void ActivitySidebarWidget::emitPreview() {
   emit previewChanged(title, m_startEdit->dateTime(), durationSeconds, true);
 }
 
-std::unique_ptr<events::Activity>
-ActivitySidebarWidget::makeTypedActivity(events::ActivityConfig config) const {
-  ActivityTypeWidget* widget = m_typeWidgets[m_typeCombo->currentIndex()];
-  widget->applyToConfig(config);
-  return widget->createActivity(std::move(config));
-}
-
-events::TimePoint ActivitySidebarWidget::resolveStart(bool allDay) const {
-  // "Tutto il giorno": inizio a mezzanotte UTC (coerente con le query della
-  // griglia, che usano UTC) per non far slittare il giorno: in locale 00:00
-  // di Lun = Dom 22:00 UTC, che cadrebbe nel giorno/settimana precedente.
-  return allDay ? toTimePoint(QDateTime(m_startEdit->date(), QTime(0, 0), QTimeZone(0)))
-                : toTimePoint(m_startEdit->dateTime());
-}
-
-events::TimePoint ActivitySidebarWidget::resolveSeriesEnd() const {
-  // "Mai" -> resta max(); "Fino al" -> fine giornata della data scelta.
-  if (m_recurrence->endMode() != RecurrenceFormWidget::EndMode::OnDate) {
-    return events::TimePoint::max();
-  }
-  return toTimePoint(QDateTime(m_recurrence->endDate().addDays(1), QTime(0, 0)).addSecs(-1));
-}
-
-int ActivitySidebarWidget::resolveCountLimit() const {
-  return m_recurrence->endMode() == RecurrenceFormWidget::EndMode::AfterCount
-             ? m_recurrence->endCount()
-             : 0;
-}
-
-std::vector<std::unique_ptr<events::Activity>>
-ActivitySidebarWidget::buildActivities() const {
-  const QString title = m_titleEdit->text().trimmed();
-  if (title.isEmpty()) {
-    return {};
-  }
-  const bool allDay = m_recurrence->isAllDay();
-  const events::TimePoint start = resolveStart(allDay);
-  const events::Duration duration = allDay
-                                        ? std::chrono::seconds(86399)
-                                        : std::chrono::minutes(m_durationEdit->value());
-
-  if (!m_recurrence->isRepeating()) {
-    // "Tutto il giorno" senza ripetizione dura ESATTAMENTE 24h (86400s, non
-    // gli 86399 usati per le serie, vedi sopra): la striscia in alto
-    // riconosce entrambe come "copre un giorno intero" (coversFullDay).
-    const events::Duration singleDuration =
-        allDay ? std::chrono::seconds(86400) : duration;
-    return buildSingleActivity(title, start, singleDuration);
-  }
-
-  const events::TimePoint end = resolveSeriesEnd();
-  const int countLimit = resolveCountLimit();
-  const auto unit = m_recurrence->unit();
-
-  if (unit == RecurrenceFormWidget::Weeks) {
-    return buildWeeklySeries(title, duration, allDay, end, countLimit);
-  }
-  return buildRecurrentSeries(title, start, duration, end, countLimit,
-                               makeIntervalGenerator(unit, m_recurrence->every()));
-}
-
-std::vector<std::unique_ptr<events::Activity>>
-ActivitySidebarWidget::buildSingleActivity(const QString& title, events::TimePoint start,
-                                            events::Duration duration) const {
-  std::vector<std::unique_ptr<events::Activity>> result;
-  result.push_back(makeTypedActivity(events::ActivityConfig{
-      .title = title.toStdString(), .start = start, .duration = duration}));
-  return result;
-}
-
-std::vector<std::unique_ptr<events::Activity>>
-ActivitySidebarWidget::buildRecurrentSeries(
-    const QString& title, events::TimePoint start, events::Duration duration,
-    events::TimePoint end, int countLimit,
-    std::shared_ptr<const events::DateGenerator> generator) const {
-  // Il modello non ha un limite di conteggio nel generatore: "dopo N
-  // occorrenze" si traduce in un `end` calcolato avanzando il generatore
-  // stesso (RecurrenceBuilder::calculateEndAfterCount), cosi' il clamping
-  // di calendario (fine mese, anni bisestili, ...) resta corretto.
-  if (countLimit > 0) {
-    end = RecurrenceBuilder::calculateEndAfterCount(*generator, start, countLimit);
-  }
-  std::vector<std::unique_ptr<events::Activity>> result;
-  result.push_back(makeTypedActivity(events::ActivityConfig{
-      .title = title.toStdString(),
-      .start = start,
-      .duration = duration,
-      .end = end,
-      .generator = std::move(generator)}));
-  return result;
-}
-
-std::vector<std::unique_ptr<events::Activity>>
-ActivitySidebarWidget::buildWeeklySeries(const QString& title, events::Duration duration,
-                                         bool allDay, events::TimePoint end,
-                                         int countLimit) const {
-  // Una o piu' serie ricorrenti, una per giorno della settimana scelto.
-  const int baseDow = m_startEdit->date().dayOfWeek();
-  const QDate startDate = m_startEdit->date();
-  const QTime time = allDay ? QTime(0, 0) : m_startEdit->time();
-  const int every = m_recurrence->every();
-
-  // Giorni selezionati (id Qt: 1=Lun..7=Dom), fallback: il giorno dell'inizio.
-  std::vector<int> selected = m_recurrence->selectedWeekdays();
-  if (selected.empty()) {
-    selected.push_back(baseDow);
-  }
-
-  // Il limite "dopo N occorrenze" vale sul CALENDARIO COMBINATO, non per
-  // singola serie (vedi RecurrenceBuilder::calculateNthWeeklyDate).
-  events::TimePoint effectiveEnd = end;
-  if (countLimit > 0) {
-    const QDate nthDate = RecurrenceBuilder::calculateNthWeeklyDate(
-        startDate, baseDow, selected, every, countLimit);
-    effectiveEnd = toTimePoint(QDateTime(nthDate.addDays(1), QTime(0, 0)).addSecs(-1));
-  }
-
-  std::vector<std::unique_ptr<events::Activity>> result;
-  for (int dow : selected) {
-    const int offset = (dow - baseDow + 7) % 7;
-    // Anche le serie settimanali "tutto il giorno" partono a mezzanotte
-    // UTC (come l'evento singolo), per la stessa ragione di allineamento.
-    const events::TimePoint anchor =
-        allDay ? toTimePoint(QDateTime(startDate.addDays(offset), QTime(0, 0), QTimeZone(0)))
-               : toTimePoint(QDateTime(startDate.addDays(offset), time));
-    result.push_back(makeTypedActivity(events::ActivityConfig{
-        .title = title.toStdString(),
-        .start = anchor,
-        .duration = duration,
-        .end = effectiveEnd,
-        .generator = std::make_shared<events::FixedIntervalGenerator>(
-            events::Duration(events::Days(7 * every)))}));
-  }
-  return result;
+RecurrenceRule ActivitySidebarWidget::readRecurrenceRule() const {
+  RecurrenceRule rule;
+  rule.allDay = m_recurrence->isAllDay();
+  rule.repeating = m_recurrence->isRepeating();
+  rule.unit = m_recurrence->unit();
+  rule.every = m_recurrence->every();
+  rule.selectedWeekdays = m_recurrence->selectedWeekdays();
+  rule.endMode = m_recurrence->endMode();
+  rule.endDate = m_recurrence->endDate();
+  rule.endCount = m_recurrence->endCount();
+  return rule;
 }
 
 void ActivitySidebarWidget::onDelete() {
@@ -623,17 +476,27 @@ void ActivitySidebarWidget::onDelete() {
 }
 
 void ActivitySidebarWidget::onSave() {
-  // Un'unica costruzione per tutti e tre i tipi: attivita' singola oppure
-  // una o piu' serie ricorrenti (la ricorrenza e' comune a Evento/Riunione/
-  // Compito, non serve piu' distinguere il pannello Evento dagli altri).
-  auto activities = buildActivities();
+  // 1. Dati grezzi dal form (titolo/data/durata/ricorrenza) e dal tipo
+  //    corrente, senza alcun calcolo qui.
+  const std::string title = m_titleEdit->text().trimmed().toStdString();
+  const ActivityTypeWidget* typeWidget = m_typeWidgets[m_typeCombo->currentIndex()];
+
+  // 2. ActivitySeriesBuilder fa tutto il lavoro di dominio (attivita'
+  //    singola oppure una o piu' serie ricorrenti, la ricorrenza e' comune
+  //    a Evento/Riunione/Compito): la sidebar non calcola piu' nulla.
+  auto activities = ActivitySeriesBuilder(title, m_startEdit->date(), m_startEdit->time(),
+                                          m_durationEdit->value())
+                        .setRecurrence(readRecurrenceRule())
+                        .setTypeWidget(typeWidget)
+                        .build();
   if (activities.empty()) {
     m_errorLabel->setText(tr("Inserire un titolo non vuoto."));
     return;
   }
-  // Create/EditActivity/EditOccurrence chiamano ciascuno un metodo diverso
-  // del controller: la scelta e' delegata a m_saveStrategy (polimorfismo)
-  // invece di uno switch qui.
+
+  // 3. Create/EditActivity/EditOccurrence chiamano ciascuno un metodo
+  //    diverso del controller: la scelta resta delegata a m_saveStrategy
+  //    (polimorfismo, non uno switch qui).
   if (m_saveStrategy->execute(m_controller, std::move(activities))) {
     m_errorLabel->clear();
     emit closeRequested();

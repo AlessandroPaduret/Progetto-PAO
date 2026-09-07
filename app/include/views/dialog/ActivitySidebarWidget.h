@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "events.h"
+#include "views/dialog/ActivitySeriesBuilder.h"
 
 class QCheckBox;
 class QComboBox;
@@ -87,36 +88,10 @@ private:
     /** @brief Emette l'anteprima corrente (campi comuni). */
     void emitPreview();
 
-    /** @brief Costruisce le attivita' del tipo scelto (Evento/Riunione/
-     *  Compito): una sola attivita', oppure una o piu' serie ricorrenti (una
-     *  per giorno della settimana selezionato, per la ricorrenza settimanale)
-     *  — la ricorrenza e' comune a tutti e tre i tipi. Riduce i campi del
-     *  form al caso da costruire e lo delega al sotto-metodo adatto (vedi
-     *  sotto): la matematica delle date vive in RecurrenceBuilder, non qui. */
-    std::vector<std::unique_ptr<events::Activity>> buildActivities() const;
-
-    // --- Sotto-passi di buildActivities(), un caso ciascuno (SRP) -----------
-    std::vector<std::unique_ptr<events::Activity>> buildSingleActivity(
-        const QString& title, events::TimePoint start, events::Duration duration) const;
-    std::vector<std::unique_ptr<events::Activity>> buildRecurrentSeries(
-        const QString& title, events::TimePoint start, events::Duration duration,
-        events::TimePoint end, int countLimit,
-        std::shared_ptr<const events::DateGenerator> generator) const;
-    std::vector<std::unique_ptr<events::Activity>> buildWeeklySeries(
-        const QString& title, events::Duration duration, bool allDay,
-        events::TimePoint end, int countLimit) const;
-
-    // Letture del form comuni a piu' sotto-passi di buildActivities()
-    events::TimePoint resolveStart(bool allDay) const;
-    events::TimePoint resolveSeriesEnd() const;
-    int resolveCountLimit() const;
-
-    /** @brief Costruisce l'attivita' del tipo corrente a partire dai campi
-     *  comuni gia' pronti (titolo/data/durata/end/generatore): delega al
-     *  `m_typeWidgets[m_typeCombo->currentIndex()]` (polimorfismo, vedi
-     *  ActivityTypeWidget) l'aggiunta dei soli campi specifici del tipo
-     *  (luogo/partecipanti, priorita'/evaso) e la costruzione vera e propria. */
-    std::unique_ptr<events::Activity> makeTypedActivity(events::ActivityConfig config) const;
+    /** @brief Legge lo stato di ricorrenza corrente da RecurrenceFormWidget
+     *  in una RecurrenceRule (value-type): l'unico compito della sidebar
+     *  verso ActivitySeriesBuilder e' raccogliere questi dati, non calcolarli. */
+    RecurrenceRule readRecurrenceRule() const;
 
     // Popolamento dei campi in modifica (uguale per i 3 tipi: la ricorrenza
     // non dipende dal tipo dell'attivita'), spezzato per responsabilita':
@@ -127,8 +102,8 @@ private:
     void populateRecurrenceFields(const events::Activity& activity);
     void populateGeneratorFields(const events::Activity& activity);
 
-    // Conversioni locale/UTC
-    static events::TimePoint toTimePoint(const QDateTime& local);
+    // Conversioni locale/UTC (sola lettura per popolare il form: la
+    // costruzione delle attivita' vive interamente in ActivitySeriesBuilder)
     static QDateTime toLocal(const events::TimePoint tp);
 
     CalendarController* m_controller;

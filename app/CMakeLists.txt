@@ -67,6 +67,8 @@ add_executable(pao_app
     include/views/dialog/RecurrenceFormWidget.h
     src/views/dialog/RecurrenceBuilder.cpp
     include/views/dialog/RecurrenceBuilder.h
+    src/views/dialog/ActivitySeriesBuilder.cpp
+    include/views/dialog/ActivitySeriesBuilder.h
     src/views/dialog/MeetingFormWidget.cpp
     include/views/dialog/MeetingFormWidget.h
     src/views/dialog/TaskFormWidget.cpp
