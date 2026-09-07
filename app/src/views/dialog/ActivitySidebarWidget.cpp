@@ -230,7 +230,6 @@ void ActivitySidebarWidget::showCreateType(int typeIndex,
   // Esplicito: se il tipo non e' cambiato rispetto a prima, currentIndexChanged
   // non scatta e la sezione mostrata resterebbe quella dell'uso precedente.
   showSection(clamped);
-  refreshAttendeeCompleter();
   emitPreview();
 }
 
@@ -239,7 +238,6 @@ void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
   m_editingActivity = activity;
   m_editingOccurrence.reset();
   m_errorLabel->clear();
-  refreshAttendeeCompleter();
 
   // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
   // generatore, allo stesso modo per tutti e tre i tipi.
@@ -368,21 +366,6 @@ void ActivitySidebarWidget::emitPreview() {
   }
   const qint64 durationSeconds = static_cast<qint64>(m_durationEdit->value()) * 60;
   emit previewChanged(title, m_startEdit->dateTime(), durationSeconds, true);
-}
-
-void ActivitySidebarWidget::refreshAttendeeCompleter() {
-  QStringList names;
-  for (const auto& activity : m_controller->calendar()) {
-    if (const auto* meeting = dynamic_cast<const events::Meeting*>(activity.get())) {
-      for (const auto& name : meeting->getAttendees()) {
-        names.append(QString::fromStdString(name));
-      }
-    }
-  }
-  std::ranges::sort(names);
-  const auto duplicates = std::ranges::unique(names);
-  names.erase(duplicates.begin(), duplicates.end());
-  m_meetingSection->setAttendeeSuggestions(names);
 }
 
 std::unique_ptr<events::Activity>

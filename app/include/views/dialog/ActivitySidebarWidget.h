@@ -104,10 +104,6 @@ private:
     void populateMeeting(const events::Meeting& meeting);
     void populateTask(const events::Task& task);
 
-    // Suggerimenti (QCompleter) per il campo partecipanti: nomi gia' usati
-    // in altre Riunioni del calendario corrente.
-    void refreshAttendeeCompleter();
-
     // Conversioni locale/UTC
     static events::TimePoint toTimePoint(const QDateTime& local);
     static QDateTime toLocal(const events::TimePoint tp);

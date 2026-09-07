@@ -408,9 +408,7 @@ selezionabili con un \texttt{QButtonGroup} \textbf{non esclusivo} (un id
 fine della ricorrenza puo' essere ``mai'', una data o ``dopo $N$
 occorrenze'' (calcolata avanzando il generatore, cosi' il \emph{clamping}
 di calendario resta corretto anche a cavallo di piu' serie). I pannelli
-Riunione, Compito e Anniversario hanno campi propri (per la Riunione, il
-campo partecipanti offre il completamento automatico via
-\texttt{QCompleter} sui nomi gia' usati in altre riunioni). Un'anteprima
+Riunione, Compito e Anniversario hanno campi propri. Un'anteprima
 live dell'attivita' in corso di modifica appare direttamente nella griglia
 mentre l'utente digita.
 
@@ -460,8 +458,6 @@ Le funzionalita' sono suddivise, per chiarezza, in funzionali ed estetiche.
     ricorrenza senza alterare le altre;
   \item \textbf{ricerca live} per titolo, filtro per tipo e filtro ``solo da
     fare'' nell'elenco;
-  \item completamento automatico (\texttt{QCompleter}) dei partecipanti di
-    una riunione sui nomi gia' usati in altre riunioni;
   \item suite di \textbf{test automatici} (\textbf{QTest}, non Catch2): oltre
     quaranta casi complessivi su modello, persistenza e controller
     dell'applicazione (round-trip JSON per ogni tipo, eccezioni, troncamenti,

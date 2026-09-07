@@ -3,7 +3,6 @@
 #include <QStringList>
 #include <QWidget>
 
-class QCompleter;
 class QLineEdit;
 class QListWidget;
 
@@ -27,10 +26,6 @@ public:
     /** @brief Svuota luogo e partecipanti (nuova attivita'). */
     void clear();
 
-    /** @brief Aggiorna i suggerimenti (QCompleter) del campo "Aggiungi
-     *  partecipante": nomi gia' usati in altre Riunioni del calendario. */
-    void setAttendeeSuggestions(const QStringList& names);
-
 private slots:
     void onAddAttendee();
     void onRemoveAttendee();
@@ -38,7 +33,6 @@ private slots:
 private:
     QLineEdit* m_locationEdit = nullptr;
     QLineEdit* m_attendeeEdit = nullptr;
-    QCompleter* m_attendeeCompleter = nullptr;
     QListWidget* m_attendeesList = nullptr;
 };
 

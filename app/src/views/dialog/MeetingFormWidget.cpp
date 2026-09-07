@@ -1,10 +1,8 @@
 #include "views/dialog/MeetingFormWidget.h"
 
-#include <QCompleter>
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QListWidget>
-#include <QStringListModel>
 
 namespace app {
 
@@ -14,12 +12,6 @@ MeetingFormWidget::MeetingFormWidget(QWidget* parent) : QWidget(parent) {
 
     m_attendeeEdit = new QLineEdit(this);
     m_attendeeEdit->setPlaceholderText(tr("Nome partecipante + Invio"));
-    // Suggerisce nomi gia' usati in altre Riunioni del calendario corrente
-    // (aggiornato dal genitore via setAttendeeSuggestions): qui si crea solo
-    // il completer vuoto e lo si aggancia al campo.
-    m_attendeeCompleter = new QCompleter(this);
-    m_attendeeCompleter->setCaseSensitivity(Qt::CaseInsensitive);
-    m_attendeeEdit->setCompleter(m_attendeeCompleter);
 
     m_attendeesList = new QListWidget(this);
     m_attendeesList->setMaximumHeight(110);
@@ -62,10 +54,6 @@ void MeetingFormWidget::clear() {
     m_locationEdit->clear();
     m_attendeeEdit->clear();
     m_attendeesList->clear();
-}
-
-void MeetingFormWidget::setAttendeeSuggestions(const QStringList& names) {
-    m_attendeeCompleter->setModel(new QStringListModel(names, m_attendeeCompleter));
 }
 
 void MeetingFormWidget::onAddAttendee() {
