@@ -25,6 +25,7 @@
 \usepackage{ltablex}
 \usepackage{ragged2e}
 \usepackage{titlesec}
+\usepackage{pdflscape}
 
 \usepackage[utf8]{inputenc}
 \usepackage{listings}
@@ -332,7 +333,21 @@ L'applicazione (\texttt{app/}) adotta il pattern \textbf{MVC}: il
 \texttt{Calendar} logico ed espone le operazioni (CRUD, ricerca,
 salvataggio/caricamento, spostamento e completamento di un'occorrenza); il
 segnale \texttt{activitiesChanged} notifica ogni modifica alle viste, che si
-aggiornano da sole.
+aggiornano da sole. La Fig.~\ref{fig:uml-gui} mostra il diagramma UML delle
+classi di \texttt{app/}.
+
+\begin{landscape}
+\begin{figure}[p]
+\centering
+\IfFileExists{figura/GUI.png}{%
+  \includegraphics[width=\linewidth]{figura/GUI.png}%
+}{%
+  \fbox{\parbox[c][4cm][c]{0.9\linewidth}{\centering Diagramma UML da inserire}}%
+}
+\caption{Diagramma UML delle classi dell'interfaccia grafica (\texttt{app/})}
+\label{fig:uml-gui}
+\end{figure}
+\end{landscape}
 
 \subsection{Finestra unica e navigazione}
 
