@@ -119,13 +119,22 @@ void WeekView::rebuildColumns() {
 }
 
 void WeekView::setWeekStart(const QDate& monday) {
+    // NON richiama distributeOccurrences(): lo farebbe con m_occurrences
+    // ancora VECCHIE (quelle dell'ultima setOccurrences), che a questo punto
+    // possono gia' riferirsi a un'Activity appena distrutta se la chiamata
+    // arriva da un refresh() innescato da una modifica/eliminazione
+    // (updateActivity/removeActivity distruggono la vecchia Activity PRIMA
+    // di emettere activitiesChanged). Ricostruire subito i widget delle
+    // occorrenze da quel puntatore ormai pendente fa leggere un
+    // DateGenerator gia' liberato -> crash. L'unico chiamante
+    // (MainWindow::refresh()) invoca sempre setOccurrences(...) con dati
+    // freschi subito dopo: la ridistribuzione avviene la', non qui.
     m_monday = monday;
     m_header->setDays(m_monday, m_dayCount);
     m_allDayArea->setDays(m_monday, m_dayCount);
     for (int i = 0; i < m_dayCount; ++i) {
         m_columns[i]->setDate(m_monday.addDays(i));
     }
-    distributeOccurrences();
 }
 
 void WeekView::setOccurrences(const std::vector<events::Occurrence>& occurrences) {
