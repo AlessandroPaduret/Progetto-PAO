@@ -21,6 +21,15 @@
 \usepackage{xcolor}
 \usepackage{seqsplit}
 
+
+\usepackage{ltablex}
+\usepackage{ragged2e}
+\usepackage{titlesec}
+
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{xcolor}
+
 % Caption in italiano (la lingua babel "italian" non e' disponibile ovunque)
 \renewcommand{\figurename}{Figura}
 \renewcommand{\tablename}{Tabella}
@@ -31,6 +40,48 @@
 \newcommand{\matricola}{2150445}
 
 \setlength{\parskip}{4pt}
+
+% Definizione dei colori per la sintassi JSON
+\definecolor{jsonbg}{rgb}{0.97,0.97,0.97}
+\definecolor{jsonkey}{rgb}{0.0, 0.2, 0.6}
+\definecolor{jsonstring}{rgb}{0.1, 0.5, 0.1}
+\definecolor{jsonnumber}{rgb}{0.8, 0.0, 0.0}
+\definecolor{jsonbracket}{rgb}{0.4, 0.4, 0.4}
+
+% Configurazione personalizzata di listings per JSON
+\lstdefinelanguage{JSON}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{jsonbg},
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  rulecolor=\color{black!20},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  literate=
+   *{0}{{{\color{jsonnumber}0}}}{1}
+    {1}{{{\color{jsonnumber}1}}}{1}
+    {2}{{{\color{jsonnumber}2}}}{1}
+    {3}{{{\color{jsonnumber}3}}}{1}
+    {4}{{{\color{jsonnumber}4}}}{1}
+    {5}{{{\color{jsonnumber}5}}}{1}
+    {6}{{{\color{jsonnumber}6}}}{1}
+    {7}{{{\color{jsonnumber}7}}}{1}
+    {8}{{{\color{jsonnumber}8}}}{1}
+    {9}{{{\color{jsonnumber}9}}}{1}
+    {:}{{{\color{jsonbracket}{:}}}}{1}
+    {,}{{{\color{jsonbracket}{,}}}}{1}
+    {\{}{{{\color{jsonbracket}{\{}}}}{1}
+    {\}}{{{\color{jsonbracket}{\}}}}}{1}
+    {[}{{{\color{jsonbracket}{[}}}}{1}
+    {]}{{{\color{jsonbracket}{]}}}}{1},
+  stringstyle=\color{jsonstring},
+  morestring=[b]",
+  morestring=[d]'
+}
 
 \begin{document}
 \sloppy
@@ -267,7 +318,7 @@ di ricorrenza. Ogni campo e' validato rigorosamente: date ISO-8601
 in presenza di dati non validi il caricamento fallisce con un messaggio
 d'errore e il calendario esistente non viene alterato. Formato del file:
 
-\begin{verbatim}
+\begin{lstlisting}[language=JSON, caption={esempio di dati}]
 { "version": 1, "activities": [
   { "type": "task", "title": "Consegna relazione",
     "start": "2026-09-14T23:59:00", "duration_seconds": 0,
@@ -278,7 +329,7 @@ d'errore e il calendario esistente non viene alterato. Formato del file:
     "duration_seconds": 900, "location": "Sala A",
     "attendees": ["Mario Rossi"],
     "generator": { "type": "single" }, "exceptions": [] } ] }
-\end{verbatim}
+\end{lstlisting}
 
 Il modulo di persistenza dipende solo da \textbf{Qt Core}: il modello logico
 resta riutilizzabile senza dipendenze dalla GUI. Il file d'esempio
@@ -377,8 +428,24 @@ pallino colorato, titolo, tipo e dettagli; una casella di ricerca filtra
 live per titolo (case-insensitive, \texttt{Calendar::search}), una tendina
 filtra per tipo e una checkbox nasconde i Compiti gia' evasi.
 
-\section{Funzionalita' aggiuntive}
+\section{Funzionalita' implementate}
 
+Oltre a quanto richiesto dalla specifica del corso, l'applicazione offre
+alcune funzionalita' non immediatamente visibili che vale la pena
+documentare: ogni voce dei menu ``File'' e ``Nuova attivita''' mostra ed
+attiva una \textbf{scorciatoia da tastiera} (\texttt{Ctrl+S} salva sull'ultimo
+file usato, \texttt{Ctrl+Shift+S} chiede sempre un nuovo percorso,
+\texttt{Ctrl+O} carica, \texttt{Ctrl+N} apre il pannello di creazione con il
+tipo Evento gia' selezionato); il pannello laterale di creazione/modifica
+resta sempre affiancato al calendario tramite uno \texttt{QSplitter}, quindi
+ridimensionare la finestra ridistribuisce lo spazio tra le due parti senza
+sovrapposizioni; la griglia settimanale/giornaliera scorre in una
+\texttt{QScrollArea} verticale mantenendo intestazione e striscia
+``tutto il giorno'' fisse in alto.
+
+Le funzionalita' sono suddivise, per chiarezza, in funzionali ed estetiche.
+
+\paragraph{Funzionali}
 \begin{itemize}[nosep]
   \item gestione di \textbf{tre tipi} concreti di attivita' (il minimo
     richiesto), con attributi e metodi specifici, pi\`u eventi ``tutto il
@@ -387,26 +454,44 @@ filtra per tipo e una checkbox nasconde i Compiti gia' evasi.
     della settimana contemporaneamente)/mensili (con clamping di fine mese)/
     annuali (con gestione degli anni bisestili), con eccezioni puntuali
     (EXDATE), troncamento e ``divisione'' della serie;
-  \item \textbf{quattro viste temporali} (giorno, settimana, mese, anno) piu'
-    l'elenco, tutte sincronizzate sullo stesso \texttt{Calendar};
-  \item \textbf{drag\&drop} nativo per spostare rapidamente un'occorrenza tra
-    celle, con gestione esplicita del caso ricorrente;
-  \item \textbf{colore per-attivita'} stabile nelle griglie, calcolato
-    dall'identita' dell'oggetto e disegnato direttamente con \texttt{QPainter};
-  \item \textbf{ricerca live} per titolo, filtro per tipo e filtro ``solo da
-    fare'' nell'elenco;
-  \item \textbf{pannello laterale} unico (non modale) per dettaglio,
-    creazione e modifica, con anteprima live nella griglia durante la
-    digitazione e completamento automatico dei partecipanti di una riunione;
+  \item conversione e salvataggio delle attivita' in formato \textbf{JSON}
+    locale, con validazione completa in lettura e messaggi d'errore;
   \item \textbf{modifica/eliminazione di una singola istanza} di una
     ricorrenza senza alterare le altre;
-  \item \textbf{persistenza robusta}: caricamento con validazione completa
-    del formato e messaggi d'errore; file d'esempio incluso nella consegna;
+  \item \textbf{ricerca live} per titolo, filtro per tipo e filtro ``solo da
+    fare'' nell'elenco;
+  \item completamento automatico (\texttt{QCompleter}) dei partecipanti di
+    una riunione sui nomi gia' usati in altre riunioni;
   \item suite di \textbf{test automatici} (\textbf{QTest}, non Catch2): oltre
     quaranta casi complessivi su modello, persistenza e controller
     dell'applicazione (round-trip JSON per ogni tipo, eccezioni, troncamenti,
     spostamenti, ricorrenze multi-giorno, validazioni), eseguiti sia in
     locale (\texttt{ctest}) sia nella pipeline Docker del repository.
+\end{itemize}
+
+\paragraph{Estetiche/grafiche}
+\begin{itemize}[nosep]
+  \item barra dei menu in alto (\texttt{AppMenuBar}), con scorciatoie da
+    tastiera mostrate accanto a ciascuna voce, attenuate rispetto al testo
+    tramite uno stile dedicato (\texttt{MenuShortcutStyle}) che segue il tema
+    attivo (anche scuro) leggendo i colori dalla \texttt{QPalette} corrente;
+  \item \textbf{quattro viste temporali} (giorno, settimana, mese, anno) piu'
+    l'elenco, tutte sincronizzate sullo stesso \texttt{Calendar}, con una
+    barra di navigazione condivisa (Oggi/$\leftarrow$/$\rightarrow$);
+  \item gestione del \textbf{ridimensionamento}: pannello laterale
+    ridimensionabile via \texttt{QSplitter}, griglia oraria scorrevole in una
+    \texttt{QScrollArea} con intestazione fissa;
+  \item \textbf{drag\&drop} nativo per spostare rapidamente un'occorrenza tra
+    celle, con gestione esplicita del caso ricorrente;
+  \item \textbf{colore per-attivita'} stabile nelle griglie, calcolato
+    dall'identita' dell'oggetto e disegnato direttamente con \texttt{QPainter};
+  \item \textbf{anteprima live} dell'attivita' in corso di modifica,
+    aggiornata nella griglia mentre l'utente digita;
+  \item \textbf{pannello laterale} unico (non modale) per dettaglio,
+    creazione e modifica, mai sovrapposto al resto della finestra;
+  \item foglio di stile Qt unico (\texttt{style.qss}) per l'intera interfaccia,
+    con effetti grafici (es. cambio colore al passaggio del mouse) gestiti
+    tramite proprieta' dinamiche e non ricostruendo CSS a runtime.
 \end{itemize}
 
 \section{Rendicontazione delle ore}
@@ -425,7 +510,7 @@ Modello logico (gerarchia \texttt{Activity}, generatore di date) & 10h & 8h \\
 Persistenza JSON (Visitor) & 6h & 8h \\
 Interfaccia grafica Qt (MVC, viste, form, ricerca) & 12h & 12h \\
 Relazione e disegni UML & 4h & 4h \\
-Refactoring (Zero-cost Abstraction) & 10h & 24h \\
+Refactoring (Zero-cost Abstraction) + Documentazione & 10h & 24h \\
 \midrule
 \textbf{Totale} & \textbf{48h} & \textbf{60h} \\
 \bottomrule
