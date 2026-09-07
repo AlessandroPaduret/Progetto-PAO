@@ -6,7 +6,7 @@
 
 namespace app {
 
-TaskFormWidget::TaskFormWidget(QWidget* parent) : QWidget(parent) {
+TaskFormWidget::TaskFormWidget(QWidget* parent) : ActivityTypeWidget(parent) {
     m_priorityCombo = new QComboBox(this);
     m_priorityCombo->addItem(tr("Bassa"));
     m_priorityCombo->addItem(tr("Media"));
@@ -49,10 +49,31 @@ void TaskFormWidget::setDone(bool done) { m_doneCheck->setChecked(done); }
 void TaskFormWidget::setDoneEnabled(bool enabled) { m_doneCheck->setEnabled(enabled); }
 bool TaskFormWidget::isDoneEnabled() const { return m_doneCheck->isEnabled(); }
 
-void TaskFormWidget::resetToDefaults() {
+void TaskFormWidget::clear() {
     m_priorityCombo->setCurrentIndex(1);
     m_doneCheck->setChecked(false);
     m_doneCheck->setEnabled(true);
+}
+
+void TaskFormWidget::populateFrom(const events::Activity& activity) {
+    const auto& task = static_cast<const events::Task&>(activity);
+    setPriority(task.getPriority());
+    setDone(task.isDone());
+    setDoneEnabled(true);
+}
+
+void TaskFormWidget::applyToConfig(events::ActivityConfig& /*config*/) const {
+    // Priorita'/evaso non fanno parte della ActivityConfig comune (sono in
+    // TaskConfig): createActivity() li aggiunge direttamente.
+}
+
+std::unique_ptr<events::Activity>
+TaskFormWidget::createActivity(events::ActivityConfig config) const {
+    auto task = events::makeTask(events::TaskConfig(std::move(config), priority()));
+    if (isDoneEnabled()) {
+        task->setDone(isDone());
+    }
+    return task;
 }
 
 } // namespace app

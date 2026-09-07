@@ -6,7 +6,7 @@
 
 namespace app {
 
-MeetingFormWidget::MeetingFormWidget(QWidget* parent) : QWidget(parent) {
+MeetingFormWidget::MeetingFormWidget(QWidget* parent) : ActivityTypeWidget(parent) {
     m_locationEdit = new QLineEdit(this);
     m_locationEdit->setPlaceholderText(tr("Aula, sede o link"));
 
@@ -54,6 +54,31 @@ void MeetingFormWidget::clear() {
     m_locationEdit->clear();
     m_attendeeEdit->clear();
     m_attendeesList->clear();
+}
+
+void MeetingFormWidget::populateFrom(const events::Activity& activity) {
+    const auto& meeting = static_cast<const events::Meeting&>(activity);
+    setLocation(QString::fromStdString(meeting.getLocation()));
+    QStringList attendees;
+    for (const auto& name : meeting.getAttendees()) {
+        attendees.append(QString::fromStdString(name));
+    }
+    setAttendees(attendees);
+}
+
+void MeetingFormWidget::applyToConfig(events::ActivityConfig& /*config*/) const {
+    // Luogo/partecipanti non fanno parte della ActivityConfig comune (sono
+    // in MeetingConfig): createActivity() li aggiunge direttamente.
+}
+
+std::unique_ptr<events::Activity>
+MeetingFormWidget::createActivity(events::ActivityConfig config) const {
+    auto meeting = events::makeMeeting(
+        events::MeetingConfig(std::move(config), location().toStdString()));
+    for (const QString& name : attendees()) {
+        meeting->addAttendee(name.toStdString());
+    }
+    return meeting;
 }
 
 void MeetingFormWidget::onAddAttendee() {

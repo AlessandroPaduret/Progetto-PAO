@@ -19,11 +19,10 @@ class QSpinBox;
 
 namespace app {
 
+class ActivityTypeWidget;
 class CalendarController;
 class FormSaveStrategy;
-class MeetingFormWidget;
 class RecurrenceFormWidget;
-class TaskFormWidget;
 
 /** @brief Pannello laterale (sidebar) per creare/modificare un'attivita': un
  *  QWidget integrato nella MainWindow tramite QSplitter (non un QDialog).
@@ -34,10 +33,13 @@ class TaskFormWidget;
  *  Agisce da semplice COORDINATORE: possiede solo i campi comuni a tutti i
  *  tipi (Titolo/Data/Durata) e delega ogni sezione specifica a un widget
  *  figlio autonomo -- RecurrenceFormWidget (Tutto il giorno/Si ripete,
- *  comune a Evento/Riunione/Compito), MeetingFormWidget (luogo/partecipanti)
- *  e TaskFormWidget (priorita'/evaso) -- mostrando/nascondendo solo quest
- *  ultime due in base al tipo scelto nella combo. La logica di ciascuna
- *  sezione (giorni della settimana, fine ricorrenza, elenco partecipanti,
+ *  comune a Evento/Riunione/Compito) piu' un `ActivityTypeWidget` per tipo
+ *  (Evento/Riunione/Compito, in `m_typeWidgets`), mostrando/nascondendo
+ *  solo Riunione/Compito in base al tipo scelto nella combo (l'Evento non
+ *  ha campi propri). Il polimorfismo su `ActivityTypeWidget` sostituisce lo
+ *  switch che prima costruiva/popolava l'attivita' in base al tipo: la
+ *  logica di ciascuna sezione (giorni della settimana, fine ricorrenza,
+ *  elenco partecipanti, costruzione della propria Activity/Meeting/Task,
  *  ...) vive nel rispettivo widget figlio, non qui.
  */
 class ActivitySidebarWidget : public QWidget {
@@ -110,19 +112,20 @@ private:
     int resolveCountLimit() const;
 
     /** @brief Costruisce l'attivita' del tipo corrente a partire dai campi
-     *  comuni gia' pronti (titolo/data/durata/end/generatore): aggiunge i
-     *  soli campi specifici del tipo (luogo/partecipanti, priorita'/evaso). */
+     *  comuni gia' pronti (titolo/data/durata/end/generatore): delega al
+     *  `m_typeWidgets[m_typeCombo->currentIndex()]` (polimorfismo, vedi
+     *  ActivityTypeWidget) l'aggiunta dei soli campi specifici del tipo
+     *  (luogo/partecipanti, priorita'/evaso) e la costruzione vera e propria. */
     std::unique_ptr<events::Activity> makeTypedActivity(events::ActivityConfig config) const;
 
     // Popolamento dei campi in modifica (uguale per i 3 tipi: la ricorrenza
     // non dipende dal tipo dell'attivita'), spezzato per responsabilita':
     // solo titolo/data/durata, solo ricorrenza, solo lettura del generatore.
+    // I campi specifici del tipo li popola invece polimorficamente
+    // ActivityTypeWidget::populateFrom (vedi showEditActivity nel .cpp).
     void populateBasicFields(const events::Activity& activity);
     void populateRecurrenceFields(const events::Activity& activity);
     void populateGeneratorFields(const events::Activity& activity);
-    void populateEventLike(const events::Activity& activity);
-    void populateMeeting(const events::Meeting& meeting);
-    void populateTask(const events::Task& task);
 
     // Conversioni locale/UTC
     static events::TimePoint toTimePoint(const QDateTime& local);
@@ -145,8 +148,12 @@ private:
 
     // --- Sezioni delegate ai widget figli -----------------------------------
     RecurrenceFormWidget* m_recurrence = nullptr;  // comune a tutti e 3 i tipi
-    MeetingFormWidget* m_meetingSection = nullptr;
-    TaskFormWidget* m_taskSection = nullptr;
+    ActivityTypeWidget* m_eventSection = nullptr;    // nessun campo proprio, mai in layout
+    ActivityTypeWidget* m_meetingSection = nullptr;
+    ActivityTypeWidget* m_taskSection = nullptr;
+    // Stesso ordine di kEvent/kMeeting/kTask: m_typeWidgets[m_typeCombo->
+    // currentIndex()] e' la sezione da interrogare polimorficamente.
+    std::vector<ActivityTypeWidget*> m_typeWidgets;
 
     QPushButton* m_deleteButton = nullptr;   // Elimina (visibile solo in modifica)
     QLabel* m_errorLabel = nullptr;

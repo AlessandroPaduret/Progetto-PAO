@@ -1,7 +1,10 @@
 #pragma once
 
 #include <QStringList>
-#include <QWidget>
+
+#include <memory>
+
+#include "views/dialog/ActivityTypeWidget.h"
 
 class QLineEdit;
 class QListWidget;
@@ -9,10 +12,12 @@ class QListWidget;
 namespace app {
 
 /** @brief Sezione specifica della Riunione (luogo + partecipanti), estratta
- *  da ActivitySidebarWidget in un widget figlio autonomo: non conosce
- *  `events::Meeting`, si limita a raccogliere luogo e nomi in una QStringList
- *  che il genitore traduce da/verso il modello. */
-class MeetingFormWidget : public QWidget {
+ *  da ActivitySidebarWidget in un widget figlio autonomo che implementa
+ *  ActivityTypeWidget: sa da solo svuotarsi, popolarsi da un
+ *  `events::Meeting` esistente e costruire la propria `events::Meeting`
+ *  (polimorfismo al posto dello switch in
+ *  ActivitySidebarWidget::makeTypedActivity). */
+class MeetingFormWidget : public ActivityTypeWidget {
     Q_OBJECT
 public:
     explicit MeetingFormWidget(QWidget* parent = nullptr);
@@ -23,8 +28,11 @@ public:
     void setLocation(const QString& location);
     void setAttendees(const QStringList& attendees);
 
-    /** @brief Svuota luogo e partecipanti (nuova attivita'). */
-    void clear();
+    // ActivityTypeWidget
+    void clear() override;
+    void populateFrom(const events::Activity& activity) override;
+    void applyToConfig(events::ActivityConfig& config) const override;
+    std::unique_ptr<events::Activity> createActivity(events::ActivityConfig config) const override;
 
 private slots:
     void onAddAttendee();

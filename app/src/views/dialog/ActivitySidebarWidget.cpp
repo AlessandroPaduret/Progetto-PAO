@@ -24,6 +24,7 @@
 #include "generators/FixedIntervalGenerator.h"
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
+#include "views/dialog/ActivityTypeWidget.h"
 #include "views/dialog/MeetingFormWidget.h"
 #include "views/dialog/RecurrenceBuilder.h"
 #include "views/dialog/RecurrenceFormWidget.h"
@@ -81,6 +82,32 @@ std::shared_ptr<const events::DateGenerator> makeIntervalGenerator(
         return std::make_shared<events::FixedIntervalGenerator>(
             events::Duration(events::Days(every)));
     }
+}
+
+// L'Evento non ha campi propri (solo titolo/data/durata/ricorrenza, gia'
+// comuni): implementa comunque ActivityTypeWidget con overload vuoti, cosi'
+// makeTypedActivity()/showEditActivity() possono trattare i 3 tipi allo
+// stesso modo tramite m_typeWidgets invece di uno switch con un "default"
+// a parte. Mai aggiunto a un layout (nessun campo da mostrare).
+class EventTypeWidget final : public ActivityTypeWidget {
+public:
+    using ActivityTypeWidget::ActivityTypeWidget;
+
+    void clear() override {}
+    void populateFrom(const events::Activity& /*activity*/) override {}
+    void applyToConfig(events::ActivityConfig& /*config*/) const override {}
+    std::unique_ptr<events::Activity> createActivity(events::ActivityConfig config) const override {
+        return events::makeActivity(std::move(config));
+    }
+};
+
+// Unico punto della classe che deve ancora chiedere "che tipo dinamico sei"
+// (dynamic_cast): serve a scegliere l'indice di m_typeWidgets/m_typeCombo
+// da cui procedere poi solo per polimorfismo (populateFrom/createActivity).
+int typeIndexOf(const events::Activity* activity) {
+    if (dynamic_cast<const events::Task*>(activity)) return kTask;
+    if (dynamic_cast<const events::Meeting*>(activity)) return kMeeting;
+    return kEvent;
 }
 
 } // namespace
@@ -184,9 +211,13 @@ ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWi
 
     // Sezioni delegate ai widget figli: la ricorrenza e' sempre visibile
     // (comune ai 3 tipi), Riunione/Compito si alternano in showSection().
+    // m_typeWidgets, nello stesso ordine di kEvent/kMeeting/kTask, e' cio'
+    // che rende polimorfica la costruzione/popolamento in base al tipo.
     m_recurrence = new RecurrenceFormWidget(this);
+    m_eventSection = new EventTypeWidget(this);
     m_meetingSection = new MeetingFormWidget(this);
     m_taskSection = new TaskFormWidget(this);
+    m_typeWidgets = {m_eventSection, m_meetingSection, m_taskSection};
 
     auto* contentLayout = new QVBoxLayout(content);
     contentLayout->addLayout(m_commonForm);
@@ -301,9 +332,12 @@ void ActivitySidebarWidget::showCreateType(int typeIndex,
   m_errorLabel->clear();
 
   m_titleEdit->clear();
-  m_meetingSection->clear();
   m_durationEdit->setValue(60);
-  m_taskSection->resetToDefaults();
+  // Svuota tutte e 3 le sezioni (polimorfismo: ognuna sa da sola cosa
+  // significa "vuota" per se stessa; l'Evento non ha nulla da fare).
+  for (ActivityTypeWidget* widget : m_typeWidgets) {
+    widget->clear();
+  }
 
   // Reset della ricorrenza. Esplicito (non solo affidato al segnale
   // "toggled" di RecurrenceFormWidget, che non scatta se il valore precedente
@@ -334,17 +368,18 @@ void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
   m_saveStrategy = std::make_unique<EditActivityStrategy>(activity);
   m_errorLabel->clear();
 
-  // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
-  // generatore, allo stesso modo per tutti e tre i tipi.
-  if (auto* task = dynamic_cast<const events::Task*>(activity)) {
-    populateTask(*task);
-  } else if (auto* meeting = dynamic_cast<const events::Meeting*>(activity)) {
-    populateMeeting(*meeting);
-  } else {
-    populateEventLike(*activity);
-  }
+  // La ricorrenza si deduce dal generatore, allo stesso modo per tutti e
+  // tre i tipi; typeIndexOf() e' l'unico punto che ancora chiede il tipo
+  // dinamico (dynamic_cast), solo per scegliere QUALE ActivityTypeWidget
+  // interrogare — da qui in poi e' polimorfismo puro (populateFrom()).
+  const int type = typeIndexOf(activity);
+  populateBasicFields(*activity);
+  populateRecurrenceFields(*activity);
+  m_typeWidgets[type]->populateFrom(*activity);
+
+  m_typeCombo->setCurrentIndex(type);
+  showSection(type);
   m_typeCombo->setEnabled(false);
-  m_taskSection->setDoneEnabled(true);
   m_deleteButton->setVisible(true);
   emitPreview();
 }
@@ -424,35 +459,6 @@ void ActivitySidebarWidget::populateGeneratorFields(const events::Activity& acti
   }
 }
 
-void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) {
-  populateBasicFields(activity);
-  populateRecurrenceFields(activity);
-  m_typeCombo->setCurrentIndex(kEvent);
-  showSection(kEvent);
-}
-
-void ActivitySidebarWidget::populateMeeting(const events::Meeting& meeting) {
-  populateBasicFields(meeting);
-  populateRecurrenceFields(meeting);
-  m_meetingSection->setLocation(QString::fromStdString(meeting.getLocation()));
-  QStringList attendees;
-  for (const auto& name : meeting.getAttendees()) {
-    attendees.append(QString::fromStdString(name));
-  }
-  m_meetingSection->setAttendees(attendees);
-  m_typeCombo->setCurrentIndex(kMeeting);
-  showSection(kMeeting);
-}
-
-void ActivitySidebarWidget::populateTask(const events::Task& task) {
-  populateBasicFields(task);
-  populateRecurrenceFields(task);
-  m_taskSection->setPriority(task.getPriority());
-  m_taskSection->setDone(task.isDone());
-  m_typeCombo->setCurrentIndex(kTask);
-  showSection(kTask);
-}
-
 void ActivitySidebarWidget::emitPreview() {
   const QString title = m_titleEdit->text();
   // Niente anteprima per "tutto il giorno" (va nella striscia in alto, non
@@ -468,25 +474,9 @@ void ActivitySidebarWidget::emitPreview() {
 
 std::unique_ptr<events::Activity>
 ActivitySidebarWidget::makeTypedActivity(events::ActivityConfig config) const {
-  switch (m_typeCombo->currentIndex()) {
-  case kMeeting: {
-    auto meeting = events::makeMeeting(events::MeetingConfig(
-        config, m_meetingSection->location().toStdString()));
-    for (const QString& name : m_meetingSection->attendees()) {
-      meeting->addAttendee(name.toStdString());
-    }
-    return meeting;
-  }
-  case kTask: {
-    auto task = events::makeTask(events::TaskConfig(config, m_taskSection->priority()));
-    if (m_taskSection->isDoneEnabled()) {
-      task->setDone(m_taskSection->isDone());
-    }
-    return task;
-  }
-  default:
-    return events::makeActivity(config);
-  }
+  ActivityTypeWidget* widget = m_typeWidgets[m_typeCombo->currentIndex()];
+  widget->applyToConfig(config);
+  return widget->createActivity(std::move(config));
 }
 
 events::TimePoint ActivitySidebarWidget::resolveStart(bool allDay) const {
