@@ -5,7 +5,7 @@
 % Prima di consegnare:
 %  1. compilare i campi \studente e \matricola;
 %  2. inserire il diagramma UML in figura/uml_attivita.png;
-%  3. aggiornare la tabella delle ore (sezione 7) con le ore effettive;
+%  3. aggiornare la tabella delle ore (sezione 8) con le ore effettive;
 %  4. compilare: pdflatex relazione.tex
 % ============================================================================
 \documentclass[10pt,a4paper]{article}
@@ -19,6 +19,7 @@
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{xcolor}
+\usepackage{seqsplit}
 
 % Caption in italiano (la lingua babel "italian" non e' disponibile ovunque)
 \renewcommand{\figurename}{Figura}
@@ -32,10 +33,11 @@
 \setlength{\parskip}{4pt}
 
 \begin{document}
+\sloppy
 
 \begin{center}
 {\LARGE\bfseries Attivita: gestione di attività personali}\\[4pt]
-{\large Applicazione desktop in C++ con interfaccia grafica Qt}\\[8pt]
+{\large Applicazione desktop in C++23 con interfaccia grafica Qt 6}\\[8pt]
 {\normalsize Progetto di Programmazione a Oggetti -- a.a.\ 2025/26}\\[4pt]
 {\normalsize \studente\ --- Matricola \matricola}
 \end{center}
@@ -47,39 +49,46 @@
 \section{Introduzione}
 
 L'obiettivo del progetto e' sviluppare un'applicazione per la gestione di
-attivita' personali -- impegni, eventi, e incontri -- interamente
-scritta in C++ con interfaccia grafica realizzata in Qt. Gli
-utenti possono creare, modificare, eliminare, cercare e visualizzare i diversi
-tipi di attività. Le \textbf{attività} possono essere semplici, avere una \textbf{checkbox}
-oppure, nel caso dei \textbf{meeting}, avere dettagli come location e partecipanti. 
+attivita' personali -- eventi singoli o ricorrenti, compiti e riunioni --
+interamente scritta in C++23 con interfaccia grafica realizzata in Qt~6.
+L'utente puo' creare, modificare, eliminare, cercare e visualizzare le
+attivita' in quattro viste temporali (giorno/settimana/mese/anno) oltre a un
+elenco tabellare con ricerca e filtri.
 
-L'architettura del progetto separa nettamente il modello logico dall'interfaccia
-grafica:
+L'architettura separa nettamente il modello logico dall'interfaccia grafica
+e dalla persistenza:
 
 \begin{itemize}[nosep]
-  \item \textbf{modello logico} (\texttt{model/}): una libreria con elementi dello standard C++23
-    (namespace \texttt{events}) che implementa la gerarchia delle attivita', 
+  \item \textbf{modello logico} (\texttt{model/}): libreria C++23 pura
+    (namespace \texttt{events}) che implementa la gerarchia delle attivita',
     la generazione delle occorrenze temporali e la collezione \texttt{Calendar};
-  \item \textbf{persistenza} (\texttt{model/persistence/}): un modulo separato
-    (che usa \texttt{QJsonObject}) per serializzare e ricaricare le attività su file
-    locale in formato JSON tramite il pattern Visitor;
-  \item \textbf{interfaccia grafica} (\texttt{app/}): un'applicazione Qt a
-    finestra singola (pattern MVC) che usa il modello e la persistenza.
+    non dipende da Qt;
+  \item \textbf{persistenza} (\texttt{model/persistence/}): modulo separato,
+    dipendente solo da \textbf{Qt Core}, che serializza/deserializza le
+    attivita' su file JSON locale tramite il pattern \textbf{Visitor};
+  \item \textbf{interfaccia grafica} (\texttt{app/}): applicazione Qt Widgets
+    a finestra singola (pattern \textbf{MVC}: \texttt{CalendarController} +
+    viste) che usa il modello e la persistenza.
 \end{itemize}
 
 Il programma compila senza errori nel container di valutazione del corso
-(Qt 6.4.2) sia con \texttt{cmake} sia con \texttt{qmake} (\texttt{Attivita.pro}),
-ed esegue in modalita' standalone: i dati sono salvati su file JSON locale,
-scelto dall'utente tramite finestre di dialogo (mai percorsi cablati).
+(Ubuntu 24.04, g++ 13.3, Qt 6.4.2) sia con \texttt{cmake} sia con
+\texttt{qmake} (\texttt{Attivita.pro}), ed esegue in modalita' standalone: i
+dati sono salvati su file JSON locale, scelto dall'utente tramite
+\texttt{QFileDialog} (mai percorsi cablati).
 
 \section{Classi principali del modello logico}
 
 La Fig.~\ref{fig:uml} mostra il diagramma UML delle classi principali del
-modello. La radice della gerarchia e' la classe astratta \texttt{Activity},
-che espone l'interfaccia polimorfa comune: il titolo, il punto temporale di
-riferimento, il metodo \texttt{occurrencesIn}, la clonazione (\texttt{clone}),
-il doppio dispatch (\texttt{accept}) e una descrizione testuale
-(\texttt{describe}).
+modello. La radice della gerarchia e' \texttt{Activity}: a differenza di una
+progettazione con una classe astratta di base, qui \texttt{Activity} e'
+\textbf{concreta} e rappresenta gia' da sola sia un evento singolo sia una
+serie ricorrente (la ricorrenza e' delegata per composizione a un
+\texttt{DateGenerator}, non a una sottoclasse dedicata). Espone l'interfaccia
+polimorfa comune: titolo, inizio, durata, fine opzionale della serie,
+espansione in occorrenze (\texttt{occurrencesIn}), clonazione
+(\texttt{clone}), doppio dispatch (\texttt{accept}) e una descrizione
+testuale (\texttt{describe}).
 
 \begin{figure}[h]
 \centering
@@ -95,224 +104,309 @@ il doppio dispatch (\texttt{accept}) e una descrizione testuale
 \subsection{La gerarchia delle attivita'}
 
 Il progetto e' individuale, quindi e' richiesta una gerarchia con almeno tre
-classi concrete: ne sono implementate \textbf{quattro}, ciascuna con attributi
-e metodi genuinamente diversi (Tab.~\ref{tab:tipi}).
+classi concrete: \texttt{Activity} (evento singolo o ricorrente), \texttt{Task}
+(compito) e \texttt{Meeting} (riunione), Tab.~\ref{tab:tipi}. Titolo e inizio
+sono obbligatori nei costruttori di tutte e tre; la durata negativa e'
+rifiutata sia nel costruttore sia in \texttt{setDuration}.
 
 \begin{table}[h]
 \centering
-\begin{tabular}{@{}l l l@{}}
+\begin{tabular}{@{}l p{5.6cm} p{5.6cm}@{}}
 \toprule
 \textbf{Classe} & \textbf{Attributi specifici} & \textbf{Metodi specifici} \\
 \midrule
-\texttt{Event} & inizio, durata & \texttt{getEnd}, \texttt{isIn}, \texttt{overlapsWith} \\
-\texttt{RecurrentEvent} & generatore, template, eccezioni & \texttt{addException}, \texttt{truncateBefore} \\
-\texttt{Deadline} & scadenza, priorita', evasa & \texttt{isOverdue}, \texttt{timeRemaining}, \texttt{setDone} \\
-\texttt{Reminder} & attivazione, messaggio, ripetizione & \texttt{snooze}, \texttt{isRepeating} \\
+\texttt{Activity} & inizio, durata, fine opzionale della serie, generatore
+  condiviso (\texttt{shared\_ptr<const DateGenerator>}), eccezioni &
+  \texttt{occurrencesIn}, \texttt{describe}, \texttt{clone}, \texttt{accept} \\
+\texttt{Task} & stato di completamento \emph{per occorrenza}
+  (\texttt{unordered\_set<TimePoint>}), priorita' &
+  \texttt{isDone}/\texttt{setDone}, \texttt{isOverdue}, \texttt{timeRemaining},
+  \texttt{priorityLabel} \\
+\texttt{Meeting} & luogo, elenco partecipanti &
+  \texttt{addAttendee}/\texttt{removeAttendee}, \texttt{attendeeCount},
+  \texttt{getAttendees} \\
 \bottomrule
 \end{tabular}
-\caption{I quattro tipi concreti di attivita' e i loro attributi/metodi distintivi}
+\caption{I tre tipi concreti di attivita' e i loro attributi/metodi distintivi}
 \label{tab:tipi}
 \end{table}
 
-\textbf{Event} e' l'attivita' con un unico intervallo temporale: titolo, inizio
-e durata (la durata negativa e' rifiutata sia nel costruttore sia in
-\texttt{setDuration}). \textbf{RecurrentEvent} e' l'attivita' ricorrente: una
-regola di ricorrenza (un \texttt{DateGenerator}), un evento \emph{template} da
-cui derivano le occorrenze e un insieme di eccezioni (semantica EXDATE
-dello standard iCalendar): le eccezioni \emph{rimuovono} occorrenze che il
-generatore produrrebbe, e vivono sull'evento, non sul generatore.
-\texttt{truncateBefore} termina la serie a partire da una data. \textbf{Deadline}
-rappresenta una scadenza puntuale con priorita' (bassa/media/alta), stato di
-completamento e i metodi \texttt{isOverdue}/\texttt{timeRemaining}.
-\textbf{Reminder} e' un promemoria con messaggio, ripetizione opzionale e
-\texttt{snooze} (posticipo dell'attivazione).
+Un evento ``tutto il giorno'' non e' un quarto tipo: e' semplicemente
+un'\texttt{Activity} che inizia a mezzanotte e dura 24 ore, riconosciuta come
+tale dalla GUI in base alla durata. Analogamente un anniversario annuale e'
+un'\texttt{Activity} con generatore \texttt{YearlyGenerator}: la gerarchia
+resta a tre classi, la varieta' di comportamento nasce dalla
+\textbf{composizione} col generatore, non dall'ereditarieta'.
+
+\texttt{Task} gestisce lo stato ``evaso/da fare'' \emph{per singola
+occorrenza} di una serie ricorrente (un compito settimanale puo' essere
+evaso questa settimana e non la prossima), non un unico flag booleano
+sull'intera serie. \texttt{Meeting} aggiunge luogo e un elenco di
+partecipanti senza duplicati.
 
 \subsection{Generatori di date (Strategy)}
 
 La classe astratta \texttt{DateGenerator} produce i punti temporali delle
-occorrenze e viene usata da \texttt{RecurrentEvent} per delega (pattern
-\textbf{Strategy}): la regola di ricorrenza e' un oggetto separato, sostituibile
-e mutabile a runtime senza toccare l'evento. Le implementazioni sono
-\texttt{FixedIntervalGenerator} (ogni $N$ secondi, con fine opzionale),
-\texttt{YearlyGenerator} (una volta all'anno, con gestione degli anni bisestili:
-il 29 febbraio viene spostato al 28) e \texttt{NullGenerator} (null object).
-Gli intervalli di interrogazione sono \emph{inclusivi} su entrambi gli estremi.
+occorrenze e viene usata da \texttt{Activity} per delega (pattern
+\textbf{Strategy}): la regola di ricorrenza e' un oggetto separato,
+sostituibile senza toccare la classe attivita'. I generatori sono
+\textbf{stateless e immutabili} (nessun campo \texttt{start}/\texttt{end}
+proprio: quello vive sull'\texttt{Activity}) e implementano
+\texttt{next(current)}, \texttt{align(start, from)} e il metodo condiviso
+\texttt{occurrences(start, from, limit)}, una \emph{coroutine} C++23
+(\texttt{std::generator<TimePoint>}) che produce le date pigramente.
+Le implementazioni concrete sono \texttt{SingleGenerator} (nessuna
+ricorrenza), \texttt{FixedIntervalGenerator} (intervallo fisso, usato per
+``ogni $N$ giorni/settimane''), \texttt{MonthlyGenerator} (passi di mesi
+calendariali, con \emph{clamping} di fine mese: il 31 gennaio ricorrente
+mensilmente cade il 28 febbraio) e \texttt{YearlyGenerator} (passo annuale,
+29 febbraio $\rightarrow$ 28 febbraio negli anni non bisestili). Gli
+intervalli di interrogazione sono \emph{inclusivi} su entrambi gli estremi.
 
-\subsection{Occurrence e Calendar}
+\subsection{Occurrence, Calendar e costruzione via Config}
 
 \texttt{Occurrence} e' un value type leggero
-(\texttt{\{source, start, duration\}}) che rappresenta una singola occorrenza
-di un'attivita' sulla timeline; \texttt{Calendar} e' la collezione polimorfa
-che possiede le attivita' (\texttt{unique\_ptr}), ne aggrega le occorrenze
-ordinate (\texttt{occurrencesIn}) e offre la ricerca testuale per titolo
-(\texttt{search}, case-insensitive). La creazione degli oggetti passa
-esclusivamente dai \textbf{builder} \texttt{ActivityBuilder}/
-\texttt{TaskBuilder}/\texttt{MeetingBuilder} (pattern \textbf{Builder}),
-affiancati da \texttt{GeneratorBuilder} per le regole di ricorrenza.
+(\texttt{\{source, start, duration\}}, non proprietario) che rappresenta una
+singola occorrenza sulla timeline, con \texttt{end()} e \texttt{overlaps}.
+\texttt{Calendar} e' la collezione polimorfa che possiede le attivita'
+(\texttt{vector<unique\_ptr<Activity>>}), ne aggrega le occorrenze ordinate
+(\texttt{occurrencesIn}) e offre la ricerca testuale per titolo
+(\texttt{search}, case-insensitive).
+
+La creazione non passa da un Builder con metodi a catena, ma da struct
+aggregate C++20 con \emph{designated initializers}
+(\texttt{ActivityConfig}, \texttt{TaskConfig : ActivityConfig},
+\texttt{MeetingConfig : ActivityConfig}) e da funzioni factory
+\texttt{makeActivity}/\texttt{makeTask}/\texttt{makeMeeting} che restituiscono
+l'\texttt{unique\_ptr} corrispondente, ad es.:
+\begin{verbatim}
+auto riunione = events::makeMeeting(events::MeetingConfig(
+    events::ActivityConfig{.title = "Standup", .start = t0,
+                            .duration = 30min},
+    "Sala A", {"Mario Rossi"}));
+\end{verbatim}
+Il generatore di default (non specificato $\rightarrow$ \texttt{SingleGenerator}
+condiviso) e' gestito dal costruttore di \texttt{Activity}, non dalla config.
 
 \section{Utilizzo non banale del polimorfismo}
 
-Il polimorfismo e' utilizzato in modo non banale in quattro punti, riassunti
-nella Tab.~\ref{tab:poly}; nessuna classe del modello espone un metodo
-\texttt{getType} che restituisca una stringa per il controllo di flusso.
+Nessuna classe del modello espone un metodo \texttt{getType} che restituisca
+una stringa per il controllo di flusso: il comportamento specifico per tipo
+passa sempre da un metodo virtuale o dal doppio dispatch del Visitor
+(Tab.~\ref{tab:poly}).
 
 \begin{table}[h]
 \centering
-\begin{tabular}{@{}p{3.2cm} p{7.2cm} p{4.2cm}@{}}
+\begin{tabular}{@{}p{3.1cm} p{6.6cm} p{4.8cm}@{}}
 \toprule
 \textbf{Metodo polimorfo} & \textbf{Comportamento per tipo dinamico} & \textbf{Valore aggiunto} \\
 \midrule
-\texttt{occurrencesIn(from, to)} &
-\texttt{Event} $\rightarrow$ 0/1 occorrenza; \texttt{RecurrentEvent} $\rightarrow$
-espansione della ricorrenza meno le eccezioni; \texttt{Deadline}/\texttt{Reminder}
-$\rightarrow$ istante/i puntuale/i &
-La timeline (vista settimanale, aggiornamento automatico) interroga tutte le
-attivita' allo stesso modo; l'espansione temporale e' incapsulata in ogni classe \\
-\addlinespace
-\texttt{accept(visitor)} (doppio dispatch) &
-\texttt{ActivityVisitor::visit(const Event\&)}, \ldots/\texttt{Deadline}/
-\texttt{Reminder} &
-Persistenza JSON e pannelli GUI (dettaglio, etichette) aggiunti senza
-modificare le classi del dominio (Single Responsibility) \\
+\texttt{describe()} &
+override in \texttt{Task} (scadenza + priorita') e \texttt{Meeting} (luogo +
+numero partecipanti); \texttt{Activity} restituisce data e durata &
+Riassunto testuale usato dalla GUI senza mai chiedere il tipo dinamico \\
 \addlinespace
 \texttt{clone()} (Prototype) &
-Copia profonda del tipo concreto, con ritorno covariante &
-\texttt{RecurrentEvent} genera occorrenze come \emph{copie indipendenti} del
-template, modificabili senza effetti collaterali \\
+copia profonda del tipo concreto, ritorno covariante &
+\texttt{\seqsplit{CalendarController::splitRecurrence}} clona la serie originale
+(qualunque sia il suo tipo) per farne nascere una seconda con le stesse
+regole ma inizio diverso, senza un \texttt{dynamic\_cast} \\
 \addlinespace
-\texttt{generateDates} (Strategy) &
-Ogni \texttt{DateGenerator} produce le date a modo suo (intervallo fisso,
-annuale, mai) &
-La regola di ricorrenza si sostituisce e si modifica a runtime
-(\texttt{truncateBefore} $\rightarrow$ \texttt{setEnd}) \\
+\texttt{\seqsplit{accept(ActivityVisitor\&)}} (doppio dispatch) &
+\texttt{\seqsplit{visit(Activity\&)/visit(Task\&)/visit(Meeting\&)}} &
+Persistenza JSON \emph{e} quattro Visitor della GUI (etichetta di tipo,
+regola di ricorrenza in linguaggio naturale, riepilogo per l'elenco, campi
+del pannello di dettaglio) aggiunti senza toccare le classi di dominio \\
+\addlinespace
+\texttt{\seqsplit{DateGenerator::next/align}} (Strategy) &
+ogni generatore avanza la sequenza a modo suo (intervallo fisso, mese
+calendariale con clamping, anno con gestione bisestili) &
+La regola di ricorrenza si sostituisce senza toccare \texttt{Activity};
+\texttt{occurrencesIn} la interroga sempre allo stesso modo qualunque essa sia \\
 \bottomrule
 \end{tabular}
 \caption{Metodi polimorfi non banali e loro valore aggiunto}
 \label{tab:poly}
 \end{table}
 
-Il caso piu' rilevante e' \texttt{occurrencesIn}: il metodo si comporta in modo
-profondamente diverso in base al tipo dinamico dell'oggetto invocante ed e'
-utilizzato da tutta l'applicazione (vista settimanale, persistenza, test).
-Il doppio dispatch (\texttt{accept}) e' la base del pattern Visitor utilizzato
-per la persistenza (sezione 4) e per la costruzione dei pannelli di dettaglio
-nella GUI (sezione 6), consentendo di aggiungere operazioni esterne alla
-gerarchia senza toccare le classi del modello e senza \texttt{dynamic\_cast}.
+Il doppio dispatch e' il caso piu' pervasivo: oltre alla persistenza (sezione
+4), la GUI costruisce quattro visitor distinti in \texttt{ActivityViewHelpers}
+(\texttt{TypeLabelVisitor}, \texttt{RuleVisitor}, \texttt{SummaryVisitor},
+\texttt{FieldsVisitor}) per etichettare il tipo nell'elenco, tradurre la
+regola di ricorrenza in una frase leggibile (``ogni 2 settimane il lun, gio,
+fino al \dots''), riassumere un'attivita' in una riga e generare le righe
+``campo: valore'' del pannello di dettaglio -- tutte funzioni esterne alla
+gerarchia, aggiunte senza modificarla (Single Responsibility). Da notare che
+\texttt{occurrencesIn} \emph{non} e' invece un esempio di override: la sua
+implementazione e' unica e condivisa (ereditata da \texttt{Task}/\texttt{Meeting}
+senza ridefinizione), e la varieta' di comportamento nasce dalla
+\emph{composizione} col \texttt{DateGenerator} associato, non dal tipo
+dinamico dell'attivita'.
 
 \section{Persistenza dei dati}
 
-Conformemente ai vincoli del corso, i dati delle attivita' sono salvati su un
-\textbf{file locale in formato JSON} (formato strutturato), scelto dall'utente
-in ogni momento tramite finestre di dialogo grafiche (\texttt{QFileDialog}):
-nessun percorso e' cablato nel codice sorgente.
+Conformemente ai vincoli del corso, i dati sono salvati su un \textbf{file
+locale in formato JSON}, scelto dall'utente in ogni momento tramite
+\texttt{QFileDialog}: nessun percorso e' cablato nel codice sorgente.
 
-La serializzazione e' realizzata con il \textbf{pattern Visitor}: le classi del
-dominio espongono \texttt{accept(ActivityVisitor\&)} e la persistenza e'
-implementata in due visitor esterni, \texttt{JsonActivityVisitor} (per le
-attivita') e \texttt{JsonGeneratorVisitor} (per la regola di ricorrenza,
-attraverso una seconda gerarchia di visitor). In questo modo le classi del
-modello non contengono alcuna logica JSON e nuovi formati di export potranno
-essere aggiunti in futuro implementando soltanto nuovi visitor.
+La serializzazione usa il \textbf{pattern Visitor} su \emph{due} gerarchie:
+le attivita' espongono \texttt{accept(ActivityVisitor\&)}, implementato da
+\texttt{JsonActivityVisitor}; i generatori espongono
+\texttt{accept(DateGeneratorVisitor\&)}, implementato da
+\texttt{JsonGeneratorVisitor}. Le classi del modello non contengono quindi
+alcuna logica JSON: un nuovo formato di export richiederebbe solo nuovi
+visitor.
 
 La deserializzazione e' una \emph{factory} con discriminatore: il campo
-\texttt{"type"} dell'oggetto JSON (\texttt{event}, \texttt{recurrent},
-\texttt{deadline}, \texttt{reminder}) determina la classe concreta da
-ricostruire. Ogni campo e' validato rigorosamente: date ISO-8601
-(\texttt{YYYY-MM-DDTHH:MM:SS}, formato UTC, lunghezza esatta e date possibili),
-durate non negative, intervalli di ricorrenza positivi, priorita' note; in
-presenza di dati non validi il caricamento fallisce con un messaggio d'errore
-e il contenuto del calendario non viene alterato. Il formato del file e':
+\texttt{"type"} dell'oggetto JSON (\textbf{solo} \texttt{event},
+\texttt{task} o \texttt{meeting}) determina la classe concreta da
+ricostruire; quello del generatore annidato
+(\texttt{single}/\texttt{fixed}/\texttt{monthly}/\texttt{yearly}) la regola
+di ricorrenza. Ogni campo e' validato rigorosamente: date ISO-8601
+(\texttt{YYYY-MM-DDTHH:MM:SS} UTC, lunghezza esatta), durate non negative;
+in presenza di dati non validi il caricamento fallisce con un messaggio
+d'errore e il calendario esistente non viene alterato. Formato del file:
 
 \begin{verbatim}
-{ "version": 1, "activities": [ { "type": "recurrent",
-    "template": { "title": "Lezione", "start": "2026-09-07T14:00:00",
-                  "duration_seconds": 7200 },
-    "generator": { "type": "fixed", "start": "2026-09-07T14:00:00",
-                   "interval_seconds": 604800, "end": "2026-12-21T00:00:00" },
-    "exceptions": [ "2026-11-16T14:00:00" ] }, ... ] }
+{ "version": 1, "activities": [
+  { "type": "task", "title": "Consegna relazione",
+    "start": "2026-09-14T23:59:00", "duration_seconds": 0,
+    "priority": "high", "done_occurrences": [],
+    "generator": { "type": "fixed", "interval_seconds": 604800 },
+    "end": "2026-12-21T00:00:00", "exceptions": [] },
+  { "type": "meeting", "title": "Standup", "start": "2026-09-08T09:00:00",
+    "duration_seconds": 900, "location": "Sala A",
+    "attendees": ["Mario Rossi"],
+    "generator": { "type": "single" }, "exceptions": [] } ] }
 \end{verbatim}
 
-Il modulo di persistenza dipende solo da \textbf{Qt Core} (per la gestione
-JSON) e non dall'interfaccia grafica: il modello logico rimane riutilizzabile
-senza dipendenze dalla GUI, come richiesto dai vincoli del corso. Il file
-d'esempio \texttt{examples/attivita\_esempio.json}, fornito nella consegna,
-e' stato generato e validato dalla libreria stessa (round-trip completo).
+Il modulo di persistenza dipende solo da \textbf{Qt Core}: il modello logico
+resta riutilizzabile senza dipendenze dalla GUI. Il file d'esempio
+\texttt{examples/attivita\_esempio.json}, fornito nella consegna, e' stato
+generato e validato dalla libreria stessa (round-trip completo).
 
 \section{Interfaccia grafica}
 
-L'applicazione Qt (\texttt{app/}) adotta il pattern \textbf{MVC}: il
-\texttt{CalendarController} possiede il \texttt{Calendar} logico ed espone le
-operazioni (creazione, modifica, eliminazione, ricerca, salvataggio,
-caricamento); un segnale \texttt{activitiesChanged} notifica alle viste ogni
-modifica, che si aggiornano automaticamente. La finestra principale e'
-organizzata in tre pagine navigabili tramite \texttt{QStackedWidget}:
+L'applicazione (\texttt{app/}) adotta il pattern \textbf{MVC}: il
+\texttt{CalendarController} (un \texttt{QObject}) possiede il
+\texttt{Calendar} logico ed espone le operazioni (CRUD, ricerca,
+salvataggio/caricamento, spostamento e completamento di un'occorrenza); il
+segnale \texttt{activitiesChanged} notifica ogni modifica alle viste, che si
+aggiornano da sole.
 
-\begin{enumerate}[nosep]
-  \item \textbf{settimana}: griglia settimanale stile Google Calendar disegnata
-    con \texttt{QPainter} (giorni, ore, occorrenze come blocchi colorati, tooltip,
-    menu contestuale, navigazione settimane); le occorrenze che si sovrappongono
-    temporalmente nello stesso giorno vengono \textbf{affiancate in colonne}
-    (coesistono nella stessa casella); \textbf{trascinamento}: tenendo premuta
-    un'occorrenza la si sposta (drag\&drop) su una nuova data/ora, aggiornando i
-    dati dell'attivita' (per un ricorrente l'inizio della serie si sposta ma la
-    \emph{scadenza resta quella}; se la scadenza diventerebbe antecedente
-    all'inizio viene portata al nuovo inizio); doppio clic su una cella vuota
-    avvia la creazione precompilata;
-  \item \textbf{elenco}: tabella delle attivita' con ricerca live per titolo;
-  \item \textbf{dettaglio}: campi specifici per tipo, costruiti con un Visitor
-    (la GUI non discrimina mai tramite stringhe di tipo).
-\end{enumerate}
+\subsection{Finestra unica e navigazione}
 
-La creazione e la modifica avvengono in un \textbf{pannello ridotto mostrato
-dentro la finestra principale}: piu' piccolo della finestra, e' un widget
-figlio della MainWindow e pertanto \emph{non puo' uscire dai suoi bordi}: la
-sua dimensione viene limitata a quella della finestra (\texttt{boundedTo}), e
-viene ricentrato automaticamente anche quando la finestra viene ridimensionata.
-Al suo interno i campi sono organizzati in righe con l'etichetta a sinistra e la
-box di input affiancata (es. \emph{Titolo} con il relativo campo di testo,
-\emph{Data} con la casella data/ora). L'utente sceglie il tipo da un menu a
-tendina (\texttt{Evento}, \texttt{Evento ricorrente}, \texttt{Scadenza},
-\texttt{Promemoria}) e si compila il pannello con i campi specifici di quel
-tipo: titolo e data/ora in tutti i tipi (conservati anche cambiando tipo);
-durata per gli eventi; intervallo di ripetizione e fine opzionale (tramite
-checkbox, con la validazione che la fine sia \emph{successiva} all'inizio)
-per i ricorrenti; priorita' (bassa/media/alta) e stato "evasa" per le
-scadenze; messaggio di dettaglio e ricorrenza per i promemoria. Il doppio clic
-su una cella vuota della settimana precompila data e ora dell'inizio nel modulo;
-il doppio clic su un'occorrenza esistente apre invece la \textbf{modifica
-dell'attivita'} conservando il tipo originale (per i ricorrenti l'intera serie,
-con regola e data di fine modificabili); per un ricorrente il menu contestuale
-offre sia la \textbf{modifica della serie} sia la \textbf{modifica della singola
-istanza}. Il pannello si chiude con i pulsanti
-Salva/Annulla.
+La \texttt{MainWindow} resta un'\textbf{unica finestra} (vincolo del corso:
+niente finestre di dialogo separate per creazione/modifica). Una
+\texttt{QStackedWidget} alterna cinque pagine -- \textbf{Settimana},
+\textbf{Elenco}, \textbf{Giorno}, \textbf{Mese}, \textbf{Anno} -- scelte da
+un menu ``Visualizza'' costruito da \texttt{AppMenuBar}; le quattro viste
+temporali condividono una barra di navigazione (\texttt{NavigationBar}:
+Oggi/$\leftarrow$/$\rightarrow$ ed etichetta del periodo).
 
-La toolbar permette di creare/modificare/eliminare, di passare tra le viste e
-di \textbf{salvare e caricare} il file JSON in qualunque momento tramite
-\texttt{QFileDialog}. La modifica di una singola occorrenza di un'attivita'
-ricorrente aggiunge un'eccezione (EXDATE) e crea un evento singolo sostitutivo;
-l'eliminazione di un'istanza offre le scelte ``solo questa'' (eccezione) o
-``questa e le successive'' (troncamento della ricorrenza).
+\subsection{Vista settimana/giorno: griglia di widget reali}
+
+La vista settimanale non e' un unico disegno \texttt{QPainter}, ma una
+composizione di widget Qt reali: un'intestazione dei giorni, una striscia
+``tutto il giorno'' a colonne affiancate, e una griglia oraria scorrevole
+fatta da una colonna per giorno (\texttt{DayColumnWidget}). Ogni occorrenza e'
+un \texttt{OccurrenceWidget} vero (non un rettangolo dipinto a mano): ha
+tooltip nativo, menu contestuale, e supporta il \textbf{trascinamento}
+(drag\&drop Qt nativo) su una cella diversa per spostare l'attivita'
+(per un ricorrente, l'utente sceglie se spostare l'intera serie, solo quella
+occorrenza o dividere la serie ``da questo momento in poi''). Le occorrenze
+che si sovrappongono nello stesso giorno vengono affiancate in colonne; un
+evento a cavallo di mezzanotte compare, ritagliato, su entrambi i giorni
+toccati. Il colore di ogni occorrenza dipende in modo stabile
+dall'attivita' (una tavolozza di otto colori indicizzata sull'indirizzo
+dell'oggetto) ed e' disegnato direttamente con \texttt{QPainter} nel
+\texttt{paintEvent} del widget, cosi' da restare indipendente dal foglio di
+stile applicativo. La vista \textbf{Giorno} e' la stessa griglia con una
+sola colonna.
+
+\subsection{Vista mese e vista anno}
+
+La vista \textbf{Mese} mostra una griglia 7$\times$5--6 con il numero del
+giorno, fino a tre occorrenze colorate per cella (pi\`u un'etichetta
+``+$N$''), la spunta sui Compiti e doppio clic per creare/modificare. La
+vista \textbf{Anno} mostra dodici mini-calendari con un pallino colorato per
+ogni giorno con attivita'; doppio clic su un giorno apre la vista Giorno
+corrispondente.
+
+\subsection{Creazione e modifica: pannello laterale}
+
+Creazione, modifica e dettaglio di un'attivita' avvengono in un
+\textbf{pannello laterale} (\texttt{ActivitySidebarWidget}, un
+\texttt{QWidget}, non una finestra di dialogo) affiancato al calendario da
+uno \texttt{QSplitter} orizzontale: parte nascosto e compare solo
+all'occorrenza, senza mai coprire la finestra. Internamente ha uno
+\texttt{QStackedWidget} a due pagine: \emph{Dettaglio} (campi in sola
+lettura via Visitor, pulsanti Modifica/Elimina/Chiudi) e \emph{Form}
+(creazione/modifica); ``Modifica'' passa dall'una all'altra senza chiudere
+il pannello.
+
+Il form e' costruito con \texttt{QFormLayout} per ogni sezione. La
+creazione \textbf{non chiede subito il tipo}: pone domande (titolo, data/ora
+tramite un unico \texttt{QDateTimeEdit} con selettore di calendario, durata
+in minuti con \texttt{QSpinBox}, checkbox ``Tutto il giorno'' e ``Si
+ripete'') e in base alle risposte istanzia un'\texttt{Activity} singola o
+una o pi\`u serie ricorrenti; se la ricorrenza e' settimanale su pi\`u
+giorni (es. lun+mer+ven) vengono create tante serie quanti i giorni scelti,
+selezionabili con un \texttt{QButtonGroup} \textbf{non esclusivo} (un id
+1--7 per pulsante, la stessa convenzione di \texttt{QDate::dayOfWeek()}); la
+fine della ricorrenza puo' essere ``mai'', una data o ``dopo $N$
+occorrenze'' (calcolata avanzando il generatore, cosi' il \emph{clamping}
+di calendario resta corretto anche a cavallo di piu' serie). I pannelli
+Riunione, Compito e Anniversario hanno campi propri (per la Riunione, il
+campo partecipanti offre il completamento automatico via
+\texttt{QCompleter} sui nomi gia' usati in altre riunioni). Un'anteprima
+live dell'attivita' in corso di modifica appare direttamente nella griglia
+mentre l'utente digita.
+
+Per un'attivita' ricorrente, doppio clic o eliminazione su una singola
+occorrenza offrono sempre la scelta fra \emph{intera serie},
+\emph{solo questa occorrenza} (diventa un evento singolo indipendente, con
+un'eccezione EXDATE che lascia un buco nella serie originale) e, per lo
+spostamento, \emph{da questo momento in poi} (la serie attuale termina qui e
+ne nasce una nuova identica ma con inizio diverso, via \texttt{clone()}).
+
+\subsection{Elenco e ricerca}
+
+La pagina \textbf{Elenco} mostra tutte le attivita' in una tabella con
+pallino colorato, titolo, tipo e dettagli; una casella di ricerca filtra
+live per titolo (case-insensitive, \texttt{Calendar::search}), una tendina
+filtra per tipo e una checkbox nasconde i Compiti gia' evasi.
 
 \section{Funzionalita' aggiuntive}
 
 \begin{itemize}[nosep]
-  \item gestione di \textbf{quattro tipi} di attivita' (il minimo richiesto e'
-    tre), con attributi e metodi specifici;
-  \item \textbf{ricorrenze} con eccezioni (EXDATE), troncamento e ricorrenza
-    annuale (compleanni) con gestione degli anni bisestili;
-  \item \textbf{vista settimanale personalizzata} disegnata con \texttt{QPainter}
-    (scaling proporzionale, evidenza del giorno corrente, tooltip, menu
-    contestuale, affiancamento degli eventi sovrapposti, \textbf{drag\&drop}
-    per spostare rapidamente le attivita');
-  \item \textbf{ricerca live} per titolo (case-insensitive) nell'elenco;
-  \item \textbf{modifica di una singola istanza} di una ricorrenza senza
-    alterare le altre;
-  \item \textbf{persistenza robusta}: caricamento con validazione completa del
-    formato e messaggi d'errore; file d'esempio incluso nella consegna;
-  \item suite di \textbf{test automatici} (framework Catch2): oltre venti casi
-    su modello e persistenza e sul controller dell'applicazione (round-trip
-    JSON per ogni tipo, eccezioni, troncamenti, validazioni); i test sono
-    eseguiti nella pipeline Docker del repository.
+  \item gestione di \textbf{tre tipi} concreti di attivita' (il minimo
+    richiesto), con attributi e metodi specifici, pi\`u eventi ``tutto il
+    giorno'' e anniversari annuali ottenuti per composizione col generatore;
+  \item \textbf{ricorrenze} giornaliere/settimanali (anche su piu' giorni
+    della settimana contemporaneamente)/mensili (con clamping di fine mese)/
+    annuali (con gestione degli anni bisestili), con eccezioni puntuali
+    (EXDATE), troncamento e ``divisione'' della serie;
+  \item \textbf{quattro viste temporali} (giorno, settimana, mese, anno) piu'
+    l'elenco, tutte sincronizzate sullo stesso \texttt{Calendar};
+  \item \textbf{drag\&drop} nativo per spostare rapidamente un'occorrenza tra
+    celle, con gestione esplicita del caso ricorrente;
+  \item \textbf{colore per-attivita'} stabile nelle griglie, calcolato
+    dall'identita' dell'oggetto e disegnato direttamente con \texttt{QPainter};
+  \item \textbf{ricerca live} per titolo, filtro per tipo e filtro ``solo da
+    fare'' nell'elenco;
+  \item \textbf{pannello laterale} unico (non modale) per dettaglio,
+    creazione e modifica, con anteprima live nella griglia durante la
+    digitazione e completamento automatico dei partecipanti di una riunione;
+  \item \textbf{modifica/eliminazione di una singola istanza} di una
+    ricorrenza senza alterare le altre;
+  \item \textbf{persistenza robusta}: caricamento con validazione completa
+    del formato e messaggi d'errore; file d'esempio incluso nella consegna;
+  \item suite di \textbf{test automatici} (\textbf{QTest}, non Catch2): oltre
+    quaranta casi complessivi su modello, persistenza e controller
+    dell'applicazione (round-trip JSON per ogni tipo, eccezioni, troncamenti,
+    spostamenti, ricorrenze multi-giorno, validazioni), eseguiti sia in
+    locale (\texttt{ctest}) sia nella pipeline Docker del repository.
 \end{itemize}
 
 \section{Rendicontazione delle ore}
@@ -331,9 +425,9 @@ Modello logico (gerarchia \texttt{Activity}, generatore di date) & 10h & 8h \\
 Persistenza JSON (Visitor) & 6h & 8h \\
 Interfaccia grafica Qt (MVC, viste, form, ricerca) & 12h & 12h \\
 Relazione e disegni UML & 4h & 4h \\
-Refactoring (Zero-cost Abstaction) & 10h & 20h \\
+Refactoring (Zero-cost Abstraction) & 10h & 24h \\
 \midrule
-\textbf{Totale} & \textbf{48h} & \textbf{56h} \\
+\textbf{Totale} & \textbf{48h} & \textbf{60h} \\
 \bottomrule
 \end{tabular}
 \caption{Rendicontazione delle ore previste ed effettive}
