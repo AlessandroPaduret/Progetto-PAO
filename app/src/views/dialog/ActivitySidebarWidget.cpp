@@ -1,4 +1,4 @@
-#include "views/dialog/ActivityFormDialog.h"
+#include "views/dialog/ActivitySidebarWidget.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -6,7 +6,6 @@
 #include <QCompleter>
 #include <QDateEdit>
 #include <QDateTimeEdit>
-#include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -34,13 +33,18 @@
 #include "generators/FixedIntervalGenerator.h"
 #include "generators/MonthlyGenerator.h"
 #include "generators/YearlyGenerator.h"
+#include "views/dialog/ActivityViewHelpers.h"
 #include "views/utils/ViewShared.h"
 
 namespace app {
 
 namespace {
 
-// Indici dei pannelli nello QStackedWidget
+// Indici delle pagine nello QStackedWidget esterno (m_stack)
+constexpr int kDetailPage = 0;
+constexpr int kFormPage = 1;
+
+// Indici dei pannelli per tipo nello QStackedWidget interno (m_forms)
 constexpr int kEventPanel = 0;
 constexpr int kMeetingPanel = 1;
 constexpr int kTaskPanel = 2;
@@ -92,57 +96,164 @@ QSpinBox* makeDurationSpin(QWidget* parent, int defaultMinutes = 60) {
 
 } // namespace
 
-ActivityFormDialog::ActivityFormDialog(CalendarController* controller, QWidget* parent)
-    : QDialog(parent), m_controller(controller) {
-    resize(460, 640);
+ActivitySidebarWidget::ActivitySidebarWidget(CalendarController* controller, QWidget* parent)
+    : QWidget(parent), m_controller(controller) {
+    setMinimumWidth(340);
+
+    m_stack = new QStackedWidget(this);
+    m_stack->addWidget(buildDetailPage());  // kDetailPage
+    m_stack->addWidget(buildFormPage());    // kFormPage
+
+    auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->addWidget(m_stack);
+}
+
+// ---------------------------------------------------------------------------
+// Pagina Dettaglio (sola lettura)
+// ---------------------------------------------------------------------------
+QWidget* ActivitySidebarWidget::buildDetailPage() {
+    auto* page = new QWidget(this);
+
+    m_detailTitleLabel = new QLabel(page);
+    QFont titleFont = m_detailTitleLabel->font();
+    titleFont.setPointSize(16);
+    titleFont.setBold(true);
+    m_detailTitleLabel->setFont(titleFont);
+    m_detailTitleLabel->setWordWrap(true);
+
+    auto* closeButton = new QPushButton(QStringLiteral("✕"), page);
+    closeButton->setToolTip(tr("Chiudi"));
+    closeButton->setFixedSize(28, 28);
+
+    auto* topRow = new QHBoxLayout;
+    topRow->addWidget(m_detailTitleLabel, 1);
+    topRow->addWidget(closeButton);
+
+    // Campi specifici per tipo (Visitor), in una scrollarea perche' il
+    // testo non esca mai dalla sidebar
+    m_detailFieldsLabel = new QLabel(page);
+    m_detailFieldsLabel->setWordWrap(true);
+    m_detailFieldsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto* scroll = new QScrollArea(page);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidget(m_detailFieldsLabel);
+
+    auto* modifyButton = new QPushButton(tr("Modifica"), page);
+    auto* deleteButton = new QPushButton(tr("Elimina"), page);
+    auto* bottom = new QHBoxLayout;
+    bottom->addStretch(1);
+    bottom->addWidget(deleteButton);
+    bottom->addWidget(modifyButton);
+
+    auto* layout = new QVBoxLayout(page);
+    layout->addLayout(topRow);
+    layout->addWidget(scroll, 1);
+    layout->addLayout(bottom);
+
+    connect(closeButton, &QPushButton::clicked, this, &ActivitySidebarWidget::closeRequested);
+    connect(modifyButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onDetailEdit);
+    connect(deleteButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onDetailDelete);
+    return page;
+}
+
+void ActivitySidebarWidget::showDetail(const events::Activity* activity) {
+    if (!activity) {
+        return;
+    }
+    m_detailActivity = activity;
+    m_detailTitleLabel->setText(QString::fromStdString(activity->getTitle()));
+    // Righe "campo: valore" come paragrafi distanziati: la sidebar si
+    // riempie in modo arioso e le informazioni si leggono con respiro.
+    const QStringList lines = ActivityViewHelpers::fieldLines(*activity);
+    QString html;
+    for (const QString& line : lines) {
+        html += QStringLiteral("<p style=\"margin: 10px 0;\">%1</p>")
+                    .arg(line.toHtmlEscaped());
+    }
+    m_detailFieldsLabel->setText(html);
+    m_detailFieldsLabel->setTextFormat(Qt::RichText);
+    m_stack->setCurrentIndex(kDetailPage);
+}
+
+void ActivitySidebarWidget::onDetailEdit() {
+    if (m_detailActivity) {
+        showEditActivity(m_detailActivity);
+    }
+}
+
+void ActivitySidebarWidget::onDetailDelete() {
+    if (!m_detailActivity) {
+        return;
+    }
+    if (QMessageBox::question(this, tr("Elimina attivita'"),
+                              tr("Eliminare '%1'?").arg(
+                                  QString::fromStdString(m_detailActivity->getTitle()))) !=
+        QMessageBox::Yes) {
+        return;
+    }
+    m_controller->removeActivity(m_detailActivity);
+    m_detailActivity = nullptr;
+    emit closeRequested();
+}
+
+// ---------------------------------------------------------------------------
+// Pagina Form (creazione/modifica)
+// ---------------------------------------------------------------------------
+QWidget* ActivitySidebarWidget::buildFormPage() {
+    auto* page = new QWidget(this);
 
     // La creazione non chiede il tipo: "Evento" e' il pannello "a domande"
     // che istanzia un'attivita' singola o una serie in base alle risposte.
-    m_typeCombo = new QComboBox(this);
+    m_typeCombo = new QComboBox(page);
     m_typeCombo->addItem(tr("Evento"));
     m_typeCombo->addItem(tr("Riunione"));
     m_typeCombo->addItem(tr("Compito"));
     m_typeCombo->addItem(tr("Anniversario"));
 
-    m_forms = new QStackedWidget(this);
+    m_forms = new QStackedWidget(page);
     m_forms->addWidget(buildEventPanel());
     m_forms->addWidget(buildMeetingPanel());
     m_forms->addWidget(buildTaskPanel());
     m_forms->addWidget(buildAnniversaryPanel());
 
-    // I pannelli stanno in una scroll area: anche con finestre molto piccole
-    // il contenuto resta raggiungibile (il dialog non e' piu' clipato a un
-    // contenitore fisso, ma resta comunque ridimensionabile dall'utente).
-    auto* scroll = new QScrollArea(this);
+    // I pannelli stanno in una scroll area: la sidebar puo' essere piu'
+    // stretta di un dialog, il contenuto resta comunque raggiungibile.
+    auto* scroll = new QScrollArea(page);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setWidget(m_forms);
 
-    m_errorLabel = new QLabel(this);
+    m_errorLabel = new QLabel(page);
     m_errorLabel->setObjectName(QStringLiteral("formErrorLabel"));
     m_errorLabel->setWordWrap(true);
 
-    // Salva/Annulla seguono l'ordine standard della piattaforma; Elimina e'
-    // un pulsante distruttivo separato, visibile solo in modifica.
-    m_buttonBox = new QDialogButtonBox(this);
-    m_buttonBox->addButton(tr("Salva"), QDialogButtonBox::AcceptRole);
-    m_buttonBox->addButton(tr("Annulla"), QDialogButtonBox::RejectRole);
-    m_deleteButton = m_buttonBox->addButton(tr("Elimina"), QDialogButtonBox::DestructiveRole);
+    auto* saveButton = new QPushButton(tr("Salva"), page);
+    auto* cancelButton = new QPushButton(tr("Annulla"), page);
+    // Elimina: visibile solo in modifica (in creazione non c'e' nulla da
+    // eliminare); si nasconde con showCreate()/showCreateType()
+    m_deleteButton = new QPushButton(tr("Elimina"), page);
     m_deleteButton->setVisible(false);
 
-    auto* layout = new QVBoxLayout(this);
+    auto* layout = new QVBoxLayout(page);
     layout->addWidget(m_typeCombo);
     layout->addWidget(scroll, 1);
     layout->addWidget(m_errorLabel);
-    layout->addWidget(m_buttonBox);
+    auto* buttons = new QHBoxLayout;
+    buttons->addWidget(m_deleteButton);
+    buttons->addStretch(1);
+    buttons->addWidget(saveButton);
+    buttons->addWidget(cancelButton);
+    layout->addLayout(buttons);
 
     connect(m_typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ActivityFormDialog::onTypeChanged);
+            this, &ActivitySidebarWidget::onTypeChanged);
     // Ricorrenza "a domande"
     connect(m_repeatCheck, &QCheckBox::toggled,
-            this, &ActivityFormDialog::onRepeatToggled);
+            this, &ActivitySidebarWidget::onRepeatToggled);
     connect(m_unitCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ActivityFormDialog::onUnitChanged);
+            this, &ActivitySidebarWidget::onUnitChanged);
     connect(m_endDateRadio, &QRadioButton::toggled, this, [this](bool on) {
         m_endDate->setEnabled(on);
     });
@@ -162,13 +273,13 @@ ActivityFormDialog::ActivityFormDialog(CalendarController* controller, QWidget* 
     });
     // Partecipanti della riunione
     connect(m_attendeeEdit, &QLineEdit::returnPressed,
-            this, &ActivityFormDialog::onAddAttendee);
+            this, &ActivitySidebarWidget::onAddAttendee);
     connect(m_attendeesList, &QListWidget::itemDoubleClicked,
-            this, &ActivityFormDialog::onRemoveAttendee);
+            this, &ActivitySidebarWidget::onRemoveAttendee);
 
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &ActivityFormDialog::onSave);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(m_deleteButton, &QPushButton::clicked, this, &ActivityFormDialog::onDelete);
+    connect(saveButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onSave);
+    connect(m_deleteButton, &QPushButton::clicked, this, &ActivitySidebarWidget::onDelete);
+    connect(cancelButton, &QPushButton::clicked, this, &ActivitySidebarWidget::closeRequested);
 
     // Anteprima live: ogni modifica dei campi aggiorna la griglia
     const auto refreshPreview = [this] { emitPreview(); };
@@ -180,16 +291,18 @@ ActivityFormDialog::ActivityFormDialog(CalendarController* controller, QWidget* 
     connect(m_durationMt, &QSpinBox::valueChanged, this, refreshPreview);
     connect(m_titleT, &QLineEdit::textChanged, this, refreshPreview);
     connect(m_dueT, &QDateTimeEdit::dateTimeChanged, this, refreshPreview);
+
+    return page;
 }
 
 // ---------------------------------------------------------------------------
 // Pannello Evento "a domande"
 // ---------------------------------------------------------------------------
-QWidget* ActivityFormDialog::buildEventPanel() {
+QWidget* ActivitySidebarWidget::buildEventPanel() {
     auto* panel = new QWidget(this);
     m_titleE = makeTitle(panel);
     // Un solo QDateTimeEdit per data+ora: "Tutto il giorno" ne cambia solo il
-    // displayFormat (vedi il connect nel costruttore), invece di nascondere
+    // displayFormat (vedi il connect in buildFormPage), invece di nascondere
     // un secondo widget "Ora" separato.
     m_startE = makeDateTime(panel);
     m_durationE = makeDurationSpin(panel);
@@ -235,7 +348,7 @@ QWidget* ActivityFormDialog::buildEventPanel() {
     for (int i = 0; i < 7; ++i) {
         auto* button = new QPushButton(QString::fromLatin1(kDayLabels[i]), m_dayRow);
         button->setCheckable(true);
-        button->setMinimumWidth(40);
+        button->setMinimumWidth(36);
         dayLayout->addWidget(button);
         m_dayGroup->addButton(button, i + 1);
     }
@@ -271,7 +384,7 @@ QWidget* ActivityFormDialog::buildEventPanel() {
     return panel;
 }
 
-QWidget* ActivityFormDialog::buildMeetingPanel() {
+QWidget* ActivitySidebarWidget::buildMeetingPanel() {
     auto* panel = new QWidget(this);
     m_titleMt = makeTitle(panel);
     m_startMt = makeDateTime(panel);
@@ -282,7 +395,7 @@ QWidget* ActivityFormDialog::buildMeetingPanel() {
     m_attendeeEdit = new QLineEdit(panel);
     m_attendeeEdit->setPlaceholderText(tr("Nome partecipante + Invio"));
     // Suggerisce nomi gia' usati in altre Riunioni del calendario corrente
-    // (aggiornato in startCreateType/startEditActivity, vedi
+    // (aggiornato in showCreateType/showEditActivity, vedi
     // refreshAttendeeCompleter): il modello e' sostituito li', qui si crea
     // solo il completer vuoto e lo si aggancia al campo.
     m_attendeeCompleter = new QCompleter(this);
@@ -303,7 +416,7 @@ QWidget* ActivityFormDialog::buildMeetingPanel() {
     return panel;
 }
 
-QWidget* ActivityFormDialog::buildTaskPanel() {
+QWidget* ActivitySidebarWidget::buildTaskPanel() {
     auto* panel = new QWidget(this);
     m_titleT = makeTitle(panel);
     m_dueT = makeDateTime(panel);
@@ -323,7 +436,7 @@ QWidget* ActivityFormDialog::buildTaskPanel() {
     return panel;
 }
 
-QWidget* ActivityFormDialog::buildAnniversaryPanel() {
+QWidget* ActivitySidebarWidget::buildAnniversaryPanel() {
     auto* panel = new QWidget(this);
     m_titleAn = makeTitle(panel);
     m_dateAn = makeDay(panel);
@@ -335,15 +448,15 @@ QWidget* ActivityFormDialog::buildAnniversaryPanel() {
     return panel;
 }
 
-events::TimePoint ActivityFormDialog::toTimePoint(const QDateTime& local) {
+events::TimePoint ActivitySidebarWidget::toTimePoint(const QDateTime& local) {
   return events::TimePoint(std::chrono::seconds(local.toSecsSinceEpoch()));
 }
 
-QDateTime ActivityFormDialog::toLocal(const events::TimePoint tp) {
+QDateTime ActivitySidebarWidget::toLocal(const events::TimePoint tp) {
   return QDateTime::fromSecsSinceEpoch(tp.time_since_epoch().count()).toLocalTime();
 }
 
-QLineEdit* ActivityFormDialog::titleOf(int panel) const {
+QLineEdit* ActivitySidebarWidget::titleOf(int panel) const {
   switch (panel) {
   case kEventPanel:
     return m_titleE;
@@ -358,7 +471,7 @@ QLineEdit* ActivityFormDialog::titleOf(int panel) const {
   }
 }
 
-QDateTimeEdit* ActivityFormDialog::dateOf(int panel) const {
+QDateTimeEdit* ActivitySidebarWidget::dateOf(int panel) const {
   switch (panel) {
   case kEventPanel:
     return m_startE;
@@ -372,7 +485,7 @@ QDateTimeEdit* ActivityFormDialog::dateOf(int panel) const {
   }
 }
 
-QSpinBox* ActivityFormDialog::durationOf(int panel) const {
+QSpinBox* ActivitySidebarWidget::durationOf(int panel) const {
   switch (panel) {
   case kEventPanel:
     return m_durationE;
@@ -385,7 +498,7 @@ QSpinBox* ActivityFormDialog::durationOf(int panel) const {
   }
 }
 
-void ActivityFormDialog::onTypeChanged(int index) {
+void ActivitySidebarWidget::onTypeChanged(int index) {
   const int from = m_forms->currentIndex();
   // In CREAZIONE i campi comuni (titolo/data) si conservano cambiando tipo;
   // in MODIFICA il cambio combo e' programmatico (populate*): i campi sono
@@ -397,7 +510,7 @@ void ActivityFormDialog::onTypeChanged(int index) {
   emitPreview();
 }
 
-void ActivityFormDialog::syncCommonFields(int fromPanel, int toPanel) {
+void ActivitySidebarWidget::syncCommonFields(int fromPanel, int toPanel) {
   if (fromPanel < 0 || fromPanel >= kPanelCount || toPanel < 0 ||
       toPanel >= kPanelCount || fromPanel == toPanel) {
     return;
@@ -419,7 +532,7 @@ void ActivityFormDialog::syncCommonFields(int fromPanel, int toPanel) {
   }
 }
 
-void ActivityFormDialog::onRepeatToggled(bool checked) {
+void ActivitySidebarWidget::onRepeatToggled(bool checked) {
   m_repeatBox->setVisible(checked);
   // Alla prima attivazione con unita' settimane, preseleziona il giorno
   // dell'inizio se non ne e' selezionato nessuno.
@@ -430,7 +543,7 @@ void ActivityFormDialog::onRepeatToggled(bool checked) {
   emitPreview();
 }
 
-void ActivityFormDialog::onUnitChanged(int index) {
+void ActivitySidebarWidget::onUnitChanged(int index) {
   const bool weeks = index == kUnitWeeks;
   const bool years = index == kUnitYears;
   m_repeatForm->setRowVisible(m_dayRow, weeks);
@@ -454,17 +567,16 @@ void ActivityFormDialog::onUnitChanged(int index) {
   }
 }
 
-void ActivityFormDialog::startCreate(const QDateTime& suggestedStart) {
-  startCreateType(kEventPanel, suggestedStart);
+void ActivitySidebarWidget::showCreate(const QDateTime& suggestedStart) {
+  showCreateType(kEventPanel, suggestedStart);
 }
 
-void ActivityFormDialog::startCreateType(int typeIndex,
-                                         const QDateTime& suggestedStart) {
+void ActivitySidebarWidget::showCreateType(int typeIndex,
+                                           const QDateTime& suggestedStart) {
   m_mode = Mode::Create;
   m_editingActivity = nullptr;
   m_editingOccurrence.reset();
   m_errorLabel->clear();
-  setWindowTitle(tr("Nuova attivita'"));
 
   // Box del titolo vuota (nessun testo residuo da creazioni precedenti)
   m_titleE->clear();
@@ -514,15 +626,15 @@ void ActivityFormDialog::startCreateType(int typeIndex,
   m_doneCheck->setEnabled(true);
   m_forms->setCurrentIndex(std::clamp(typeIndex, 0, kPanelCount - 1));
   refreshAttendeeCompleter();
+  m_stack->setCurrentIndex(kFormPage);
   emitPreview();
 }
 
-void ActivityFormDialog::startEditActivity(const events::Activity* activity) {
+void ActivitySidebarWidget::showEditActivity(const events::Activity* activity) {
   m_mode = Mode::EditActivity;
   m_editingActivity = activity;
   m_editingOccurrence.reset();
   m_errorLabel->clear();
-  setWindowTitle(tr("Modifica attivita'"));
   refreshAttendeeCompleter();
 
   // Il tipo dinamico e' Activity/Task/Meeting; la ricorrenza si deduce dal
@@ -539,15 +651,15 @@ void ActivityFormDialog::startEditActivity(const events::Activity* activity) {
   m_typeCombo->setEnabled(false);
   m_doneCheck->setEnabled(true);
   m_deleteButton->setVisible(true);
+  m_stack->setCurrentIndex(kFormPage);
   emitPreview();
 }
 
-void ActivityFormDialog::startEditOccurrence(const events::Occurrence& occurrence) {
+void ActivitySidebarWidget::showEditOccurrence(const events::Occurrence& occurrence) {
   m_mode = Mode::EditOccurrence;
   m_editingActivity = nullptr;
   m_editingOccurrence = occurrence;
   m_errorLabel->clear();
-  setWindowTitle(tr("Modifica attivita'"));
 
   // L'istanza singola diventa un Evento: niente ricorrenza, niente all-day
   m_allDayCheck->setChecked(false);
@@ -562,10 +674,11 @@ void ActivityFormDialog::startEditOccurrence(const events::Occurrence& occurrenc
   m_durationE->setValue(std::max(1, static_cast<int>(occurrence.duration.count() / 60)));
   m_forms->setCurrentIndex(kEventPanel);
   m_deleteButton->setVisible(true);
+  m_stack->setCurrentIndex(kFormPage);
   emitPreview();
 }
 
-void ActivityFormDialog::populateEventLike(const events::Activity& activity) {
+void ActivitySidebarWidget::populateEventLike(const events::Activity& activity) {
   m_titleE->setText(QString::fromStdString(activity.getTitle()));
   m_startE->setDateTime(toLocal(activity.getStart()));
   m_durationE->setValue(std::max(1, static_cast<int>(activity.getDuration().count() / 60)));
@@ -624,7 +737,7 @@ void ActivityFormDialog::populateEventLike(const events::Activity& activity) {
   m_forms->setCurrentIndex(kEventPanel);
 }
 
-void ActivityFormDialog::populateMeeting(const events::Meeting& meeting) {
+void ActivitySidebarWidget::populateMeeting(const events::Meeting& meeting) {
   m_titleMt->setText(QString::fromStdString(meeting.getTitle()));
   m_startMt->setDateTime(toLocal(meeting.getStart()));
   m_durationMt->setValue(std::max(1, static_cast<int>(meeting.getDuration().count() / 60)));
@@ -637,7 +750,7 @@ void ActivityFormDialog::populateMeeting(const events::Meeting& meeting) {
   m_forms->setCurrentIndex(kMeetingPanel);
 }
 
-void ActivityFormDialog::populateTask(const events::Task& task) {
+void ActivitySidebarWidget::populateTask(const events::Task& task) {
   m_titleT->setText(QString::fromStdString(task.getTitle()));
   m_dueT->setDateTime(toLocal(task.getDue()));
   switch (task.getPriority()) {
@@ -657,14 +770,14 @@ void ActivityFormDialog::populateTask(const events::Task& task) {
   m_forms->setCurrentIndex(kTaskPanel);
 }
 
-void ActivityFormDialog::populateAnniversary(const events::Activity& activity) {
+void ActivitySidebarWidget::populateAnniversary(const events::Activity& activity) {
   m_titleAn->setText(QString::fromStdString(activity.getTitle()));
   m_dateAn->setDate(toLocal(activity.getStart()).date());
   m_typeCombo->setCurrentIndex(kAnniversaryPanel);
   m_forms->setCurrentIndex(kAnniversaryPanel);
 }
 
-void ActivityFormDialog::emitPreview() {
+void ActivitySidebarWidget::emitPreview() {
   const int panel = m_forms->currentIndex();
   const QString title = titleOf(panel)->text();
   // Niente anteprima per i tipi senza data/ora nella griglia (l'all-day va
@@ -684,7 +797,7 @@ void ActivityFormDialog::emitPreview() {
   emit previewChanged(title, start, durationSeconds, true);
 }
 
-void ActivityFormDialog::refreshAttendeeCompleter() {
+void ActivitySidebarWidget::refreshAttendeeCompleter() {
   QStringList names;
   for (const auto& activity : m_controller->calendar()) {
     if (const auto* meeting = dynamic_cast<const events::Meeting*>(activity.get())) {
@@ -700,7 +813,7 @@ void ActivityFormDialog::refreshAttendeeCompleter() {
 }
 
 std::vector<std::unique_ptr<events::Activity>>
-ActivityFormDialog::buildEventActivities() const {
+ActivitySidebarWidget::buildEventActivities() const {
   std::vector<std::unique_ptr<events::Activity>> result;
   const QString title = m_titleE->text().trimmed();
   if (title.isEmpty()) {
@@ -840,7 +953,7 @@ ActivityFormDialog::buildEventActivities() const {
   return result;
 }
 
-std::unique_ptr<events::Activity> ActivityFormDialog::buildActivity() const {
+std::unique_ptr<events::Activity> ActivitySidebarWidget::buildActivity() const {
   const int panelIndex = m_forms->currentIndex();
   const QString title = titleOf(panelIndex)->text().trimmed();
   if (title.isEmpty()) {
@@ -898,7 +1011,7 @@ std::unique_ptr<events::Activity> ActivityFormDialog::buildActivity() const {
   }
 }
 
-void ActivityFormDialog::onAddAttendee() {
+void ActivitySidebarWidget::onAddAttendee() {
   const QString name = m_attendeeEdit->text().trimmed();
   if (name.isEmpty()) {
     return;
@@ -912,13 +1025,13 @@ void ActivityFormDialog::onAddAttendee() {
   m_attendeeEdit->clear();
 }
 
-void ActivityFormDialog::onRemoveAttendee() {
+void ActivitySidebarWidget::onRemoveAttendee() {
   if (QListWidgetItem* item = m_attendeesList->currentItem()) {
     delete item;
   }
 }
 
-void ActivityFormDialog::onDelete() {
+void ActivitySidebarWidget::onDelete() {
   if (m_mode == Mode::Create) {
     return;
   }
@@ -939,11 +1052,11 @@ void ActivityFormDialog::onDelete() {
     ok = m_controller->deleteOccurrence(*m_editingOccurrence);
   }
   if (ok) {
-    accept();
+    emit closeRequested();
   }
 }
 
-void ActivityFormDialog::onSave() {
+void ActivitySidebarWidget::onSave() {
   // Pannello Evento "a domande": attivita' singola o una o piu' serie
   if (m_forms->currentIndex() == kEventPanel) {
     auto activities = buildEventActivities();
@@ -967,7 +1080,7 @@ void ActivityFormDialog::onSave() {
     }
     if (ok) {
       m_errorLabel->clear();
-      accept();
+      emit closeRequested();
     } else {
       m_errorLabel->setText(tr("Operazione non riuscita."));
     }
@@ -996,7 +1109,7 @@ void ActivityFormDialog::onSave() {
 
   if (ok) {
     m_errorLabel->clear();
-    accept();
+    emit closeRequested();
   } else {
     m_errorLabel->setText(tr("Operazione non riuscita."));
   }

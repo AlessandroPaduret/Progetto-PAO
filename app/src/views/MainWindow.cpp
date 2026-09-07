@@ -6,14 +6,14 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QTimeZone>
 #include <QVBoxLayout>
 
 #include "controller/CalendarController.h"
 #include "builders/ActivityConfig.h"
-#include "views/dialog/ActivityDetailDialog.h"
-#include "views/dialog/ActivityFormDialog.h"
+#include "views/dialog/ActivitySidebarWidget.h"
 #include "views/ActivityListPage.h"
 #include "views/DayView.h"
 #include "views/MonthView.h"
@@ -59,12 +59,12 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     m_monthView = new MonthView(this);
     m_yearView = new YearView(this);
     m_listPage = new ActivityListPage(controller, this);
-    // Finestra figlia ridotta per il dettaglio di un'attivita' (dentro la
-    // MainWindow: mai a schermo intero)
-    m_detailDialog = new ActivityDetailDialog(controller, this);
-    // Finestra figlia ridotta per creazione/modifica (si chiude con la "X")
-    m_formDialog = new ActivityFormDialog(controller, this);
-    // Finestra di scelta serie/singola occorrenza (interna, non esce)
+    // Pannello laterale per dettaglio/creazione/modifica: un QWidget (non un
+    // dialog), affiancato al calendario da uno QSplitter; parte nascosto.
+    m_sidebar = new ActivitySidebarWidget(controller, this);
+    m_sidebar->hide();
+    // Finestra di scelta serie/singola occorrenza: interruzione puntuale del
+    // flusso, resta un QDialog modale nativo (exec()).
     m_choiceDialog = new RecurrenceChoiceDialog(this);
 
     // Settimana/Giorno gestiscono da sole lo scroll (solo verticale, sulla
@@ -102,11 +102,20 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     m_pages->addWidget(monthPage);
     m_pages->addWidget(yearPage);
 
+    // Calendario a sinistra, sidebar a destra: uno QSplitter orizzontale li
+    // affianca qualunque sia la pagina corrente (settimana/elenco/giorno/
+    // mese/anno), lasciando all'utente la liberta' di ridimensionarli.
+    auto* splitter = new QSplitter(Qt::Horizontal, this);
+    splitter->addWidget(m_pages);
+    splitter->addWidget(m_sidebar);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 0);
+
     auto* central = new QWidget(this);
     auto* centralLayout = new QVBoxLayout(central);
     centralLayout->setContentsMargins(0, 0, 0, 0);
     centralLayout->addWidget(m_navBar);
-    centralLayout->addWidget(m_pages, 1);
+    centralLayout->addWidget(splitter, 1);
     setCentralWidget(central);
 
     // --- Menu bar ----------------------------------------------------------------
@@ -224,10 +233,6 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     connect(m_listPage, &ActivityListPage::editRequested,
             this, &MainWindow::showFormEditActivity);
 
-    // Dettaglio interno: Modifica apre il form, la chiusura non fa nulla
-    connect(m_detailDialog, &ActivityDetailDialog::editRequested,
-            this, &MainWindow::showFormEditActivity);
-
     // Finestra di scelta serie/singola occorrenza (interna alla MainWindow)
     connect(m_choiceDialog, &RecurrenceChoiceDialog::seriesChosen,
             this, &MainWindow::onChoiceSeries);
@@ -236,9 +241,18 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     connect(m_choiceDialog, &RecurrenceChoiceDialog::splitChosen,
             this, &MainWindow::onChoiceSplit);
 
+    // La sidebar decide da sola quando passare da Dettaglio a Form
+    // (pulsante "Modifica" interno): la MainWindow si limita a nasconderla
+    // quando la sidebar segnala di aver finito (Chiudi/Annulla/Salva/Elimina
+    // riusciti) e a ripulire l'anteprima live nelle griglie.
+    connect(m_sidebar, &ActivitySidebarWidget::closeRequested, this, [this] {
+        m_sidebar->hide();
+        m_weekView->setPreview(std::nullopt);
+        m_dayView->setPreview(std::nullopt);
+    });
     // Anteprima live dell'evento in fase di creazione/modifica nelle griglie
     // giorno/settimana (lo stesso aggiornamento per entrambe)
-    connect(m_formDialog, &ActivityFormDialog::previewChanged,
+    connect(m_sidebar, &ActivitySidebarWidget::previewChanged,
             this, [this](const QString& title, const QDateTime& start,
                          qint64 durationSeconds, bool valid) {
                 std::optional<WeekView::Preview> preview;
@@ -440,37 +454,31 @@ void MainWindow::showDetailDialog(const events::Activity* activity) {
     if (!activity) {
         return;
     }
-    m_detailDialog->showActivity(activity);
-    m_detailDialog->exec();
-}
-
-void MainWindow::execFormDialog() {
-    m_formDialog->exec();
-    m_weekView->setPreview(std::nullopt);
-    m_dayView->setPreview(std::nullopt);
+    m_sidebar->showDetail(activity);
+    m_sidebar->show();
 }
 
 void MainWindow::showFormCreate(const QDateTime& start) {
-    m_formDialog->startCreate(start);
-    execFormDialog();
+    m_sidebar->showCreate(start);
+    m_sidebar->show();
 }
 
 void MainWindow::showFormEditActivity(const events::Activity* activity) {
     if (!activity) {
         return;
     }
-    m_formDialog->startEditActivity(activity);
-    execFormDialog();
+    m_sidebar->showEditActivity(activity);
+    m_sidebar->show();
 }
 
 void MainWindow::showFormEditOccurrence(const events::Occurrence& occurrence) {
-    m_formDialog->startEditOccurrence(occurrence);
-    execFormDialog();
+    m_sidebar->showEditOccurrence(occurrence);
+    m_sidebar->show();
 }
 
 void MainWindow::openNewActivityType(int typeIndex) {
-    m_formDialog->startCreateType(typeIndex);
-    execFormDialog();
+    m_sidebar->showCreateType(typeIndex);
+    m_sidebar->show();
 }
 
 // ---------------------------------------------------------------------------

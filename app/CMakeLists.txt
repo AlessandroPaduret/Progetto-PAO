@@ -70,10 +70,8 @@ add_executable(pao_app
     include/views/YearView.h
     src/views/ActivityListPage.cpp
     include/views/ActivityListPage.h
-    src/views/dialog/ActivityDetailDialog.cpp
-    include/views/dialog/ActivityDetailDialog.h
-    src/views/dialog/ActivityFormDialog.cpp
-    include/views/dialog/ActivityFormDialog.h
+    src/views/dialog/ActivitySidebarWidget.cpp
+    include/views/dialog/ActivitySidebarWidget.h
     src/views/dialog/ActivityViewHelpers.cpp
     include/views/dialog/ActivityViewHelpers.h
     src/views/dialog/RecurrenceChoiceDialog.cpp

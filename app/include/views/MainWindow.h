@@ -13,9 +13,8 @@ class QStackedWidget;
 
 namespace app {
 
-class ActivityDetailDialog;
-class ActivityFormDialog;
 class ActivityListPage;
+class ActivitySidebarWidget;
 class CalendarController;
 class DayView;
 class MonthView;
@@ -38,11 +37,12 @@ class YearView;
  *  3. Mese        — MonthView in QScrollArea (griglia mensile con chip)
  *  4. Anno        — YearView in QScrollArea (12 mini-calendari)
  *
- *  Il dettaglio di un'attivita' (ActivityDetailDialog), la creazione/
- *  modifica (ActivityFormDialog) e la scelta serie/occorrenza
- *  (RecurrenceChoiceDialog) sono QDialog nativi e modali (exec()):
- *  Qt ne gestisce apertura, centraggio e dimensionamento, niente
- *  posizionamento manuale nella MainWindow.
+ *  Il dettaglio/creazione/modifica di un'attivita' e' un pannello laterale
+ *  (ActivitySidebarWidget, un QWidget, non un dialog) affiancato alle pagine
+ *  tramite un QSplitter orizzontale: parte nascosto e viene mostrato/
+ *  nascosto in base alle interazioni dell'utente. La scelta serie/occorrenza
+ *  (RecurrenceChoiceDialog) resta invece un QDialog modale nativo (exec()),
+ *  essendo un'interruzione puntuale del flusso e non un pannello persistente.
  */
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -94,10 +94,6 @@ private slots:
     void onViewSelected(AppMenuBar::ViewKind kind);
 
 private:
-    /** @brief Apre il dialog di creazione/modifica (exec(), nativo e modale)
-     *  e ripulisce l'anteprima live nelle griglie alla chiusura. */
-    void execFormDialog();
-
     enum class ViewKind { Day, Week, Month, Year };
 
     /** @brief Imposta il riferimento temporale (normalizzato per la vista
@@ -115,8 +111,7 @@ private:
     MonthView* m_monthView = nullptr;
     YearView* m_yearView = nullptr;
     ActivityListPage* m_listPage = nullptr;
-    ActivityDetailDialog* m_detailDialog = nullptr;
-    ActivityFormDialog* m_formDialog = nullptr;
+    ActivitySidebarWidget* m_sidebar = nullptr;
     RecurrenceChoiceDialog* m_choiceDialog = nullptr;
 
     NavigationBar* m_navBar = nullptr;
