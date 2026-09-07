@@ -38,9 +38,11 @@ class YearView;
  *  3. Mese        — MonthView in QScrollArea (griglia mensile con chip)
  *  4. Anno        — YearView in QScrollArea (12 mini-calendari)
  *
- *  Il dettaglio di un'attivita' si apre in una finestra figlia ridotta
- *  (ActivityDetailDialog), come la creazione/modifica (ActivityFormDialog):
- *  widget DENTRO la MainWindow, mai a schermo intero.
+ *  Il dettaglio di un'attivita' (ActivityDetailDialog), la creazione/
+ *  modifica (ActivityFormDialog) e la scelta serie/occorrenza
+ *  (RecurrenceChoiceDialog) sono QDialog nativi e modali (exec()):
+ *  Qt ne gestisce apertura, centraggio e dimensionamento, niente
+ *  posizionamento manuale nella MainWindow.
  */
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -91,11 +93,11 @@ private slots:
      *  pagina corrispondente. */
     void onViewSelected(AppMenuBar::ViewKind kind);
 
-protected:
-    /** @brief Tiene centrato il pannello di creazione quando si ridimensiona. */
-    void resizeEvent(QResizeEvent* event) override;
-
 private:
+    /** @brief Apre il dialog di creazione/modifica (exec(), nativo e modale)
+     *  e ripulisce l'anteprima live nelle griglie alla chiusura. */
+    void execFormDialog();
+
     enum class ViewKind { Day, Week, Month, Year };
 
     /** @brief Imposta il riferimento temporale (normalizzato per la vista

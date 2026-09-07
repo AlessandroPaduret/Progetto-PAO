@@ -72,8 +72,6 @@ add_executable(pao_app
     include/views/ActivityListPage.h
     src/views/dialog/ActivityDetailDialog.cpp
     include/views/dialog/ActivityDetailDialog.h
-    src/views/dialog/ActivityFormPage.cpp
-    include/views/dialog/ActivityFormPage.h
     src/views/dialog/ActivityFormDialog.cpp
     include/views/dialog/ActivityFormDialog.h
     src/views/dialog/ActivityViewHelpers.cpp

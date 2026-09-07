@@ -249,11 +249,6 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
                 m_weekView->setPreview(preview);
                 m_dayView->setPreview(preview);
             });
-    connect(m_formDialog, &ActivityFormDialog::closed,
-            this, [this] {
-                m_weekView->setPreview(std::nullopt);
-                m_dayView->setPreview(std::nullopt);
-            });
 
     // --- Stato iniziale ----------------------------------------------------------
     m_view = ViewKind::Week;
@@ -445,15 +440,19 @@ void MainWindow::showDetailDialog(const events::Activity* activity) {
     if (!activity) {
         return;
     }
-    // Il dettaglio si apre in una finestra figlia ridotta DENTRO la
-    // MainWindow (niente pagina a schermo intero)
     m_detailDialog->showActivity(activity);
-    m_detailDialog->showCentered();
+    m_detailDialog->exec();
+}
+
+void MainWindow::execFormDialog() {
+    m_formDialog->exec();
+    m_weekView->setPreview(std::nullopt);
+    m_dayView->setPreview(std::nullopt);
 }
 
 void MainWindow::showFormCreate(const QDateTime& start) {
     m_formDialog->startCreate(start);
-    m_formDialog->showCentered();
+    execFormDialog();
 }
 
 void MainWindow::showFormEditActivity(const events::Activity* activity) {
@@ -461,38 +460,23 @@ void MainWindow::showFormEditActivity(const events::Activity* activity) {
         return;
     }
     m_formDialog->startEditActivity(activity);
-    m_formDialog->showCentered();
+    execFormDialog();
 }
 
 void MainWindow::showFormEditOccurrence(const events::Occurrence& occurrence) {
     m_formDialog->startEditOccurrence(occurrence);
-    m_formDialog->showCentered();
+    execFormDialog();
 }
 
 void MainWindow::openNewActivityType(int typeIndex) {
     m_formDialog->startCreateType(typeIndex);
-    m_formDialog->showCentered();
-}
-
-void MainWindow::resizeEvent(QResizeEvent* event) {
-    QMainWindow::resizeEvent(event);
-    // I pannelli interni restano sempre dentro la finestra principale
-    if (m_formDialog && m_formDialog->isVisible()) {
-        m_formDialog->showCentered();
-    }
-    if (m_choiceDialog && m_choiceDialog->isVisible()) {
-        m_choiceDialog->showCentered();
-    }
-    if (m_detailDialog && m_detailDialog->isVisible()) {
-        m_detailDialog->showCentered();
-    }
+    execFormDialog();
 }
 
 // ---------------------------------------------------------------------------
 // Scelta serie / singola occorrenza per gli eventi ricorrenti
 // ---------------------------------------------------------------------------
 void MainWindow::onChoiceSplit() {
-    m_choiceDialog->hide();
     if (!m_pendingOccurrence) {
         m_pendingIsDrag = false;
         return;
@@ -521,7 +505,7 @@ void MainWindow::askSeriesOrInstance(const events::Occurrence& occurrence) {
         "attuale termina e ne nasce una nuova con le stesse regole) oppure "
         "solo questo evento (che diventera' un evento singolo, fuori dalla "
         "serie)?"));
-    m_choiceDialog->showCentered();
+    m_choiceDialog->exec();
 }
 
 void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
@@ -535,11 +519,10 @@ void MainWindow::askSeriesOrInstanceDrag(const events::Occurrence& occurrence,
         "attuale termina e ne nasce una nuova con le stesse regole) oppure "
         "solo questo evento (che diventera' un evento singolo, fuori dalla "
         "serie)?"));
-    m_choiceDialog->showCentered();
+    m_choiceDialog->exec();
 }
 
 void MainWindow::onChoiceSeries() {
-    m_choiceDialog->hide();
     if (!m_pendingOccurrence) {
         m_pendingIsDrag = false;
         return;
@@ -555,7 +538,6 @@ void MainWindow::onChoiceSeries() {
 }
 
 void MainWindow::onChoiceInstance() {
-    m_choiceDialog->hide();
     if (!m_pendingOccurrence) {
         m_pendingIsDrag = false;
         return;

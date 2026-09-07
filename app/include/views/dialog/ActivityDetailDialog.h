@@ -1,26 +1,23 @@
 #pragma once
 
-#include <QFrame>
+#include <QDialog>
 
 #include "events.h"
 
 class QLabel;
-class QToolButton;
 
 namespace app {
 
 class CalendarController;
 
-/** @brief Finestra interna di dettaglio di un'attivita': un pannello ridotto
- *  mostrato DENTRO la MainWindow (widget figlio della MainWindow, quindi
- *  clipato ai suoi bordi e ricentrato in resizeEvent), con i campi
- *  specifici per tipo calcolati con un Visitor.
+/** @brief Dialog nativo di dettaglio di un'attivita': i campi specifici per
+ *  tipo (calcolati con un Visitor) piu' i pulsanti "Modifica" ed "Elimina".
  *
- *  Ha una "X" in alto a destra per chiuderla e due pulsanti in basso:
- *  "Modifica" (apre il form di modifica via segnale `editRequested`) ed
- *  "Elimina".
+ *  Apertura/centraggio/modalita' sono gestiti nativamente da Qt tramite
+ *  exec() (nessun posizionamento manuale, niente QFrame figlio da
+ *  ricentrare a mano nel resizeEvent della finestra principale).
  */
-class ActivityDetailDialog : public QFrame {
+class ActivityDetailDialog : public QDialog {
     Q_OBJECT
 public:
     explicit ActivityDetailDialog(CalendarController* controller,
@@ -29,14 +26,9 @@ public:
     /** @brief Mostra il dettaglio dell'attivita' indicata. */
     void showActivity(const events::Activity* activity);
 
-    /** @brief Centra il pannello nella finestra principale e lo mostra. */
-    void showCentered();
-
 signals:
     /** @brief Pulsante Modifica: apri il form precompilato. */
     void editRequested(const events::Activity* activity);
-    /** @brief Il pannello si e' chiuso (X, Modifica o Elimina). */
-    void closed();
 
 private slots:
     void onEdit();
@@ -47,7 +39,6 @@ private:
     const events::Activity* m_activity = nullptr;
     QLabel* m_titleLabel;
     QLabel* m_fieldsLabel;
-    QToolButton* m_closeButton;
 };
 
 } // namespace app

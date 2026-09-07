@@ -1,29 +1,25 @@
 #pragma once
 
-#include <QFrame>
+#include <QDialog>
 
 class QLabel;
-class QPushButton;
 
 namespace app {
 
-/** @brief Finestra interna alla MainWindow che chiede se operare sull'INTERA
- *  serie di eventi ricorrenti o sulla SINGOLA occorrenza.
+/** @brief Dialog nativo che chiede se operare sull'INTERA serie di eventi
+ *  ricorrenti, sulla SINGOLA occorrenza o "da questo momento in poi".
  *
- *  E' un widget figlio della MainWindow: essendo un child non puo' uscire dai
- *  suoi bordi (dimensioni limitate con boundedTo e posizione centrata).
- *  Non fa nulla da sola: emette `seriesChosen` o `instanceChosen`.
+ *  Non fa nulla da sola: emette `seriesChosen`, `instanceChosen` o
+ *  `splitChosen`. Apertura/centraggio/modalita' sono gestiti nativamente
+ *  da Qt tramite exec().
  */
-class RecurrenceChoiceDialog : public QFrame {
+class RecurrenceChoiceDialog : public QDialog {
     Q_OBJECT
 public:
     explicit RecurrenceChoiceDialog(QWidget* parent = nullptr);
 
-    /** @brief Imposta il messaggio e mostrare il pannello centrato. */
+    /** @brief Imposta il messaggio da mostrare. */
     void ask(const QString& text);
-
-    /** @brief Centra il pannello nella finestra principale e lo mostra. */
-    void showCentered();
 
 signals:
     /** @brief L'utente vuole modificare l'intera serie. */
@@ -35,7 +31,6 @@ signals:
     void splitChosen();
 
 private:
-    QLabel* m_titleLabel;
     QLabel* m_messageLabel;
 };
 
