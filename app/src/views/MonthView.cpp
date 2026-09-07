@@ -234,7 +234,11 @@ void MonthView::setOccurrences(const std::vector<events::Occurrence>& occurrence
         const QDate date = start.addDays(i);
         std::vector<events::Occurrence> dayOccurrences;
         for (const events::Occurrence& occ : occurrences) {
-            if (localTime(occ.start).date() == date) {
+            // Le occorrenze "tutto il giorno" sono salvate a mezzanotte UTC:
+            // in un fuso con offset negativo, localTime() le farebbe cadere
+            // nel giorno locale PRECEDENTE, sparendo dalla cella corretta.
+            // activityDisplayTime sceglie da sola UTC (all-day) o locale.
+            if (activityDisplayTime(occ.source, occ.start).date() == date) {
                 dayOccurrences.push_back(occ);
             }
         }
