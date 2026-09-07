@@ -8,51 +8,46 @@
 #include <vector>
 
 #include "core/Occurrence.h"
-#include "views/utils/WeekGridLayout.h"
 
-class QRubberBand;
-class QLabel;
+class QScrollArea;
 
 namespace app {
 
+class AllDayAreaWidget;
+class DayColumnWidget;
+class HeaderWidget;
 class OccurrenceWidget;
+class TimeGutterWidget;
 
-/** @brief Griglia settimanale stile Google Calendar.
+/** @brief Griglia settimanale stile Google Calendar, composta da widget Qt
+ *  reali invece che da un unico canvas dipinto a mano:
  *
- *  Intestazione con giorni della settimana e numeri, ore sul bordo sinistro,
- *  attivita' rappresentate da widget Qt reali (`OccurrenceWidget`, non
- *  rettangoli disegnati a mano): posizione = ora di inizio, altezza =
- *  durata; durata zero = chip di altezza minima. Il tooltip al passaggio del
- *  mouse, il menu contestuale (tasto destro) e la spunta dei Compiti sono
- *  quelli nativi del widget di ciascuna occorrenza.
+ *    WeekView (QVBoxLayout)
+ *    +-- HeaderWidget          intestazione dei giorni (fissa in alto)
+ *    +-- AllDayAreaWidget      striscia "tutto il giorno" (fissa)
+ *    +-- QScrollArea           SOLO verticale, sulla griglia oraria
+ *         +-- QWidget (contenuto)
+ *              +-- QHBoxLayout
+ *                   +-- TimeGutterWidget    colonna ore 00:00..23:00
+ *                   +-- DayColumnWidget x N una per giorno, elastica in
+ *                                            larghezza, proprietaria delle
+ *                                            proprie occorrenze/drag&drop
  *
- *  In alto, sotto i giorni, c'e' una STRISCIA dedicata alle attivita'
- *  "tutto il giorno" (chip che coprono una o piu' date).
+ *  Ogni DayColumnWidget e' autonoma per interazione (clic su cella vuota,
+ *  doppio clic, menu contestuale, drag&drop, anteprima live): WeekView si
+ *  limita a distribuire le occorrenze per giorno e a inoltrare i segnali,
+ *  esponendo verso l'esterno la stessa interfaccia pubblica di sempre.
  *
- *  Le occorrenze che si sovrappongono temporalmente nello stesso giorno
- *  vengono AFFIANCATE in colonne (come in Google Calendar), cosi' possono
- *  coesistere nella stessa casella.
- *
- *  Trascinamento: tenendo premuto il tasto sinistro su un'occorrenza e
- *  spostando il mouse oltre la soglia di sistema (QApplication::
- *  startDragDistance) parte un drag&drop nativo Qt (QDrag/QMimeData); al
- *  rilascio su una nuova cella viene emesso `activityMoved` con la nuova
- *  data/ora.
- *
- *  La griglia si adatta al ridimensionamento: sotto le dimensioni base mostra
- *  le scrollbar (dimensione minima), sopra scala giorno/ora (e font) per
- *  riempire la finestra.
+ *  Il numero di giorni e' configurabile (`setDayCount`, default 7; usato da
+ *  DayView con 1). La selezione (clic sinistro su un'occorrenza) e'
+ *  ESCLUSIVA sull'intera griglia, a prescindere da quale colonna la
+ *  possiede (stesso schema di MonthView/MonthDayCell: WeekView tiene solo il
+ *  puntatore al chip selezionato, senza sapere a quale colonna appartiene).
  */
 class WeekView : public QWidget {
     Q_OBJECT
 public:
-    static constexpr int kGutterWidth = 56;   // larghezza colonna ore
-    static constexpr int kHeaderHeight = 48;  // altezza intestazione giorni
-    static constexpr int kAllDayHeight = 22;  // altezza striscia "tutto il giorno"
-    static constexpr int kDayWidth = 120;     // larghezza base colonna giorno
-    static constexpr int kHourHeight = 60;    // pixel base per ora
     static constexpr int kDaysPerWeek = 7;
-    static constexpr int kMinOccurrenceHeight = 18;  // chip per durata zero
 
     /** @brief Anteprima di un evento in fase di creazione/modifica. */
     struct Preview {
@@ -83,11 +78,6 @@ public:
     /** @brief Occorrenza selezionata (clic sinistro), o nullptr se assente. */
     const events::Occurrence* selectedOccurrence() const;
 
-    /** @brief Larghezza minima (griglia alle dimensioni base). */
-    int baseWidth() const;
-    /** @brief Altezza minima (griglia alle dimensioni base). */
-    int baseHeight() const;
-
 signals:
     /** @brief Doppio clic (o menu) su una cella vuota: orario locale della cella. */
     void emptySlotClicked(const QDateTime& start);
@@ -112,53 +102,30 @@ signals:
     /** @brief Clic sulla spunta di un COMPITO: inverte lo stato evaso/da fare. */
     void doneToggled(const events::Occurrence& occurrence);
 
-protected:
-    void paintEvent(QPaintEvent* event) override;
-    void resizeEvent(QResizeEvent* event) override;
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseDoubleClickEvent(QMouseEvent* event) override;
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dragLeaveEvent(QDragLeaveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-
 private:
-    /** @brief Inizio verticale della griglia oraria (sotto la striscia all-day). */
-    int gridTop() const;
-    int dayWidth() const;   // larghezza corrente di una colonna giorno
-    int hourHeight() const; // altezza corrente di un'ora
+    /** @brief Ricrea le DayColumnWidget (quando cambia dayCount). */
+    void rebuildColumns();
+    /** @brief Ripartisce m_occurrences fra AllDayAreaWidget e le colonne
+     *  giorno per giorno (per data locale), e ridistribuisce l'anteprima. */
+    void distributeOccurrences();
+    /** @brief Selezione esclusiva su tutta la griglia (schema MonthView). */
+    void setSelectedChip(OccurrenceWidget* chip, const events::Occurrence& occurrence);
+    void clearSelection();
 
-    /** @brief Geometria corrente (dimensioni in pixel), condivisa da
-     *  `WeekGridLayout::place` e `WeekGridPainter::paint`. */
-    WeekGridGeometry geometry() const;
-
-    /** @brief Ricrea i widget delle occorrenze (uno per occorrenza). */
-    void rebuildWidgets();
-    /** @brief Ricalcola (via `WeekGridLayout::place`) e applica ai widget la
-     *  geometria di ogni occorrenza (striscia "tutto il giorno" impilata +
-     *  colonne nella griglia oraria). */
-    void relayout();
-
-    /** @brief Cella (giorno/ora) dalle coordinate locali, o nullopt se fuori
-     *  dalla griglia oraria (bordo/intestazione/striscia all-day). */
-    std::optional<QDateTime> cellAt(const QPoint& pos) const;
-
-    /** @brief Rettangolo occupato da un'occorrenza ipotetica che iniziasse a
-     *  `localStart` con la durata indicata (per l'anteprima live). */
-    QRect slotRect(const QDateTime& localStart, const events::Duration duration) const;
-
-    void setSelected(int index);
+    HeaderWidget* m_header = nullptr;
+    AllDayAreaWidget* m_allDayArea = nullptr;
+    QScrollArea* m_scrollArea = nullptr;
+    QWidget* m_gridContent = nullptr;
+    TimeGutterWidget* m_gutter = nullptr;
+    std::vector<DayColumnWidget*> m_columns;
 
     std::vector<events::Occurrence> m_occurrences;
-    std::vector<OccurrenceWidget*> m_widgets;  // parallelo a m_occurrences
-    int m_allDayHeight = kAllDayHeight;        // altezza corrente striscia "tutto il giorno"
     QDate m_monday;
     int m_dayCount = kDaysPerWeek;
-    int m_selected = -1;
-    std::optional<Preview> m_preview;          // anteprima evento in modifica
-    QLabel* m_previewLabel = nullptr;          // widget dell'anteprima (nascosto se assente)
+    std::optional<Preview> m_preview;
 
-    QRubberBand* m_dropIndicator = nullptr;    // evidenzia la cella di destinazione durante il drag
+    OccurrenceWidget* m_selectedChip = nullptr;
+    std::optional<events::Occurrence> m_selectedOccurrence;
 };
 
 } // namespace app

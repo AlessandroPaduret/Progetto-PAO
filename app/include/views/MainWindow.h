@@ -32,11 +32,11 @@ class YearView;
  *  della barra degli strumenti (tendina con Elenco/Giorno/Settimana/Mese/
  *  Anno, che si apre anche al passaggio del puntatore):
  *
- *  0. Settimana   — WeekView in QScrollArea
+ *  0. Settimana   — WeekView (scroll verticale interno alla griglia oraria)
  *  1. Elenco      — tabella con ricerca e filtro per tipo
  *  2. Giorno      — DayView (griglia a colonna singola)
- *  3. Mese        — MonthView (griglia mensile con chip)
- *  4. Anno        — YearView (12 mini-calendari)
+ *  3. Mese        — MonthView in QScrollArea (griglia mensile con chip)
+ *  4. Anno        — YearView in QScrollArea (12 mini-calendari)
  *
  *  Il dettaglio di un'attivita' si apre in una finestra figlia ridotta
  *  (ActivityDetailDialog), come la creazione/modifica (ActivityFormDialog):

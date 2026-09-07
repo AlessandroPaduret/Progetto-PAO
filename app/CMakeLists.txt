@@ -52,6 +52,14 @@ add_executable(pao_app
     include/views/MainWindow.h
     src/views/WeekView.cpp
     include/views/WeekView.h
+    src/views/HeaderWidget.cpp
+    include/views/HeaderWidget.h
+    src/views/AllDayAreaWidget.cpp
+    include/views/AllDayAreaWidget.h
+    src/views/TimeGutterWidget.cpp
+    include/views/TimeGutterWidget.h
+    src/views/DayColumnWidget.cpp
+    include/views/DayColumnWidget.h
     src/views/DayView.cpp
     include/views/DayView.h
     src/views/MonthView.cpp
@@ -79,8 +87,6 @@ add_executable(pao_app
     include/views/utils/Theme.h
     src/views/utils/WeekGridLayout.cpp
     include/views/utils/WeekGridLayout.h
-    src/views/utils/WeekGridPainter.cpp
-    include/views/utils/WeekGridPainter.h
 )
 target_link_libraries(pao_app PRIVATE pao_core Qt6::Widgets)
 

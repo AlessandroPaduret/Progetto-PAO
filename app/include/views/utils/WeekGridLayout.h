@@ -9,45 +9,49 @@
 
 namespace app {
 
-/** @brief Misure geometriche di una griglia settimanale/giornaliera, in
- *  pixel, condivise tra il calcolo del layout e il disegno della griglia. */
-struct WeekGridGeometry {
-    int gutterWidth;         ///< larghezza della colonna ore (a sinistra)
-    int headerHeight;        ///< altezza dell'intestazione giorni
-    int allDayRowHeight;     ///< altezza di UNA riga della striscia "tutto il giorno"
-    int dayWidth;            ///< larghezza corrente di una colonna giorno
-    int hourHeight;          ///< altezza corrente di un'ora
-    int minOccurrenceHeight; ///< altezza minima di un chip (durata zero)
+// Geometria fissa (pixel) della griglia settimanale/giornaliera, condivisa da
+// HeaderWidget/AllDayAreaWidget/TimeGutterWidget/DayColumnWidget cosi' che le
+// colonne restino allineate tra loro senza ricalcoli duplicati. A differenza
+// della vecchia WeekGridGeometry non e' piu' "scalata" a runtime in base al
+// ridimensionamento: l'altezza di un'ora e' sempre la stessa, la griglia
+// oraria semmai SCORRE (QScrollArea) invece di rimpicciolire il testo.
+inline constexpr int kWeekGutterWidth = 56;          // larghezza colonna ore
+inline constexpr int kWeekHeaderHeight = 48;         // altezza intestazione giorni
+inline constexpr int kWeekAllDayRowHeight = 22;      // altezza di una riga "tutto il giorno"
+inline constexpr int kWeekHourHeight = 60;           // altezza di un'ora
+inline constexpr int kWeekMinOccurrenceHeight = 18;  // altezza minima chip (durata zero)
+inline constexpr int kWeekDaysPerWeek = 7;
+
+/** @brief Una "tutto il giorno" impilata su una riga della striscia in alto:
+ *  occupa le colonne [firstDay, lastDay] (offset da viewStart, gia' clampati
+ *  a [0, dayCount-1]) sulla riga indicata. `index` e' la posizione
+ *  dell'occorrenza nel vettore passato a layoutAllDayRows. */
+struct AllDayItem {
+    int index;
+    int firstDay;
+    int lastDay;
+    int row;
 };
 
-/** @brief Geometria calcolata per una singola occorrenza dopo il layout. */
-struct OccurrencePlacement {
-    QRect rect;      ///< geometria da applicare al widget (invalida se !visible)
-    bool visible;    ///< false se l'occorrenza cade fuori dai giorni mostrati
-};
-
-/** @brief Esito del calcolo di layout: una geometria per occorrenza (stesso
- *  ordine/indice del vettore passato a `place`) piu' l'altezza totale
- *  raggiunta dalla striscia "tutto il giorno" (righe impilate). */
-struct WeekGridResult {
-    std::vector<OccurrencePlacement> placements;
-    int allDayHeight;
-};
-
-/** @brief Calcolo puro (nessun widget/QPainter coinvolto) del posizionamento
- *  delle occorrenze in una griglia stile Google Calendar: le "tutto il
- *  giorno" vanno impilate su righe nella striscia in alto (spanning su piu'
- *  giorni), le altre affiancate in colonne quando si sovrappongono nello
- *  stesso giorno. `viewStart` e' il primo giorno mostrato (il lunedi' per la
- *  vista settimanale, il giorno stesso per la vista giornaliera); `dayCount`
- *  e' generico (1 per la vista giorno, 7 di default per la settimana) quindi
- *  i giorni sono indicizzati per offset da `viewStart`, non con un enum
- *  Lun..Dom fisso a 7 valori. */
 namespace WeekGridLayout {
 
-WeekGridResult place(const std::vector<events::Occurrence>& occurrences,
-                     const QDate& viewStart, int dayCount,
-                     const WeekGridGeometry& geometry);
+/** @brief Impila le occorrenze "tutto il giorno" (coversFullDay) su righe:
+ *  ogni item occupa la prima riga libera per tutta la sua estensione
+ *  [firstDay, lastDay]. Usata da AllDayAreaWidget per un QGridLayout con
+ *  column-span (colonna = 1+giorno, la colonna 0 e' riservata al gutter;
+ *  rowSpan sempre 1, colSpan = lastDay-firstDay+1). Le occorrenze che non
+ *  coprono un giorno intero sono ignorate (non compaiono nel risultato). */
+std::vector<AllDayItem> layoutAllDayRows(const std::vector<events::Occurrence>& occurrences,
+                                         const QDate& viewStart, int dayCount);
+
+/** @brief Geometria (QRect) delle occorrenze NON "tutto il giorno" di UN
+ *  SINGOLO giorno, in coordinate LOCALI a quella colonna (0,0 = mezzanotte,
+ *  x in [0, columnWidth)): le sovrapposte vengono affiancate in colonne come
+ *  Google Calendar (interval-graph greedy coloring). Il risultato e'
+ *  parallelo a `dayOccurrences` (gia' filtrate su un solo giorno). Usata da
+ *  DayColumnWidget, che possiede solo le occorrenze del proprio giorno. */
+std::vector<QRect> layoutDayColumn(const std::vector<events::Occurrence>& dayOccurrences,
+                                   int columnWidth);
 
 } // namespace WeekGridLayout
 

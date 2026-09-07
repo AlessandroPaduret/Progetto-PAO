@@ -470,9 +470,10 @@ void TestController::testAllDayNormalEventIsNotAllDay() {
 }
 
 void TestController::testAllDayStripLayoutRows() {
-    // Replica dell'algoritmo di layout della striscia in WeekView::ensureRects:
-    // ogni evento all-day va sulla riga piu' alta libera in tutti i giorni che
-    // copre; eventi su giorni diversi possono condividere la riga 0.
+    // Replica dell'algoritmo di layout della striscia in
+    // WeekGridLayout::layoutAllDayRows: ogni evento all-day va sulla riga
+    // piu' alta libera in tutti i giorni che copre; eventi su giorni diversi
+    // possono condividere la riga 0.
     const int kDayCount = 7;
 
     // Ogni item: {firstDay, lastDay, row}

@@ -31,6 +31,27 @@
     border-radius: 3px;
 }
 
+/* Vista settimana/giorno: intestazione dei giorni (HeaderWidget) e striscia
+ * "tutto il giorno" (AllDayAreaWidget), separate dalla griglia oraria
+ * sottostante da un bordo inferiore (la griglia stessa non e' piu' un unico
+ * canvas dipinto: ogni DayColumnWidget disegna solo le proprie linee ora). */
+#weekHeader, #weekAllDayArea {
+    background: white;
+    border-bottom: 1px solid #dadce0;
+}
+QLabel#weekDayHeaderLabel {
+    color: #5f6368;
+}
+QLabel#weekDayHeaderLabel[today="true"] {
+    color: #1a73e8;
+}
+QLabel#weekHourLabel {
+    color: #5f6368;
+    font-size: 8pt;
+    background: transparent;
+    border: none;
+}
+
 /* Vista anno: 12 mini-calendari nativi piu' compatti dei QCalendarWidget
  * di default. */
 QCalendarWidget QAbstractItemView {

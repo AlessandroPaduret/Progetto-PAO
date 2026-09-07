@@ -67,15 +67,18 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
     // Finestra di scelta serie/singola occorrenza (interna, non esce)
     m_choiceDialog = new RecurrenceChoiceDialog(this);
 
+    // Settimana/Giorno gestiscono da sole lo scroll (solo verticale, sulla
+    // sola griglia oraria: intestazione e striscia "tutto il giorno" restano
+    // fisse), niente QScrollArea esterna qui (altrimenti annidata due volte).
     auto* weekPage = new QWidget(this);
     auto* weekLayout = new QVBoxLayout(weekPage);
     weekLayout->setContentsMargins(0, 0, 0, 0);
-    weekLayout->addWidget(makeScroll(m_weekView), 1);
+    weekLayout->addWidget(m_weekView, 1);
 
     auto* dayPage = new QWidget(this);
     auto* dayLayout = new QVBoxLayout(dayPage);
     dayLayout->setContentsMargins(0, 0, 0, 0);
-    dayLayout->addWidget(makeScroll(m_dayView), 1);
+    dayLayout->addWidget(m_dayView, 1);
 
     auto* monthPage = new QWidget(this);
     auto* monthLayout = new QVBoxLayout(monthPage);

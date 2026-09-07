@@ -1,6 +1,7 @@
 #include "views/utils/WeekGridLayout.h"
 
 #include <algorithm>
+#include <numeric>
 
 #include "views/utils/ViewShared.h"
 
@@ -13,16 +14,12 @@ events::TimePoint effectiveEnd(const events::Occurrence& occ) {
     return occ.duration > events::Duration::zero() ? occ.end()
                                                     : occ.start + std::chrono::minutes(1);
 }
+} // namespace
 
-/** @brief Impila le occorrenze "tutto il giorno" su righe: ogni item occupa
- *  la prima riga libera per tutta la sua estensione [firstDay, lastDay]. */
-struct AllDayItem {
-    int index, firstDay, lastDay, row;
-};
+namespace WeekGridLayout {
 
-std::vector<AllDayItem> layoutAllDay(const std::vector<events::Occurrence>& occurrences,
-                                     const QDate& viewStart, int dayCount,
-                                     std::vector<bool>& placed, int& outMaxRows) {
+std::vector<AllDayItem> layoutAllDayRows(const std::vector<events::Occurrence>& occurrences,
+                                         const QDate& viewStart, int dayCount) {
     std::vector<std::vector<bool>> dayRows(dayCount); // [giorno][riga] occupata
     std::vector<AllDayItem> items;
 
@@ -60,119 +57,72 @@ std::vector<AllDayItem> layoutAllDay(const std::vector<events::Occurrence>& occu
             dayRows[d][row] = true;
         }
         items.push_back({i, firstDay, lastDay, row});
-        placed[i] = true;
     }
 
-    outMaxRows = 1;
-    for (int d = 0; d < dayCount; ++d) {
-        outMaxRows = std::max(outMaxRows, static_cast<int>(dayRows[d].size()));
-    }
     return items;
 }
 
-} // namespace
+std::vector<QRect> layoutDayColumn(const std::vector<events::Occurrence>& dayOccurrences,
+                                   int columnWidth) {
+    std::vector<QRect> result(dayOccurrences.size());
 
-namespace WeekGridLayout {
+    std::vector<int> order(dayOccurrences.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::sort(order.begin(), order.end(), [&dayOccurrences](int a, int b) {
+        return dayOccurrences[a].start < dayOccurrences[b].start;
+    });
 
-WeekGridResult place(const std::vector<events::Occurrence>& occurrences,
-                     const QDate& viewStart, int dayCount,
-                     const WeekGridGeometry& geometry) {
-    WeekGridResult result;
-    result.placements.assign(occurrences.size(), OccurrencePlacement{QRect(), false});
-
-    std::vector<bool> placed(occurrences.size(), false);
-
-    // --- Striscia "tutto il giorno" -----------------------------------------
-    int maxRows = 1;
-    const std::vector<AllDayItem> allDayItems =
-        layoutAllDay(occurrences, viewStart, dayCount, placed, maxRows);
-    result.allDayHeight = maxRows * geometry.allDayRowHeight;
-
-    for (const AllDayItem& item : allDayItems) {
-        const int x = geometry.gutterWidth + item.firstDay * geometry.dayWidth + 2;
-        const int w = (item.lastDay - item.firstDay + 1) * geometry.dayWidth - 4;
-        const int y = geometry.headerHeight + 2 + item.row * geometry.allDayRowHeight;
-        result.placements[item.index] = {QRect(x, y, w, geometry.allDayRowHeight - 4), true};
-    }
-
-    // --- Griglia oraria: layout a colonne per giorno ------------------------
-    const int gridTop = geometry.headerHeight + result.allDayHeight;
-    for (int day = 0; day < dayCount; ++day) {
-        std::vector<int> dayIndex;
-        for (int i = 0; i < static_cast<int>(occurrences.size()); ++i) {
-            if (coversFullDay(occurrences[i])) {
-                continue;
-            }
-            if (viewStart.daysTo(localTime(occurrences[i].start).date()) == day) {
-                dayIndex.push_back(i);
-            }
+    int k = 0;
+    while (k < static_cast<int>(order.size())) {
+        auto clusterStop = effectiveEnd(dayOccurrences[order[k]]);
+        int j = k + 1;
+        while (j < static_cast<int>(order.size()) &&
+               dayOccurrences[order[j]].start < clusterStop) {
+            clusterStop = std::max(clusterStop, effectiveEnd(dayOccurrences[order[j]]));
+            ++j;
         }
-        std::sort(dayIndex.begin(), dayIndex.end(), [&occurrences](int a, int b) {
-            return occurrences[a].start < occurrences[b].start;
-        });
 
-        int k = 0;
-        while (k < static_cast<int>(dayIndex.size())) {
-            auto clusterStop = effectiveEnd(occurrences[dayIndex[k]]);
-            int j = k + 1;
-            while (j < static_cast<int>(dayIndex.size()) &&
-                   occurrences[dayIndex[j]].start < clusterStop) {
-                clusterStop = std::max(clusterStop, effectiveEnd(occurrences[dayIndex[j]]));
-                ++j;
+        std::vector<int> column;
+        std::vector<events::TimePoint> columnEnd;
+        for (int t = k; t < j; ++t) {
+            const events::TimePoint start = dayOccurrences[order[t]].start;
+            int col = 0;
+            while (col < static_cast<int>(columnEnd.size()) && !(start >= columnEnd[col])) {
+                ++col;
             }
-
-            std::vector<int> column;
-            std::vector<events::TimePoint> columnEnd;
-            for (int t = k; t < j; ++t) {
-                const int idx = dayIndex[t];
-                const events::TimePoint start = occurrences[idx].start;
-                int col = 0;
-                while (col < static_cast<int>(columnEnd.size()) && !(start >= columnEnd[col])) {
-                    ++col;
-                }
-                if (col == static_cast<int>(columnEnd.size())) {
-                    columnEnd.push_back(start);
-                }
-                column.push_back(col);
-                columnEnd[col] = std::max(columnEnd[col], effectiveEnd(occurrences[idx]));
+            if (col == static_cast<int>(columnEnd.size())) {
+                columnEnd.push_back(start);
             }
-            const int clusterCols = std::max(1, static_cast<int>(columnEnd.size()));
-
-            for (int t = k; t < j; ++t) {
-                const int idx = dayIndex[t];
-                const events::Occurrence& occ = occurrences[idx];
-                const QDateTime localStart = localTime(occ.start);
-                const QDateTime localEnd = localTime(occ.end());
-
-                const int topMin = localStart.time().msecsSinceStartOfDay() / 60000;
-                int bottomMin = localEnd.time().msecsSinceStartOfDay() / 60000;
-                if (localEnd.date() != localStart.date()) {
-                    bottomMin = kMinutesPerDay;
-                }
-                const int lo = qBound(0, topMin, kMinutesPerDay);
-                const int hi = qBound(0, bottomMin, kMinutesPerDay);
-                int h = (hi - lo) * geometry.hourHeight / 60 - 4;
-                if (h < geometry.minOccurrenceHeight) {
-                    h = geometry.minOccurrenceHeight;
-                }
-
-                const int colWidth = geometry.dayWidth / clusterCols;
-                const int x = geometry.gutterWidth + day * geometry.dayWidth +
-                              column[t - k] * colWidth + 2;
-                const int y = gridTop + lo * geometry.hourHeight / 60 + 2;
-                result.placements[idx] = {QRect(x, y, colWidth - 4, h), true};
-                placed[idx] = true;
-            }
-            k = j;
+            column.push_back(col);
+            columnEnd[col] = std::max(columnEnd[col], effectiveEnd(dayOccurrences[order[t]]));
         }
-    }
+        const int clusterCols = std::max(1, static_cast<int>(columnEnd.size()));
 
-    for (int i = 0; i < static_cast<int>(placed.size()); ++i) {
-        if (!placed[i]) {
-            result.placements[i].visible = false;
+        for (int t = k; t < j; ++t) {
+            const int idx = order[t];
+            const events::Occurrence& occ = dayOccurrences[idx];
+            const QDateTime localStart = localTime(occ.start);
+            const QDateTime localEnd = localTime(occ.end());
+
+            const int topMin = localStart.time().msecsSinceStartOfDay() / 60000;
+            int bottomMin = localEnd.time().msecsSinceStartOfDay() / 60000;
+            if (localEnd.date() != localStart.date()) {
+                bottomMin = kMinutesPerDay;
+            }
+            const int lo = qBound(0, topMin, kMinutesPerDay);
+            const int hi = qBound(0, bottomMin, kMinutesPerDay);
+            int h = (hi - lo) * kWeekHourHeight / 60 - 4;
+            if (h < kWeekMinOccurrenceHeight) {
+                h = kWeekMinOccurrenceHeight;
+            }
+
+            const int colWidth = columnWidth / clusterCols;
+            const int x = column[t - k] * colWidth + 2;
+            const int y = lo * kWeekHourHeight / 60 + 2;
+            result[idx] = QRect(x, y, colWidth - 4, h);
         }
+        k = j;
     }
-
     return result;
 }
 

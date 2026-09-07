@@ -24,13 +24,16 @@ SOURCES += \
     app/src/views/MainWindow.cpp \
     app/src/views/dialog/RecurrenceChoiceDialog.cpp \
     app/src/views/WeekView.cpp \
+    app/src/views/HeaderWidget.cpp \
+    app/src/views/AllDayAreaWidget.cpp \
+    app/src/views/TimeGutterWidget.cpp \
+    app/src/views/DayColumnWidget.cpp \
     app/src/views/DayView.cpp \
     app/src/views/MonthView.cpp \
     app/src/views/NavigationBar.cpp \
     app/src/views/YearView.cpp \
     app/src/views/OccurrenceWidget.cpp \
     app/src/views/utils/WeekGridLayout.cpp \
-    app/src/views/utils/WeekGridPainter.cpp \
     model/src/core/Activity.cpp \
     model/src/core/DateGenerator.cpp \
     model/src/events/ActivityBuilder.cpp \
@@ -59,6 +62,10 @@ HEADERS += \
     app/include/views/MainWindow.h \
     app/include/views/dialog/RecurrenceChoiceDialog.h \
     app/include/views/WeekView.h \
+    app/include/views/HeaderWidget.h \
+    app/include/views/AllDayAreaWidget.h \
+    app/include/views/TimeGutterWidget.h \
+    app/include/views/DayColumnWidget.h \
     app/include/views/DayView.h \
     app/include/views/MonthView.h \
     app/include/views/NavigationBar.h \
@@ -66,7 +73,6 @@ HEADERS += \
     app/include/views/utils/ViewShared.h \
     app/include/views/utils/WidgetUtils.h \
     app/include/views/utils/WeekGridLayout.h \
-    app/include/views/utils/WeekGridPainter.h \
     model/include/events.h \
     model/include/builders/ActivityBuilder.h \
     model/include/builders/GeneratorBuilder.h \
