@@ -13,6 +13,9 @@ build/
 *.tmp
 *.aux
 *.toc
+*.gz
+*.fls
+*.fdb_latexmk
 
 # script di shell
 *.sh
