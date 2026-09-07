@@ -88,17 +88,38 @@ private:
     /** @brief Costruisce le attivita' del tipo scelto (Evento/Riunione/
      *  Compito): una sola attivita', oppure una o piu' serie ricorrenti (una
      *  per giorno della settimana selezionato, per la ricorrenza settimanale)
-     *  — la ricorrenza e' comune a tutti e tre i tipi. */
+     *  — la ricorrenza e' comune a tutti e tre i tipi. Riduce i campi del
+     *  form al caso da costruire e lo delega al sotto-metodo adatto (vedi
+     *  sotto): la matematica delle date vive in RecurrenceBuilder, non qui. */
     std::vector<std::unique_ptr<events::Activity>> buildActivities() const;
+
+    // --- Sotto-passi di buildActivities(), un caso ciascuno (SRP) -----------
+    std::vector<std::unique_ptr<events::Activity>> buildSingleActivity(
+        const QString& title, events::TimePoint start, events::Duration duration) const;
+    std::vector<std::unique_ptr<events::Activity>> buildRecurrentSeries(
+        const QString& title, events::TimePoint start, events::Duration duration,
+        events::TimePoint end, int countLimit,
+        std::shared_ptr<const events::DateGenerator> generator) const;
+    std::vector<std::unique_ptr<events::Activity>> buildWeeklySeries(
+        const QString& title, events::Duration duration, bool allDay,
+        events::TimePoint end, int countLimit) const;
+
+    // Letture del form comuni a piu' sotto-passi di buildActivities()
+    events::TimePoint resolveStart(bool allDay) const;
+    events::TimePoint resolveSeriesEnd() const;
+    int resolveCountLimit() const;
 
     /** @brief Costruisce l'attivita' del tipo corrente a partire dai campi
      *  comuni gia' pronti (titolo/data/durata/end/generatore): aggiunge i
      *  soli campi specifici del tipo (luogo/partecipanti, priorita'/evaso). */
     std::unique_ptr<events::Activity> makeTypedActivity(events::ActivityConfig config) const;
 
-    // Popolamento dei campi comuni e della ricorrenza in modifica (uguale
-    // per i 3 tipi: la ricorrenza non dipende dal tipo dell'attivita').
-    void populateCommonAndRecurrence(const events::Activity& activity);
+    // Popolamento dei campi in modifica (uguale per i 3 tipi: la ricorrenza
+    // non dipende dal tipo dell'attivita'), spezzato per responsabilita':
+    // solo titolo/data/durata, solo ricorrenza, solo lettura del generatore.
+    void populateBasicFields(const events::Activity& activity);
+    void populateRecurrenceFields(const events::Activity& activity);
+    void populateGeneratorFields(const events::Activity& activity);
     void populateEventLike(const events::Activity& activity);
     void populateMeeting(const events::Meeting& meeting);
     void populateTask(const events::Task& task);
