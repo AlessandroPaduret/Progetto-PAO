@@ -265,14 +265,21 @@ MainWindow::MainWindow(CalendarController* controller, QWidget* parent)
 MainWindow::~MainWindow() = default;
 
 void MainWindow::refresh() {
-    // Vista giorno: occorrenze del giorno indicato
-    const QDateTime dayFrom(QDateTime(m_anchor, QTime(0, 0), QTimeZone(0)));
+    // Vista giorno/settimana: confini in ora LOCALE (non UTC), coerenti con
+    // come il form e il drag&drop di WeekView/DayColumnWidget interpretano
+    // gli orari inseriti dall'utente (QDateTime(data, ora) senza QTimeZone
+    // esplicita = locale). Con un confine a mezzanotte UTC, in un fuso con
+    // offset positivo (es. UTC+2) un'occorrenza spostata all'1:37 di lunedi'
+    // locale cade alle 23:37 di DOMENICA in UTC: prima dell'inizio della
+    // finestra interrogata, quindi scompariva dalla vista (bug riscontrato
+    // con eventi spostati prima delle 2 del mattino del primo giorno).
+    const QDateTime dayFrom(m_anchor, QTime(0, 0));
     const QDateTime dayTo = dayFrom.addDays(1).addSecs(-1);
     m_dayView->setWeekStart(m_anchor);
     m_dayView->setOccurrences(m_controller->occurrencesIn(dayFrom, dayTo));
 
     // Vista settimana: occorrenze del lunedi' corrente
-    const QDateTime weekFrom(QDateTime(m_anchor, QTime(0, 0), QTimeZone(0)));
+    const QDateTime weekFrom(m_anchor, QTime(0, 0));
     const QDateTime weekTo = weekFrom.addDays(7).addSecs(-1);
     m_weekView->setWeekStart(m_anchor);
     m_weekView->setOccurrences(m_controller->occurrencesIn(weekFrom, weekTo));
