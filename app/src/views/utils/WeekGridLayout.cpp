@@ -63,7 +63,7 @@ std::vector<AllDayItem> layoutAllDayRows(const std::vector<events::Occurrence>& 
 }
 
 std::vector<QRect> layoutDayColumn(const std::vector<events::Occurrence>& dayOccurrences,
-                                   int columnWidth) {
+                                   const QDate& date, int columnWidth) {
     std::vector<QRect> result(dayOccurrences.size());
 
     std::vector<int> order(dayOccurrences.size());
@@ -101,14 +101,21 @@ std::vector<QRect> layoutDayColumn(const std::vector<events::Occurrence>& dayOcc
         for (int t = k; t < j; ++t) {
             const int idx = order[t];
             const events::Occurrence& occ = dayOccurrences[idx];
-            const QDateTime localStart = localTime(occ.start);
-            const QDateTime localEnd = localTime(occ.end());
+            // Ritaglia l'intervallo visibile su QUESTO giorno: un'occorrenza
+            // iniziata ieri (a cavallo di mezzanotte) parte visivamente dalle
+            // 00:00 di oggi; una che finisce domani si ferma alle 24:00 di
+            // oggi. Il resto (l'altra meta') e' un'altra OccurrenceWidget,
+            // creata dalla colonna del giorno adiacente (vedi
+            // WeekView::distributeOccurrences).
+            const QDateTime dayStart(date, QTime(0, 0));
+            const QDateTime dayEnd = dayStart.addDays(1);
+            const QDateTime localStart = std::max(localTime(occ.start), dayStart);
+            const QDateTime localEnd = std::min(localTime(occ.end()), dayEnd);
 
             const int topMin = localStart.time().msecsSinceStartOfDay() / 60000;
-            int bottomMin = localEnd.time().msecsSinceStartOfDay() / 60000;
-            if (localEnd.date() != localStart.date()) {
-                bottomMin = kMinutesPerDay;
-            }
+            const int bottomMin = localEnd == dayEnd
+                                      ? kMinutesPerDay
+                                      : localEnd.time().msecsSinceStartOfDay() / 60000;
             const int lo = qBound(0, topMin, kMinutesPerDay);
             const int hi = qBound(0, bottomMin, kMinutesPerDay);
             int h = (hi - lo) * kWeekHourHeight / 60 - 4;

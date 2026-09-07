@@ -44,14 +44,21 @@ namespace WeekGridLayout {
 std::vector<AllDayItem> layoutAllDayRows(const std::vector<events::Occurrence>& occurrences,
                                          const QDate& viewStart, int dayCount);
 
-/** @brief Geometria (QRect) delle occorrenze NON "tutto il giorno" di UN
- *  SINGOLO giorno, in coordinate LOCALI a quella colonna (0,0 = mezzanotte,
- *  x in [0, columnWidth)): le sovrapposte vengono affiancate in colonne come
- *  Google Calendar (interval-graph greedy coloring). Il risultato e'
- *  parallelo a `dayOccurrences` (gia' filtrate su un solo giorno). Usata da
- *  DayColumnWidget, che possiede solo le occorrenze del proprio giorno. */
+/** @brief Geometria (QRect) delle occorrenze NON "tutto il giorno" che
+ *  toccano UN SINGOLO giorno (`date`), in coordinate LOCALI a quella colonna
+ *  (0,0 = mezzanotte, x in [0, columnWidth)): le sovrapposte vengono
+ *  affiancate in colonne come Google Calendar (interval-graph greedy
+ *  coloring). Un'occorrenza a cavallo di mezzanotte viene RITAGLIATA
+ *  sull'intervallo visibile in `date` (inizio clampato a 00:00 se iniziata
+ *  il giorno prima, fine clampata a 24:00 se finisce il giorno dopo): la
+ *  stessa occorrenza puo' comparire anche nella colonna del giorno adiacente
+ *  (due OccurrenceWidget per la stessa attivita', una per meta'), vedi
+ *  WeekView::distributeOccurrences. Il risultato e' parallelo a
+ *  `dayOccurrences` (gia' filtrate sulle occorrenze che toccano `date`).
+ *  Usata da DayColumnWidget, che possiede solo le occorrenze del proprio
+ *  giorno. */
 std::vector<QRect> layoutDayColumn(const std::vector<events::Occurrence>& dayOccurrences,
-                                   int columnWidth);
+                                   const QDate& date, int columnWidth);
 
 } // namespace WeekGridLayout
 

@@ -118,7 +118,8 @@ void DayColumnWidget::setPreview(const std::optional<WeekView::Preview>& preview
 }
 
 void DayColumnWidget::relayout() {
-    const std::vector<QRect> rects = WeekGridLayout::layoutDayColumn(m_occurrences, width());
+    const std::vector<QRect> rects =
+        WeekGridLayout::layoutDayColumn(m_occurrences, m_date, width());
     for (int i = 0; i < static_cast<int>(m_widgets.size()); ++i) {
         m_widgets[i]->setGeometry(rects[i]);
     }

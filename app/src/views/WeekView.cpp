@@ -5,6 +5,8 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
+#include <chrono>
+
 #include "views/AllDayAreaWidget.h"
 #include "views/DayColumnWidget.h"
 #include "views/HeaderWidget.h"
@@ -138,9 +140,21 @@ void WeekView::distributeOccurrences() {
 
     for (int i = 0; i < m_dayCount; ++i) {
         const QDate date = m_monday.addDays(i);
+        const QDateTime dayStart(date, QTime(0, 0));
+        const QDateTime dayEnd = dayStart.addDays(1);
         std::vector<events::Occurrence> dayOccurrences;
         for (const events::Occurrence& occ : m_occurrences) {
-            if (!coversFullDay(occ) && localTime(occ.start).date() == date) {
+            // Sovrapposizione (non solo "inizia oggi"): un'occorrenza a
+            // cavallo di mezzanotte finisce anche nella colonna del giorno
+            // dopo (ritagliata li' da WeekGridLayout::layoutDayColumn), cosi'
+            // non "sparisce" oltre la mezzanotte del giorno di inizio. La
+            // fine e' "effettiva" (>= 1 minuto anche a durata zero) per non
+            // escludere per errore un'occorrenza puntuale a mezzanotte esatta.
+            const events::TimePoint effectiveEnd = occ.duration > events::Duration::zero()
+                                                       ? occ.end()
+                                                       : occ.start + std::chrono::minutes(1);
+            if (!coversFullDay(occ) && localTime(occ.start) < dayEnd &&
+                localTime(effectiveEnd) > dayStart) {
                 dayOccurrences.push_back(occ);
             }
         }

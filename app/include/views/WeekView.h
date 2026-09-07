@@ -116,7 +116,7 @@ private:
     AllDayAreaWidget* m_allDayArea = nullptr;
     QScrollArea* m_scrollArea = nullptr;
     QWidget* m_gridContent = nullptr;
-    TimeGutterWidget* m_gutter = nullptr;
+    TimeGutterWidget* m_gutter = nullptr; // le ore a sinistra
     std::vector<DayColumnWidget*> m_columns;
 
     std::vector<events::Occurrence> m_occurrences;
