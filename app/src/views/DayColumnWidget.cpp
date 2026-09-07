@@ -168,7 +168,7 @@ void DayColumnWidget::resizeEvent(QResizeEvent* event) {
 
 void DayColumnWidget::paintEvent(QPaintEvent*) {
     QPainter painter(this);
-    painter.fillRect(rect(), Qt::white);
+    painter.fillRect(rect(), theme::kWindowBackground);
     painter.setPen(theme::kBorderGray);
     painter.drawLine(0, 0, 0, height());  // separatore sinistro
     for (int hour = 0; hour <= 24; ++hour) {

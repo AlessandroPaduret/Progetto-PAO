@@ -5,28 +5,24 @@
  * creazione, setProperty dinamiche, QPalette per i colori calcolati a
  * runtime) e lascia che i selettori qui sotto decidano l'aspetto.
  *
- * I pochi colori che Qt Style Sheets non puo' raggiungere (disegno
- * QPainter diretto, QProxyStyle, colori calcolati) sono negli stessi
- * valori in app/src/views/Theme.h: aggiornare entrambi insieme.
- * ========================================================================== */
-
-/* Pannelli interni (dettaglio/form/scelta serie): riquadro sollevato
- * rispetto allo sfondo della finestra, mai a schermo intero. */
-#detailDialog, #formDialog, #choiceDialog {
-    background: palette(base);
-    border: 1px solid palette(mid);
-}
+ * Dark mode unico e deterministico: main.cpp forza lo stile Fusion + una
+ * QPalette scura esplicita (non il tema del sistema ospite), e questo file
+ * usa gli stessi valori esadecimali per i widget che Qt Style Sheets sa
+ * colorare direttamente. I pochi colori che QSS non puo' raggiungere
+ * (disegno QPainter diretto, QProxyStyle, colori calcolati a runtime) sono
+ * negli stessi valori in app/include/views/utils/Theme.h: aggiornare
+ * entrambi insieme se si cambia un colore. */
 
 /* Messaggio di errore nel form di creazione/modifica attivita'. */
 #formErrorLabel {
-    color: #c5221f;
+    color: #f28b82;
 }
 
 /* Anteprima live dell'evento in corso di modifica (WeekView/DayView). */
 #weekPreviewLabel {
-    background: rgba(26, 115, 232, 55);
-    border: 1px dashed #1a73e8;
-    color: #202124;
+    background: rgba(138, 180, 248, 45);
+    border: 1px dashed #8ab4f8;
+    color: #e8eaed;
     padding: 3px;
     border-radius: 3px;
 }
@@ -36,17 +32,17 @@
  * sottostante da un bordo inferiore (la griglia stessa non e' piu' un unico
  * canvas dipinto: ogni DayColumnWidget disegna solo le proprie linee ora). */
 #weekHeader, #weekAllDayArea {
-    background: white;
-    border-bottom: 1px solid #dadce0;
+    background: #2a2b2e;
+    border-bottom: 1px solid #3c4043;
 }
 QLabel#weekDayHeaderLabel {
-    color: #5f6368;
+    color: #9aa0a6;
 }
 QLabel#weekDayHeaderLabel[today="true"] {
-    color: #1a73e8;
+    color: #8ab4f8;
 }
 QLabel#weekHourLabel {
-    color: #5f6368;
+    color: #9aa0a6;
     font-size: 8pt;
     background: transparent;
     border: none;
@@ -58,77 +54,78 @@ QCalendarWidget QAbstractItemView {
     font-size: 8pt;
 }
 QCalendarWidget QWidget#qt_calendar_navigationbar {
-    background: white;
+    background: #2a2b2e;
 }
 
 /* Vista mese: intestazione dei giorni della settimana (Lun..Dom). */
 QLabel#monthDayHeader {
     font-weight: bold;
-    color: #5f6368;
-    background: #f8f9fa;
-    border-bottom: 1px solid #dadce0;
+    color: #9aa0a6;
+    background: #2a2b2e;
+    border-bottom: 1px solid #3c4043;
 }
 
 /* Vista mese: etichetta "+N" per le occorrenze eccedenti il limite mostrato. */
 QLabel#monthMoreLabel {
-    color: #9aa0a6;
+    color: #80868b;
     background: transparent;
     border: none;
     font-size: 8pt;
 }
 
-/* Vista mese: cella di un giorno. Bianca nel mese corrente, grigio chiaro
- * fuori mese (proprieta' dinamica "inMonth", impostata da MonthDayCell). */
+/* Vista mese: cella di un giorno. Pannello scuro nel mese corrente, ancora
+ * piu' scura (recede) fuori mese (proprieta' dinamica "inMonth", impostata
+ * da MonthDayCell). */
 app--MonthDayCell {
-    background: white;
-    border: 1px solid #dadce0;
+    background: #2a2b2e;
+    border: 1px solid #3c4043;
 }
 app--MonthDayCell[inMonth="false"] {
-    background: #f8f9fa;
+    background: #202124;
 }
 
 /* Vista mese: numero del giorno. "dayState" e' una proprieta' dinamica
  * impostata da MonthDayCell::setDate ("today"/"outMonth"/assente). */
 QLabel#monthDayLabel {
-    color: #202124;
+    color: #e8eaed;
     background: transparent;
     border: none;
 }
 QLabel#monthDayLabel[dayState="today"] {
-    color: #1a73e8;
+    color: #8ab4f8;
     font-weight: bold;
 }
 QLabel#monthDayLabel[dayState="outMonth"] {
-    color: #9aa0a6;
+    color: #80868b;
 }
 
 /* Elenco attivita': tabella "pulita" come le griglie del calendario. */
 QTableWidget#activityTable {
-    background: white;
-    alternate-background-color: #f8f9fa;
+    background: #202124;
+    alternate-background-color: #2a2b2e;
     border: none;
     outline: none;
     font-size: 13pt;
-    color: #000000;
+    color: #e8eaed;
 }
 QTableWidget#activityTable::item {
     padding: 4px 8px;
-    color: #000000;
-    border-right: 1px solid #dadce0;
+    color: #e8eaed;
+    border-right: 1px solid #3c4043;
 }
 QTableWidget#activityTable::item:selected {
-    background: #e8f0fe;
-    color: #000000;
-    border-right: 1px solid #dadce0;
+    background: #37414f;
+    color: #e8eaed;
+    border-right: 1px solid #3c4043;
 }
 QTableWidget#activityTable QHeaderView::section {
-    background: #f8f9fa;
+    background: #2a2b2e;
     border: none;
-    border-bottom: 1px solid #dadce0;
-    border-right: 1px solid #dadce0;
+    border-bottom: 1px solid #3c4043;
+    border-right: 1px solid #3c4043;
     padding: 6px;
     font-weight: bold;
-    color: #202124;
+    color: #e8eaed;
     font-size: 13pt;
 }
 

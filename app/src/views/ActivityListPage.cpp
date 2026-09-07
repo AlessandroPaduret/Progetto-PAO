@@ -268,9 +268,10 @@ void ActivityListPage::reloadTable() {
         auto* title = new QTableWidgetItem(plainTitle(activity));
         auto* type = new QTableWidgetItem(itemType(activity));
         auto* detail = new QTableWidgetItem(itemDetail(activity));
-        // Testo nero e leggibile (l'eventuale stile di default non scende sotto)
+        // Testo chiaro e leggibile sullo sfondo scuro della tabella
+        // (l'eventuale stile di default non scende sotto)
         for (QTableWidgetItem* item : {title, type, detail}) {
-            item->setForeground(theme::kBlack);
+            item->setForeground(theme::kPrimaryText);
         }
         m_table->setItem(row, 0, dot);
         m_table->setItem(row, 1, title);
