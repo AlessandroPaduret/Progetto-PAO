@@ -13,8 +13,10 @@
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QCompleter;
 class QDateEdit;
 class QDateTimeEdit;
+class QFormLayout;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -22,7 +24,6 @@ class QPushButton;
 class QRadioButton;
 class QSpinBox;
 class QStackedWidget;
-class QTimeEdit;
 
 namespace app {
 
@@ -42,6 +43,15 @@ class CalendarController;
  *
  *  Gli altri tipi (Riunione, Compito, Tutto il giorno, Anniversario) hanno
  *  un pannello dedicato, scelto dalla combo.
+ *
+ *  Ogni pannello usa un QFormLayout (niente griglia gestita a mano): le
+ *  etichette sono tracciate nativamente da Qt. Data e ora sono un unico
+ *  QDateTimeEdit (per l'Evento cambia solo `displayFormat` quando si
+ *  seleziona "Tutto il giorno", invece di due widget separati); la durata
+ *  e' un QSpinBox in minuti (QTimeEdit era limitato/ambiguo oltre le 24h); i
+ *  giorni della settimana sono un QButtonGroup non esclusivo con l'id di
+ *  ogni pulsante pari al giorno Qt (1=Lunedi'..7=Domenica, la stessa
+ *  convenzione di QDate::dayOfWeek()).
  */
 class ActivityFormPage : public QWidget {
     Q_OBJECT
@@ -108,8 +118,12 @@ private:
     // Campi comuni per pannello (titolo/data/durata) e loro sincronizzazione
     QLineEdit* titleOf(int panel) const;
     QDateTimeEdit* dateOf(int panel) const;
-    QTimeEdit* durationOf(int panel) const;
+    QSpinBox* durationOf(int panel) const;
     void syncCommonFields(int fromPanel, int toPanel);
+
+    // Suggerimenti (QCompleter) per il campo partecipanti: nomi gia' usati
+    // in altre Riunioni del calendario corrente.
+    void refreshAttendeeCompleter();
 
     // Conversioni locale/UTC
     static events::TimePoint toTimePoint(const QDateTime& local);
@@ -125,30 +139,30 @@ private:
 
     // Evento "a domande"
     QLineEdit* m_titleE = nullptr;
-    QDateEdit* m_startDateE = nullptr;  // slot Data (separato dall'ora)
-    QTimeEdit* m_startTimeE = nullptr;  // slot Ora (nascosto se tutto il giorno)
-    QWidget* m_timeRow = nullptr;       // riga "Ora" (etichetta + box)
-    QWidget* m_durationRow = nullptr;   // riga "Durata" (nascosta se tutto il giorno)
-    QTimeEdit* m_durationE = nullptr;
-    QCheckBox* m_allDayCheck = nullptr;  // "Tutto il giorno" (sostituisce l'ora)
+    QFormLayout* m_eventForm = nullptr;      // per setRowVisible(m_durationE, ...)
+    QDateTimeEdit* m_startE = nullptr;       // data+ora; "Tutto il giorno" cambia solo il displayFormat
+    QSpinBox* m_durationE = nullptr;         // minuti
+    QCheckBox* m_allDayCheck = nullptr;      // "Tutto il giorno"
     QCheckBox* m_repeatCheck = nullptr;
-    QWidget* m_repeatBox = nullptr;      // contenitore delle impostazioni di ricorrenza
-    QComboBox* m_unitCombo = nullptr;    // giorni / settimane / mesi / anno
-    QSpinBox* m_everySpin = nullptr;     // "ogni N"
-    QWidget* m_dayRow = nullptr;         // riga dei giorni della settimana
-    QList<QPushButton*> m_dayButtons;    // Lun..Dom (checkable, uno per giorno)
+    QWidget* m_repeatBox = nullptr;          // contenitore delle impostazioni di ricorrenza
+    QFormLayout* m_repeatForm = nullptr;     // per setRowVisible(m_dayRow, ...)
+    QComboBox* m_unitCombo = nullptr;        // giorni / settimane / mesi / anno
+    QSpinBox* m_everySpin = nullptr;         // "ogni N"
+    QWidget* m_dayRow = nullptr;             // riga dei giorni della settimana
+    QButtonGroup* m_dayGroup = nullptr;      // NON esclusivo; id pulsante = giorno Qt (1=Lun..7=Dom)
     QRadioButton* m_endNever = nullptr;
     QRadioButton* m_endDateRadio = nullptr;
     QDateEdit* m_endDate = nullptr;
     QRadioButton* m_endCountRadio = nullptr;
-    QSpinBox* m_countSpin = nullptr;     // "dopo N occorrenze"
+    QSpinBox* m_countSpin = nullptr;         // "dopo N occorrenze"
 
     // Riunione
     QLineEdit* m_titleMt = nullptr;
     QDateTimeEdit* m_startMt = nullptr;
-    QTimeEdit* m_durationMt = nullptr;
+    QSpinBox* m_durationMt = nullptr;        // minuti
     QLineEdit* m_locationMt = nullptr;
     QLineEdit* m_attendeeEdit = nullptr;
+    QCompleter* m_attendeeCompleter = nullptr;
     QListWidget* m_attendeesList = nullptr;
 
     // Compito
@@ -157,7 +171,7 @@ private:
     QComboBox* m_priorityCombo = nullptr;
     QCheckBox* m_doneCheck = nullptr;
 
-    // Anniversario
+    // Anniversario (solo data: nessun componente ora, resta un QDateEdit)
     QLineEdit* m_titleAn = nullptr;
     QDateEdit* m_dateAn = nullptr;
 
